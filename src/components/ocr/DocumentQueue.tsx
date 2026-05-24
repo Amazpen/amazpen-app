@@ -27,6 +27,18 @@ interface DocumentQueueProps {
    * auto-assigns the open doc on change) — no separate confirm step.
    */
   onReassignBusiness?: (document: OCRDocument, newBusinessId: string) => void;
+  /**
+   * Live pending count from the page. The 'documents' prop only holds the
+   * currently-shown tab now (pending OR a history batch), so the 'ממתינים'
+   * badge can't be derived locally — the page passes it in.
+   */
+  pendingCount?: number;
+  /** History pagination: true when the current history tab has more rows to load. */
+  canLoadMore?: boolean;
+  /** Fetch the next batch of the current history tab. */
+  onLoadMore?: () => void;
+  /** True while a history batch is being fetched (disables the load-more button). */
+  isLoadingMore?: boolean;
 }
 
 // 'reviewing' removed from the filter list — selecting a document no longer
@@ -51,6 +63,10 @@ export default function DocumentQueue({
   businessFilter = 'all',
   onBusinessFilterChange,
   onReassignBusiness,
+  pendingCount,
+  canLoadMore = false,
+  onLoadMore,
+  isLoadingMore = false,
 }: DocumentQueueProps) {
   // Map business_id -> name for card lookups
   const businessNameById = new Map(businesses.map(b => [b.id, b.name]));
@@ -123,14 +139,23 @@ export default function DocumentQueue({
     serialByDocId.set(doc.id, idx + 1);
   });
 
+  // History tabs (approved/archived) are loaded on-demand in batches straight
+  // from the DB and are NOT scoped by the business filter — they're a flat
+  // chronological history. The pending/all tabs keep the business filter.
+  const isHistoryTab = filterStatus === 'approved' || filterStatus === 'archived';
+
   // Filter documents by status + business.
   // 'unassigned' = docs the AI couldn't match (no business_id) — admin-only bucket.
-  const filteredDocuments = documents.filter((doc) => {
-    if (filterStatus !== 'all' && doc.status !== filterStatus) return false;
-    if (businessFilter === 'unassigned') return !doc.business_id;
-    if (businessFilter !== 'all' && doc.business_id !== businessFilter) return false;
-    return true;
-  });
+  // On history tabs `documents` already arrives status-scoped and unfiltered by
+  // business, so we show it as-is.
+  const filteredDocuments = isHistoryTab
+    ? documents
+    : documents.filter((doc) => {
+        if (filterStatus !== 'all' && doc.status !== filterStatus) return false;
+        if (businessFilter === 'unassigned') return !doc.business_id;
+        if (businessFilter !== 'all' && doc.business_id !== businessFilter) return false;
+        return true;
+      });
 
   // Count by status (respecting current business filter so numbers match what's shown)
   const businessScoped = businessFilter === 'all'
@@ -145,6 +170,9 @@ export default function DocumentQueue({
     },
     {} as Record<DocumentStatus, number>
   );
+  // The 'documents' prop only holds the active tab now, so derive the pending
+  // badge from the page-supplied count rather than from this scoped list.
+  if (pendingCount != null) statusCounts.pending = pendingCount;
 
   // Count docs per business (for the business filter list, scoped to current status)
   const businessCounts: Record<string, number> = { all: 0, unassigned: 0 };
@@ -366,6 +394,18 @@ export default function DocumentQueue({
                 />
               ))
             )}
+            {/* Load-more — only on history tabs that still have rows to fetch */}
+            {canLoadMore && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                className="w-full mt-1 px-3 py-2 rounded-lg text-[12px] font-medium bg-[#4C526B]/20 text-white/70 hover:bg-[#4C526B]/40 hover:text-white transition-all disabled:opacity-50"
+              >
+                {isLoadingMore ? 'טוען...' : 'טען עוד'}
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -471,6 +511,18 @@ export default function DocumentQueue({
                 onReassignBusiness={onReassignBusiness}
               />
             ))
+          )}
+          {/* Load-more — history tabs with more rows (mobile, inline at row end) */}
+          {canLoadMore && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onLoadMore}
+              disabled={isLoadingMore}
+              className="flex-shrink-0 self-center px-4 py-2 rounded-lg text-[12px] font-medium bg-[#4C526B]/20 text-white/70 hover:bg-[#4C526B]/40 hover:text-white transition-all disabled:opacity-50"
+            >
+              {isLoadingMore ? 'טוען...' : 'טען עוד'}
+            </Button>
           )}
         </div>
       </div>

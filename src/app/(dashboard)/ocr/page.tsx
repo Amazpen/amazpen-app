@@ -45,6 +45,77 @@ interface Supplier {
   track_prices?: boolean;
 }
 
+// Map a raw `ocr_documents` row (joined with ocr_extracted_data) into the
+// app's OCRDocument shape. Reads Mistral columns first, falls back to legacy
+// Google Vision values. Shared by the live pending fetch and the history fetch.
+function mapOcrRow(doc: Record<string, unknown>): OCRDocument {
+  const extracted = Array.isArray(doc.ocr_extracted_data) && doc.ocr_extracted_data.length > 0
+    ? doc.ocr_extracted_data[0] as Record<string, unknown>
+    : null;
+
+  const hasMistral = extracted?.mistral_processed_at != null
+    && extracted?.mistral_supplier_name != null;
+
+  const mistralItemsRaw = Array.isArray(extracted?.mistral_line_items)
+    ? (extracted.mistral_line_items as Record<string, unknown>[])
+    : [];
+  const legacyItemsRaw = Array.isArray(extracted?.ocr_extracted_line_items)
+    ? (extracted.ocr_extracted_line_items as Record<string, unknown>[])
+    : [];
+  const rawLineItems = hasMistral && mistralItemsRaw.length > 0
+    ? mistralItemsRaw
+    : legacyItemsRaw;
+  const lineItems = rawLineItems.map((li) => ({
+    id: (li.id as string) || undefined,
+    description: (li.description as string) || undefined,
+    quantity: li.quantity != null ? Number(li.quantity) : undefined,
+    unit_price: li.unit_price != null ? Number(li.unit_price) : undefined,
+    total: li.total != null ? Number(li.total) : undefined,
+  }));
+
+  const pick = <T,>(mistralVal: T, googleVal: T): T => (hasMistral && mistralVal != null ? mistralVal : googleVal);
+
+  const ocrData: OCRExtractedData | undefined = extracted ? {
+    supplier_name: pick(extracted.mistral_supplier_name as string, extracted.supplier_name as string) || undefined,
+    supplier_tax_id: pick(extracted.mistral_supplier_tax_id as string, extracted.supplier_tax_id as string) || undefined,
+    document_number: pick(extracted.mistral_document_number as string, extracted.document_number as string) || undefined,
+    document_date: pick(extracted.mistral_document_date, extracted.document_date)
+      ? String(pick(extracted.mistral_document_date, extracted.document_date)) : undefined,
+    subtotal: pick(extracted.mistral_subtotal, extracted.subtotal) != null
+      ? Number(pick(extracted.mistral_subtotal, extracted.subtotal)) : undefined,
+    vat_amount: pick(extracted.mistral_vat_amount, extracted.vat_amount) != null
+      ? Number(pick(extracted.mistral_vat_amount, extracted.vat_amount)) : undefined,
+    total_amount: pick(extracted.mistral_total_amount, extracted.total_amount) != null
+      ? Number(pick(extracted.mistral_total_amount, extracted.total_amount)) : undefined,
+    confidence_score: extracted.overall_confidence != null ? Number(extracted.overall_confidence) : undefined,
+    raw_text: (hasMistral ? (extracted.mistral_markdown as string) : (extracted.raw_text as string)) || undefined,
+    matched_supplier_id: pick(extracted.mistral_matched_supplier_id as string, extracted.matched_supplier_id as string) || undefined,
+    line_items: lineItems.length > 0 ? lineItems : undefined,
+  } : undefined;
+
+  return {
+    id: doc.id as string,
+    business_id: doc.business_id as string,
+    source: (doc.source as string || 'upload') as OCRDocument['source'],
+    source_sender_name: (doc.source_sender_name as string) || undefined,
+    source_sender_phone: (doc.source_sender_phone as string) || undefined,
+    image_url: doc.image_url as string,
+    original_filename: (doc.original_filename as string) || undefined,
+    file_type: (doc.file_type as string) || undefined,
+    status: (doc.status as string || 'pending') as DocumentStatus,
+    document_type: (pick(extracted?.mistral_document_type as DocumentType, doc.document_type as DocumentType)) || undefined,
+    ocr_data: ocrData,
+    created_at: doc.created_at as string,
+    processed_at: (doc.ocr_processed_at as string) || undefined,
+    reviewed_by: (doc.reviewed_by as string) || undefined,
+    reviewed_at: (doc.reviewed_at as string) || undefined,
+    rejection_reason: (doc.rejection_reason as string) || undefined,
+    created_invoice_id: (doc.created_invoice_id as string) || undefined,
+    created_payment_id: (doc.created_payment_id as string) || undefined,
+    created_delivery_note_id: (doc.created_delivery_note_id as string) || undefined,
+  };
+}
+
 export default function OCRPage() {
   const router = useRouter();
   const { isAdmin, isProfileLoading } = useDashboard();
@@ -58,7 +129,18 @@ export default function OCRPage() {
   const documentsRef = useRef<OCRDocument[]>([]);
   useEffect(() => { documentsRef.current = documents; }, [documents]);
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
-  const [filterStatus, setFilterStatus] = usePersistedState<DocumentStatus | 'all'>('ocr:filterStatus', 'pending');
+  // Filter tab is intentionally NOT persisted — the admin always lands on the
+  // live 'pending' queue. approved/archived are history views that must be
+  // re-fetched fresh on click, never restored from a previous session.
+  const [filterStatus, setFilterStatus] = useState<DocumentStatus | 'all'>('pending');
+  // History docs (approved/archived) — loaded ONLY when the admin clicks that
+  // tab, in batches of 10 via Supabase range(). Kept separate from `documents`
+  // (the live, realtime pending queue): not persisted, not realtime-subscribed,
+  // and reset whenever the admin switches to a different history tab.
+  const HISTORY_PAGE_SIZE = 10;
+  const [historyDocs, setHistoryDocs] = useState<OCRDocument[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [businessFilter, setBusinessFilter] = usePersistedState<string>('ocr:businessFilter', 'all');
 
   // Reviewers used to get stuck on filterStatus='reviewing' because the old
@@ -137,77 +219,7 @@ export default function OCRPage() {
     }
 
     if (data) {
-      const mapped: OCRDocument[] = data.map((doc: Record<string, unknown>) => {
-        const extracted = Array.isArray(doc.ocr_extracted_data) && doc.ocr_extracted_data.length > 0
-          ? doc.ocr_extracted_data[0] as Record<string, unknown>
-          : null;
-
-        // Read MISTRAL columns first, fall back to legacy Google Vision values
-        // only if Mistral hasn't processed this doc yet. Line items come from
-        // the JSONB mistral_line_items field when available, otherwise from
-        // the legacy ocr_extracted_line_items relation.
-        const hasMistral = extracted?.mistral_processed_at != null
-          && extracted?.mistral_supplier_name != null;
-
-        const mistralItemsRaw = Array.isArray(extracted?.mistral_line_items)
-          ? (extracted.mistral_line_items as Record<string, unknown>[])
-          : [];
-        const legacyItemsRaw = Array.isArray(extracted?.ocr_extracted_line_items)
-          ? (extracted.ocr_extracted_line_items as Record<string, unknown>[])
-          : [];
-        const rawLineItems = hasMistral && mistralItemsRaw.length > 0
-          ? mistralItemsRaw
-          : legacyItemsRaw;
-        const lineItems = rawLineItems.map((li) => ({
-          id: (li.id as string) || undefined,
-          description: (li.description as string) || undefined,
-          quantity: li.quantity != null ? Number(li.quantity) : undefined,
-          unit_price: li.unit_price != null ? Number(li.unit_price) : undefined,
-          total: li.total != null ? Number(li.total) : undefined,
-        }));
-
-        const pick = <T,>(mistralVal: T, googleVal: T): T => (hasMistral && mistralVal != null ? mistralVal : googleVal);
-
-        const ocrData: OCRExtractedData | undefined = extracted ? {
-          supplier_name: pick(extracted.mistral_supplier_name as string, extracted.supplier_name as string) || undefined,
-          supplier_tax_id: pick(extracted.mistral_supplier_tax_id as string, extracted.supplier_tax_id as string) || undefined,
-          document_number: pick(extracted.mistral_document_number as string, extracted.document_number as string) || undefined,
-          document_date: pick(extracted.mistral_document_date, extracted.document_date)
-            ? String(pick(extracted.mistral_document_date, extracted.document_date)) : undefined,
-          subtotal: pick(extracted.mistral_subtotal, extracted.subtotal) != null
-            ? Number(pick(extracted.mistral_subtotal, extracted.subtotal)) : undefined,
-          vat_amount: pick(extracted.mistral_vat_amount, extracted.vat_amount) != null
-            ? Number(pick(extracted.mistral_vat_amount, extracted.vat_amount)) : undefined,
-          total_amount: pick(extracted.mistral_total_amount, extracted.total_amount) != null
-            ? Number(pick(extracted.mistral_total_amount, extracted.total_amount)) : undefined,
-          confidence_score: extracted.overall_confidence != null ? Number(extracted.overall_confidence) : undefined,
-          raw_text: (hasMistral ? (extracted.mistral_markdown as string) : (extracted.raw_text as string)) || undefined,
-          matched_supplier_id: pick(extracted.mistral_matched_supplier_id as string, extracted.matched_supplier_id as string) || undefined,
-          line_items: lineItems.length > 0 ? lineItems : undefined,
-        } : undefined;
-
-        return {
-          id: doc.id as string,
-          business_id: doc.business_id as string,
-          source: (doc.source as string || 'upload') as OCRDocument['source'],
-          source_sender_name: (doc.source_sender_name as string) || undefined,
-          source_sender_phone: (doc.source_sender_phone as string) || undefined,
-          image_url: doc.image_url as string,
-          original_filename: (doc.original_filename as string) || undefined,
-          file_type: (doc.file_type as string) || undefined,
-          status: (doc.status as string || 'pending') as DocumentStatus,
-          document_type: (pick(extracted?.mistral_document_type as DocumentType, doc.document_type as DocumentType)) || undefined,
-          ocr_data: ocrData,
-          created_at: doc.created_at as string,
-          processed_at: (doc.ocr_processed_at as string) || undefined,
-          reviewed_by: (doc.reviewed_by as string) || undefined,
-          reviewed_at: (doc.reviewed_at as string) || undefined,
-          rejection_reason: (doc.rejection_reason as string) || undefined,
-          created_invoice_id: (doc.created_invoice_id as string) || undefined,
-          created_payment_id: (doc.created_payment_id as string) || undefined,
-          created_delivery_note_id: (doc.created_delivery_note_id as string) || undefined,
-        };
-      });
+      const mapped: OCRDocument[] = data.map((doc: Record<string, unknown>) => mapOcrRow(doc));
       setDocuments(mapped);
       setIsInitialLoad(false);
       return mapped;
@@ -215,6 +227,35 @@ export default function OCRPage() {
     setIsInitialLoad(false);
     return [];
   }, []);
+
+  // Fetch a batch of history docs (approved/archived) by status, in pages of
+  // HISTORY_PAGE_SIZE. `reset=true` replaces the list (tab switch / first open);
+  // otherwise appends ("load more"). Always reads fresh from the DB — history
+  // is never cached or realtime-subscribed.
+  const fetchHistory = useCallback(async (
+    status: Extract<DocumentStatus, 'approved' | 'archived'>,
+    reset: boolean,
+  ) => {
+    const supabase = createClient();
+    const from = reset ? 0 : historyDocs.length;
+    const to = from + HISTORY_PAGE_SIZE - 1;
+    setIsHistoryLoading(true);
+    const { data, error, count } = await supabase
+      .from('ocr_documents')
+      .select('*, ocr_extracted_data(*, ocr_extracted_line_items(*))', { count: 'exact' })
+      .eq('status', status)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    setIsHistoryLoading(false);
+
+    if (error) {
+      console.error('Error fetching OCR history:', error);
+      return;
+    }
+    const mapped: OCRDocument[] = (data || []).map((doc: Record<string, unknown>) => mapOcrRow(doc));
+    setHistoryTotal(count ?? 0);
+    setHistoryDocs(prev => reset ? mapped : [...prev, ...mapped]);
+  }, [historyDocs.length]);
 
   // Business and supplier state
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -427,6 +468,29 @@ export default function OCRPage() {
       setSelectedBusinessId(document.business_id);
     }
   }, [setSelectedBusinessId]);
+
+  // Tab switch handler. 'pending' shows the live realtime queue (already in
+  // memory). 'approved'/'archived' are history views: clear any previous
+  // history list and lazily fetch the first batch of 10 fresh from the DB.
+  const handleFilterChange = useCallback((status: DocumentStatus | 'all') => {
+    setFilterStatus(status);
+    if (status === 'approved' || status === 'archived') {
+      setHistoryDocs([]);
+      setHistoryTotal(0);
+      fetchHistory(status, true);
+    } else {
+      // Leaving a history tab — drop the loaded history so it can't linger.
+      setHistoryDocs([]);
+      setHistoryTotal(0);
+    }
+  }, [fetchHistory]);
+
+  // "Load more" — fetch the next batch of the current history tab.
+  const handleLoadMoreHistory = useCallback(() => {
+    if (filterStatus === 'approved' || filterStatus === 'archived') {
+      fetchHistory(filterStatus, false);
+    }
+  }, [filterStatus, fetchHistory]);
 
   // Per-card "✓ שייך לעסק הנבחר" handler. Reassigns the clicked document
   // (not necessarily the currently-open one) to whatever business is
@@ -1616,6 +1680,14 @@ export default function OCRPage() {
 
   const pendingCount = documents.filter((doc) => doc.status === 'pending').length;
 
+  // Which docs the queue shows: the live pending list on the 'pending'/'all'
+  // tabs, or the lazily-loaded history list on 'approved'/'archived'.
+  const isHistoryTab = filterStatus === 'approved' || filterStatus === 'archived';
+  const queueDocuments = isHistoryTab ? historyDocs : documents;
+  // True while a history tab has more rows than we've loaded — drives the
+  // "load more" button. Never shown on the live pending tab.
+  const canLoadMoreHistory = isHistoryTab && historyDocs.length < historyTotal;
+
   if (isCheckingAuth) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-60px)] bg-[#0a0d1f]">
@@ -1703,16 +1775,20 @@ export default function OCRPage() {
             <OCRQueueSkeleton vertical />
           ) : (
             <DocumentQueue
-              documents={documents}
+              documents={queueDocuments}
               currentDocumentId={currentDocument?.id || null}
               onSelectDocument={handleSelectDocument}
               filterStatus={filterStatus}
-              onFilterChange={setFilterStatus}
+              onFilterChange={handleFilterChange}
               vertical={true}
               businesses={businesses}
               businessFilter={businessFilter}
               onBusinessFilterChange={setBusinessFilter}
               onReassignBusiness={handleReassignBusinessForDoc}
+              pendingCount={pendingCount}
+              canLoadMore={canLoadMoreHistory}
+              onLoadMore={handleLoadMoreHistory}
+              isLoadingMore={isHistoryLoading}
             />
           )}
         </div>
@@ -1827,16 +1903,20 @@ export default function OCRPage() {
           <OCRQueueSkeleton vertical={false} />
         ) : (
           <DocumentQueue
-            documents={documents}
+            documents={queueDocuments}
             currentDocumentId={currentDocument?.id || null}
             onSelectDocument={handleSelectDocument}
             filterStatus={filterStatus}
-            onFilterChange={setFilterStatus}
+            onFilterChange={handleFilterChange}
             vertical={false}
             businesses={businesses}
             businessFilter={businessFilter}
             onBusinessFilterChange={setBusinessFilter}
             onReassignBusiness={handleReassignBusinessForDoc}
+            pendingCount={pendingCount}
+            canLoadMore={canLoadMoreHistory}
+            onLoadMore={handleLoadMoreHistory}
+            isLoadingMore={isHistoryLoading}
           />
         )}
       </div>
