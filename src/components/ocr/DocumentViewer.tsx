@@ -478,10 +478,11 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
   }, [isPdf, activeUrl]);
 
   return (
-    <div style={{ height: '100%', background: '#0a0d1f', borderRadius: '10px', overflow: 'hidden' }}>
-      {/* Toolbar - fixed height 48px */}
-      <div className="flex items-center justify-between px-4 bg-[#0F1535] border-b border-[#4C526B]" style={{ height: '48px' }}>
-        <div className="flex items-center gap-2">
+    <div style={{ height: '100%', background: '#0a0d1f', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {/* Toolbar — wraps to extra rows on narrow screens so every control stays
+          visible (no horizontal scrolling). Min height 48px; grows as needed. */}
+      <div className="flex flex-wrap items-center justify-between gap-y-1 px-4 py-1.5 bg-[#0F1535] border-b border-[#4C526B] flex-shrink-0" style={{ minHeight: '48px' }}>
+        <div className="flex flex-wrap items-center gap-2">
           {/* Zoom controls */}
           <Button
             variant="ghost"
@@ -738,7 +739,8 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
         </div>
       </div>
 
-      {/* Image container - takes remaining height after toolbar (48px) and mobile slider (44px on mobile, 0 on desktop) */}
+      {/* Image container — fills the height left after the toolbar (which can
+          wrap to extra rows), so it never gets clipped regardless of toolbar height */}
       <div
         ref={containerRef}
         onMouseDown={handlePointerDown}
@@ -751,7 +753,8 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
         onTouchCancel={handlePointerUp}
         style={{
           position: 'relative',
-          height: 'calc(100% - 48px)',
+          flex: 1,
+          minHeight: 0,
           overflow: 'hidden',
           cursor: isPdf ? 'default' : isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
           touchAction: isCropping ? 'none' : 'auto',
