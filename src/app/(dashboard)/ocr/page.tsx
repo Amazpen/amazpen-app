@@ -1751,17 +1751,6 @@ export default function OCRPage() {
         </div>
       </div>
 
-      {/* Page header - desktop only */}
-      <div className="hidden lg:flex items-center justify-between px-4 py-2 bg-[#0F1535] border-b border-[#4C526B]">
-        <div className="flex items-center gap-3">
-          <h1 className="text-[16px] font-bold text-white">קליטת מסמכים OCR</h1>
-          <span className="text-[13px] text-white/60">
-            {pendingCount} ממתינים
-          </span>
-        </div>
-        <ScannedDocumentsButton suppliers={suppliers} />
-      </div>
-
       {/* Mobile tabs */}
       <div className="lg:hidden flex border-b border-[#4C526B]">
         <Button
@@ -1840,6 +1829,7 @@ export default function OCRPage() {
               isReExtracting={isReExtracting}
               showCalculator={showCalculator}
               onCalculatorToggle={() => setShowCalculator(v => !v)}
+              toolbarExtra={<ScannedDocumentsButton suppliers={suppliers} />}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-white/60 px-6">

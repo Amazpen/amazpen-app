@@ -19,6 +19,10 @@ interface DocumentViewerProps {
   showCalculator?: boolean;
   onCalculatorToggle?: () => void;
   calcButtonRef?: React.RefObject<HTMLButtonElement | null>;
+  // Extra controls rendered at the end of the toolbar's left group (e.g. the
+  // "מסמכים סרוקים" button). Kept as a slot so the viewer doesn't need to know
+  // about page-specific dependencies like the suppliers list.
+  toolbarExtra?: React.ReactNode;
 }
 
 function isPdfUrl(url: string, fileType?: string): boolean {
@@ -31,7 +35,7 @@ function isPdfUrl(url: string, fileType?: string): boolean {
   }
 }
 
-export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, onRotate, onReExtract, isReExtracting, showCalculator, onCalculatorToggle, calcButtonRef }: DocumentViewerProps) {
+export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, onRotate, onReExtract, isReExtracting, showCalculator, onCalculatorToggle, calcButtonRef, toolbarExtra }: DocumentViewerProps) {
   // Resolve URLs: prefer imageUrls array, fall back to single imageUrl
   const resolvedUrls = imageUrls?.length ? imageUrls : (imageUrl ? [imageUrl] : []);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -654,6 +658,9 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
               </Button>
             </>
           )}
+
+          {/* Extra page-provided controls (e.g. "מסמכים סרוקים") */}
+          {toolbarExtra}
         </div>
 
         <div className="flex items-center gap-1">

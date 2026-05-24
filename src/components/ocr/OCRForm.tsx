@@ -5274,7 +5274,7 @@ export default function OCRForm({
                 בטל צירוף
               </button>
             )}
-            <span className="flex-1 min-w-0 text-left">
+            <span className="flex-1 min-w-0 text-right">
               {attachToExistingId
                 ? `הדף יצורף לחשבונית הקיימת ${duplicateExisting?.documentNumber ?? ''} בעת אישור`
                 : duplicateWarning}
