@@ -9,6 +9,7 @@ import { X } from "lucide-react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { PaymentsHelpButton } from "@/components/onboarding/PaymentsHelpButton";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -3927,7 +3928,10 @@ function PaymentsPageInner() {
         </div>
         <div className="flex items-center gap-[8px]">
             <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
-            <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+            <div id="onboarding-payments-datepicker">
+              <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+            </div>
+            <PaymentsHelpButton />
           </div>
       </div>
 
