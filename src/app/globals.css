@@ -829,26 +829,28 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   overflow-y: auto;
 }
 
-/* close (X) button — top-left corner in RTL, clear circular hit area */
+/* close (X) button — lucide-x icon, top-left corner in RTL, no background */
 .amazpen-driver-popover .driver-popover-close-btn {
   display: flex !important;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   inset-inline-end: auto;
-  inset-inline-start: 10px;
-  top: 10px;
-  color: rgba(255, 255, 255, 0.6);
+  inset-inline-start: 12px;
+  top: 12px;
+  color: #7b91b0;
   line-height: 1;
-  border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.08);
-  transition: color 0.2s, background-color 0.2s;
+  background-color: transparent;
+  transition: color 0.2s;
 }
 .amazpen-driver-popover .driver-popover-close-btn:hover {
   color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.18);
+}
+.amazpen-driver-popover .driver-popover-close-btn svg {
+  width: 24px;
+  height: 24px;
 }
 
 /* footer: progress + nav buttons */
