@@ -854,13 +854,14 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   inset-inline-end: auto;
   inset-inline-start: 12px;
   top: 12px;
-  color: #7b91b0;
+  color: #ffffff;
   line-height: 1;
   background-color: transparent;
-  transition: color 0.2s;
+  transition: opacity 0.2s;
 }
 .amazpen-driver-popover .driver-popover-close-btn:hover {
   color: #ffffff;
+  opacity: 0.75;
 }
 .amazpen-driver-popover .driver-popover-close-btn svg {
   width: 24px;
