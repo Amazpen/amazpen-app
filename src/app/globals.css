@@ -798,7 +798,7 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
    Onboarding tour (driver.js) — Amazpen brand theme, RTL
    ============================================================ */
 .amazpen-driver-popover.driver-popover {
-  background-color: #29318a;
+  background-color: #6b2bd9;
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
@@ -897,6 +897,17 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
 }
 
 /* arrow color to match popover background */
-.amazpen-driver-popover .driver-popover-arrow {
-  border-color: #29318a;
+/* arrow color to match popover background — set each side so the
+   triangle always shows the brand purple regardless of which way it points */
+.amazpen-driver-popover .driver-popover-arrow-side-top.driver-popover-arrow {
+  border-top-color: #6b2bd9;
+}
+.amazpen-driver-popover .driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-bottom-color: #6b2bd9;
+}
+.amazpen-driver-popover .driver-popover-arrow-side-left.driver-popover-arrow {
+  border-left-color: #6b2bd9;
+}
+.amazpen-driver-popover .driver-popover-arrow-side-right.driver-popover-arrow {
+  border-right-color: #6b2bd9;
 }
