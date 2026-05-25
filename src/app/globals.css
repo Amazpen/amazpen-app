@@ -871,8 +871,8 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
 
 .amazpen-driver-popover .driver-popover-navigation-btns button {
   background-color: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 7px;
   padding: 6px 14px;
   font-size: 13px;
@@ -882,20 +882,25 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
 }
 .amazpen-driver-popover .driver-popover-navigation-btns button:hover {
   color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.4);
-  background-color: transparent;
+  border-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* primary "next/done" button — last button in the nav group */
+/* disabled "prev" on the first step */
+.amazpen-driver-popover .driver-popover-navigation-btns button.driver-popover-btn-disabled {
+  opacity: 0.4;
+}
+
+/* primary "next/done" button — brand orange, stands out on the purple bg */
 .amazpen-driver-popover .driver-popover-navigation-btns button.driver-popover-next-btn {
-  background-color: #6366f1;
-  color: #ffffff;
-  border-color: #6366f1;
+  background-color: #ffa412;
+  color: #2a1a4a;
+  border-color: #ffa412;
   font-weight: 700;
 }
 .amazpen-driver-popover .driver-popover-navigation-btns button.driver-popover-next-btn:hover {
-  background-color: #5558e3;
-  border-color: #5558e3;
+  background-color: #e8950c;
+  border-color: #e8950c;
 }
 
 /* arrow color to match popover background */
