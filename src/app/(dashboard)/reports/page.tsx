@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
+import { ReportsHelpButton } from "@/components/onboarding/ReportsHelpButton";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1285,10 +1286,13 @@ export default function ReportsPage() {
             <path fillRule="evenodd" clipRule="evenodd" d="M5.23877 4.32331C5.42468 3.69863 6.0038 3.24414 6.6875 3.24414C7.20053 3.24414 7.65408 3.49922 7.9282 3.89221C8.11919 4.16603 8.496 4.23317 8.76982 4.04218C9.04364 3.85118 9.11079 3.47438 8.91979 3.20056C8.42926 2.49731 7.6124 2.03516 6.6875 2.03516C5.45434 2.03516 4.4143 2.85523 4.08002 3.97844C3.98478 4.29843 4.16698 4.63502 4.48696 4.73025C4.80694 4.82548 5.14354 4.64329 5.23877 4.32331ZM3.09359 4.35159C3.37136 4.16639 3.44641 3.79108 3.26122 3.5133C3.07602 3.23553 2.70071 3.16048 2.42293 3.34567C1.74591 3.79705 1.4463 4.65416 1.58159 5.41523C1.68156 5.97761 2.01248 6.48027 2.56216 6.78484C2.30199 7.25893 2.15378 7.80355 2.15378 8.38232C2.15378 9.67506 2.89132 10.7943 3.96725 11.3443V12.3115C3.96725 12.6454 4.23789 12.916 4.57175 12.916H6.68747C7.02132 12.916 7.29196 12.6454 7.29196 12.3115V11.707H7.5942V12.3115C7.5942 12.6454 7.86484 12.916 8.19869 12.916H10.3144C10.6483 12.916 10.9189 12.6454 10.9189 12.3115V11.4802C11.5559 11.2315 12.0966 10.7925 12.4719 10.2335C13.1203 10.2115 13.6391 9.67898 13.6391 9.02525V7.73938C13.6391 7.08566 13.1203 6.55312 12.4719 6.5311C12.2221 6.15898 11.8991 5.84026 11.5234 5.59537V4.15088C11.5234 3.81702 11.2528 3.54638 10.9189 3.54638C9.80149 3.54638 9.07149 4.24163 8.48602 5.05761H5.47848C4.67542 5.05761 3.93815 5.34294 3.36377 5.81676C2.9648 5.69913 2.81421 5.44158 2.77191 5.20363C2.71022 4.85658 2.86394 4.5047 3.09359 4.35159ZM9.30615 5.99742C9.67682 5.44142 9.99047 5.09456 10.3144 4.91303V5.94486C10.3144 6.17436 10.4444 6.38406 10.6499 6.48619C11.0533 6.68667 11.3842 7.01261 11.5909 7.41248C11.6947 7.61327 11.9019 7.73938 12.1279 7.73938H12.4301L12.4301 9.02525H12.1279C11.9019 9.02525 11.6947 9.15136 11.5909 9.35215C11.3081 9.89916 10.794 10.3064 10.1806 10.4456C9.90533 10.5081 9.70992 10.7528 9.70992 11.0351V11.707H8.80319V11.4048C8.80319 10.904 8.39723 10.498 7.89645 10.498H6.98971C6.48894 10.498 6.08297 10.904 6.08297 11.4048V11.707H5.17624V10.9477C5.17624 10.6915 5.01474 10.4632 4.77319 10.3778C3.95063 10.0871 3.36276 9.30257 3.36276 8.38232C3.36276 7.80137 3.59611 7.27611 3.9756 6.89315C4.35968 6.50556 4.89061 6.2666 5.47848 6.2666H8.80319C9.0053 6.2666 9.19404 6.16558 9.30615 5.99742ZM10.0121 8.08007C10.3459 8.08007 10.6166 7.80943 10.6166 7.47558C10.6166 7.14173 10.3459 6.87109 10.0121 6.87109C9.67823 6.87109 9.40759 7.14173 9.40759 7.47558C9.40759 7.80943 9.67823 8.08007 10.0121 8.08007Z" fill="white"/>
           </svg>
         </div>
+        <div className="ms-auto pe-[7px]">
+          <ReportsHelpButton />
+        </div>
       </section>
 
       {/* Summary Card - Total Result + Filters */}
-      <section aria-label="סיכום תוצאות" className="bg-[#0F1535] rounded-[10px] py-[7px] min-h-[70px] flex flex-col gap-[15px]">
+      <section id="onboarding-reports-summary-top" aria-label="סיכום תוצאות" className="bg-[#0F1535] rounded-[10px] py-[7px] min-h-[70px] flex flex-col gap-[15px]">
         {/* Total Result Row */}
         <div className="flex flex-row-reverse items-center justify-between w-full min-h-[40px] gap-[3px]">
           <div className="flex flex-row-reverse items-center gap-[10px] flex-1">
@@ -1636,7 +1640,7 @@ export default function ReportsPage() {
       </section>
 
       {/* Total Profit/Loss Summary */}
-      <section aria-label="סיכום רווח והפסד" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
+      <section id="onboarding-reports-bottom" aria-label="סיכום רווח והפסד" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
         <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
           <div className="flex flex-col items-center flex-1 min-w-0">
             <span className={`text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
