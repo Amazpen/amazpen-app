@@ -5,22 +5,42 @@ import type { DriveStep } from "driver.js";
  * הדף מאפשר למנהל להגדיר תמריצים כספיים לעובדים לפי ביצועים מדידים.
  * הסיור גם מסביר את הרעיון וגם מדריך בפועל איך ליצור תכנית: הוא פותח את
  * הטופס אוטומטית ועובר שדה אחר שדה.
+ *
+ * הטופס נטען דינמית (React) רק בלחיצה על "תכנית חדשה", ולכן השלבים שמצביעים
+ * על שדות הטופס משתמשים בדפוס ה-async-tour הרשמי של driver.js: השלב שלפני
+ * הטופס מקבל onNextClick שפותח את הטופס, ממתין לרינדור, ואז קורא ל-moveNext.
+ * בנוסף, לכל שלב טופס יש onHighlightStarted כדי שה-hook לא יסנן אותו מראש
+ * (לפני שהטופס קיים).
+ *
  * אין שימוש בתו em dash בתוכן.
  */
 
-/** לוחץ על כפתור "תכנית חדשה" כדי לפתוח את הטופס (אם עוד לא פתוח). */
-function openForm() {
-  if (typeof document === "undefined") return;
-  if (document.getElementById("onboarding-bonus-form")) return; // already open
-  const btn = document.getElementById("onboarding-bonus-new") as HTMLElement | null;
-  btn?.click();
+function isFormOpen() {
+  return typeof document !== "undefined" && !!document.getElementById("onboarding-bonus-form");
 }
 
-/** סוגר את הטופס בסיום הסיור, כדי לא להשאיר טופס פתוח שהמשתמש לא ביקש. */
+/** פותח את טופס "תכנית חדשה" אם אינו פתוח. */
+function openForm() {
+  if (typeof document === "undefined" || isFormOpen()) return;
+  (document.getElementById("onboarding-bonus-new") as HTMLElement | null)?.click();
+}
+
+/** סוגר את הטופס. */
 function closeForm() {
   if (typeof document === "undefined") return;
-  const closeBtn = document.getElementById("onboarding-bonus-form-close");
-  (closeBtn as HTMLElement | null)?.click();
+  (document.getElementById("onboarding-bonus-form-close") as HTMLElement | null)?.click();
+}
+
+/** ממתין עד ששני animation frames עברו, כדי לתת ל-React לרנדר את הטופס. */
+function nextFrames(cb: () => void) {
+  requestAnimationFrame(() => requestAnimationFrame(cb));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DriverLike = { moveNext: () => void; movePrevious: () => void };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getDriver(options: any): DriverLike | undefined {
+  return options?.driver;
 }
 
 export const bonusPlansSteps: DriveStep[] = [
@@ -46,16 +66,20 @@ export const bonusPlansSteps: DriveStep[] = [
     popover: {
       title: "בוא ניצור תכנית יחד",
       description:
-        "כדי ליצור תכנית בונוס חדשה לוחצים כאן. נפתח עכשיו את הטופס יחד ונעבור על כל שדה, כדי שתדע בדיוק איך מגדירים בונוס מהתחלה ועד הסוף.",
+        "כדי ליצור תכנית בונוס חדשה לוחצים כאן. לחיצה על 'הבא' תפתח עכשיו את הטופס ונעבור על כל שדה, כדי שתדע בדיוק איך מגדירים בונוס מהתחלה ועד הסוף.",
       side: "bottom",
       align: "start",
+      // דפוס async-tour: פותחים את הטופס, ממתינים לרינדור, ואז עוברים לשלב הבא.
+      onNextClick: (_el, _step, options) => {
+        openForm();
+        nextFrames(() => getDriver(options)?.moveNext());
+      },
     },
   },
   {
     element: "#onboarding-bonus-field-employee",
-    onHighlightStarted: () => {
-      openForm();
-    },
+    // onHighlightStarted מסמן ל-hook לא לסנן את השלב מראש (הטופס נוצר דינמית)
+    onHighlightStarted: () => openForm(),
     popover: {
       title: "שלב 1: בחירת העובד",
       description:
@@ -66,6 +90,7 @@ export const bonusPlansSteps: DriveStep[] = [
   },
   {
     element: "#onboarding-bonus-field-source",
+    onHighlightStarted: () => openForm(),
     popover: {
       title: "שלב 2: מה מודדים?",
       description:
@@ -76,20 +101,22 @@ export const bonusPlansSteps: DriveStep[] = [
   },
   {
     element: "#onboarding-bonus-field-tiers",
+    onHighlightStarted: () => openForm(),
     popover: {
       title: "שלב 3: רמות התגמול",
       description:
         "זה הלב של התכנית. מגדירים שלוש רמות עולות, ולכל אחת טווח ערכים וסכום בונוס: למשל 'עמידה ביעד' מזכה ב-1,000 ₪, 'שיפור קטן' ב-1,500 ₪, ו'שיפור משמעותי' ב-2,000 ₪. ככל שהעובד משיג תוצאה טובה יותר, כך הבונוס גדל. מערכת הרמות יוצרת תמריץ מדורג ששואף תמיד לשיפור.",
       side: "top",
       align: "center",
+      // לפני המעבר לשלב הרשימה: סוגרים את הטופס, ממתינים לרינדור, ואז עוברים.
+      onNextClick: (_el, _step, options) => {
+        closeForm();
+        nextFrames(() => getDriver(options)?.moveNext());
+      },
     },
   },
   {
     element: "#onboarding-bonus-list",
-    // הסיור היה עם טופס פתוח, אז נסגור אותו כדי להחזיר את המסך לרשימה
-    onHighlightStarted: () => {
-      closeForm();
-    },
     popover: {
       title: "מעקב אוטומטי וביצוע בפועל",
       description:
