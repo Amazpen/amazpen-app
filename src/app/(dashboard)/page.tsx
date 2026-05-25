@@ -3341,7 +3341,7 @@ export default function DashboardPage() {
               ) : (
                 <>
               {/* Section Header - ניהול הכנסות */}
-              <div className="col-span-full lg:col-span-2 xl:col-span-3 flex items-center gap-[8px] mt-[5px]" dir="rtl">
+              <div id="onboarding-income-section" className="col-span-full lg:col-span-2 xl:col-span-3 flex items-center gap-[8px] mt-[5px]" dir="rtl">
                 <span className="text-[15px] font-bold text-white/80 shrink-0">ניהול הכנסות</span>
                 <div className="flex-1 h-[1px] bg-white/10" />
               </div>
@@ -3738,7 +3738,7 @@ export default function DashboardPage() {
               })}
 
               {/* Section Header - ניהול הוצאות */}
-              <div className="col-span-full lg:col-span-2 xl:col-span-3 flex items-center gap-[8px] mt-[5px]" dir="rtl">
+              <div id="onboarding-expense-section" className="col-span-full lg:col-span-2 xl:col-span-3 flex items-center gap-[8px] mt-[5px]" dir="rtl">
                 <span className="text-[15px] font-bold text-white/80 shrink-0">ניהול הוצאות</span>
                 <div className="flex-1 h-[1px] bg-white/10" />
               </div>
