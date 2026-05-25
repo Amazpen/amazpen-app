@@ -5353,6 +5353,7 @@ export default function OCRForm({
       <div className="px-4 py-3 bg-[#0F1535] border-t border-[#4C526B]">
         <div className="flex gap-2 items-center">
           <Button
+            id="onboarding-ocr-approve"
             type="button"
             onClick={handleSubmit}
             disabled={isLoading || (documentType === 'summary' && (!selectedBusinessId || !summarySupplierId || !summaryInvoiceNumber || !summaryTotalAmount || !summaryIsClosed)) || (documentType === 'daily_entry' && (!selectedBusinessId || !dailyEntryDate))}

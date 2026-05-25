@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
 import { fireBudgetAlert } from '@/lib/budget-alert';
 import { uploadFile } from '@/lib/uploadFile';
+import { OcrBusinessHelpButton } from '@/components/onboarding/OcrBusinessHelpButton';
 import { useToast } from "@/components/ui/toast";
 import ScannedDocumentsButton from '@/components/ocr/ScannedDocumentsButton';
 
@@ -1520,11 +1521,14 @@ export default function OCRBusinessPage() {
           <span className="text-[13px] text-white/60">
             {pendingCount} ממתינים
           </span>
+          <OcrBusinessHelpButton />
         </div>
-        <ScannedDocumentsButton
-          businessId={selectedBusinessId || undefined}
-          suppliers={suppliers}
-        />
+        <div id="onboarding-ocr-scanned">
+          <ScannedDocumentsButton
+            businessId={selectedBusinessId || undefined}
+            suppliers={suppliers}
+          />
+        </div>
       </div>
 
       {/* Mobile tabs */}
