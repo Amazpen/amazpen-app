@@ -84,6 +84,10 @@ export function useDriverTour({
       stageRadius: 10,
       popoverClass: "amazpen-driver-popover",
       smoothScroll: true,
+      // הצג כפתור X בכל שלב כדי שהמשתמש יוכל לצאת מהסיור מתי שירצה
+      showButtons: ["next", "previous", "close"],
+      // לחיצה על הרקע סוגרת את הסיור
+      allowClose: true,
       steps,
       onDestroyed: () => {
         markCompleted(tourName);
