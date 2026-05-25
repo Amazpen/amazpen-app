@@ -838,8 +838,9 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   width: 24px;
   height: 24px;
   padding: 0;
-  inset-inline-end: auto;
-  inset-inline-start: 12px;
+  /* force to the physical left corner (driver.css pins it right: 0) */
+  right: auto !important;
+  left: 12px !important;
   top: 12px;
   color: #ffffff !important;
   line-height: 1;
