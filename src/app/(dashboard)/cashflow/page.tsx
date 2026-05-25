@@ -663,7 +663,7 @@ export default function CashFlowPage() {
       {/* ============= MAIN TABLE ============= */}
       <section id="onboarding-cashflow-table" className="bg-[#0F1535] rounded-[10px] p-[7px]">
         {/* Table Header */}
-        <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] pe-[13px] mb-[10px]">
+        <div id="onboarding-cashflow-columns" className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] pe-[13px] mb-[10px]">
           <div className="w-[70px] sm:w-[90px] flex-shrink-0 text-center">
             <span className="text-[13px] sm:text-[14px]">תאריך</span>
           </div>
