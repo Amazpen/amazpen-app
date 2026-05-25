@@ -614,7 +614,7 @@ export default function BonusPlansPage() {
                 <h2 className="text-white font-semibold text-sm sm:text-base">
                   {editingPlanId ? "עריכת תכנית" : "תכנית בונוס חדשה"}
                 </h2>
-                <button onClick={resetForm} className="text-white/40 hover:text-white/70 transition-colors">
+                <button id="onboarding-bonus-form-close" onClick={resetForm} className="text-white/40 hover:text-white/70 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>

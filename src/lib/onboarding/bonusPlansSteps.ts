@@ -19,10 +19,7 @@ function openForm() {
 /** סוגר את הטופס בסיום הסיור, כדי לא להשאיר טופס פתוח שהמשתמש לא ביקש. */
 function closeForm() {
   if (typeof document === "undefined") return;
-  const form = document.getElementById("onboarding-bonus-form");
-  if (!form) return;
-  // כפתור הסגירה (X) הוא ה-button הראשון בכותרת הטופס
-  const closeBtn = form.querySelector("button");
+  const closeBtn = document.getElementById("onboarding-bonus-form-close");
   (closeBtn as HTMLElement | null)?.click();
 }
 
