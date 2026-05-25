@@ -609,7 +609,7 @@ export default function BonusPlansPage() {
         <>
           {/* Create/Edit form */}
           {showForm && (
-            <div className="bg-[#111056]/60 border border-white/10 rounded-[10px] p-3 sm:p-5 mb-4 sm:mb-6">
+            <div id="onboarding-bonus-form" className="bg-[#111056]/60 border border-white/10 rounded-[10px] p-3 sm:p-5 mb-4 sm:mb-6">
               <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <h2 className="text-white font-semibold text-sm sm:text-base">
                   {editingPlanId ? "עריכת תכנית" : "תכנית בונוס חדשה"}
@@ -621,7 +621,7 @@ export default function BonusPlansPage() {
 
               <div className="flex flex-col gap-4">
                 {/* Employee */}
-                <div>
+                <div id="onboarding-bonus-field-employee">
                   <label className="text-white/70 text-sm mb-1.5 block">עובד</label>
                   <Select dir="rtl" value={formEmployeeId} onValueChange={setFormEmployeeId}>
                     <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
@@ -650,7 +650,7 @@ export default function BonusPlansPage() {
                 </div>
 
                 {/* Data source */}
-                <div>
+                <div id="onboarding-bonus-field-source">
                   <label className="text-white/70 text-sm mb-1.5 block">מקור נתונים</label>
                   <Select dir="rtl" value={formDataSource} onValueChange={handleDataSourceChange}>
                     <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
@@ -716,7 +716,7 @@ export default function BonusPlansPage() {
                 )}
 
                 {/* Tiers (#37 — range support) */}
-                <div>
+                <div id="onboarding-bonus-field-tiers">
                   <label className="text-white/70 text-sm mb-2 block">רמות בונוס</label>
                   <div className="rounded-[10px] border border-[#727BA0] overflow-hidden">
                     {/* Header */}

@@ -1,43 +1,37 @@
 import type { DriveStep } from "driver.js";
 
 /**
- * דמו ויזואלי של מבנה רמות התגמול, מוצג בתוך כרטיס הסיור.
- * מסביר את הרעיון של 3 רמות בונוס בלי לפתוח את הטופס.
- */
-const TIERS_DEMO = `
-<div style="margin-top:12px;border:1px solid rgba(255,255,255,0.14);border-radius:10px;overflow:hidden;">
-  <div style="display:grid;grid-template-columns:1fr 1fr;background:rgba(41,49,138,0.4);font-size:11px;color:rgba(255,255,255,0.6);">
-    <div style="padding:6px;text-align:center;border-left:1px solid rgba(255,255,255,0.1);">רמת הישג</div>
-    <div style="padding:6px;text-align:center;">בונוס</div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;font-size:12px;color:#fff;border-top:1px solid rgba(255,255,255,0.1);">
-    <div style="padding:6px;text-align:center;border-left:1px solid rgba(255,255,255,0.1);">עמידה ביעד</div>
-    <div style="padding:6px;text-align:center;">₪ 300</div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;font-size:12px;color:#fff;border-top:1px solid rgba(255,255,255,0.1);">
-    <div style="padding:6px;text-align:center;border-left:1px solid rgba(255,255,255,0.1);">שיפור קטן</div>
-    <div style="padding:6px;text-align:center;">₪ 500</div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;font-size:12px;color:#fff;border-top:1px solid rgba(255,255,255,0.1);">
-    <div style="padding:6px;text-align:center;border-left:1px solid rgba(255,255,255,0.1);">שיפור משמעותי</div>
-    <div style="padding:6px;text-align:center;">₪ 800</div>
-  </div>
-</div>`;
-
-const NEW_PLAN_DESCRIPTION = `<div>בלחיצה כאן נפתח טופס ליצירת תכנית בונוס חדשה. בוחרים עובד, מגדירים מה מודדים (למשל אחוז עלות עובדים או מספר אפסיילים), ומגדירים שלוש רמות תגמול עולות: ככל שהעובד משיג תוצאה טובה יותר, כך הבונוס גדל. כך יוצרים תמריץ ברור ומדורג. למשל:</div>${TIERS_DEMO}`;
-
-/**
  * שלבי הסיור של דף תכניות הבונוסים.
  * הדף מאפשר למנהל להגדיר תמריצים כספיים לעובדים לפי ביצועים מדידים.
- * הסיור מסביר את הרעיון ואת אופן העבודה, לא רק היכן כל כפתור.
+ * הסיור גם מסביר את הרעיון וגם מדריך בפועל איך ליצור תכנית: הוא פותח את
+ * הטופס אוטומטית ועובר שדה אחר שדה.
  * אין שימוש בתו em dash בתוכן.
  */
+
+/** לוחץ על כפתור "תכנית חדשה" כדי לפתוח את הטופס (אם עוד לא פתוח). */
+function openForm() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("onboarding-bonus-form")) return; // already open
+  const btn = document.getElementById("onboarding-bonus-new") as HTMLElement | null;
+  btn?.click();
+}
+
+/** סוגר את הטופס בסיום הסיור, כדי לא להשאיר טופס פתוח שהמשתמש לא ביקש. */
+function closeForm() {
+  if (typeof document === "undefined") return;
+  const form = document.getElementById("onboarding-bonus-form");
+  if (!form) return;
+  // כפתור הסגירה (X) הוא ה-button הראשון בכותרת הטופס
+  const closeBtn = form.querySelector("button");
+  (closeBtn as HTMLElement | null)?.click();
+}
+
 export const bonusPlansSteps: DriveStep[] = [
   {
     popover: {
       title: "תכניות בונוסים ותגמול",
       description:
-        "מה אם אפשר היה לגרום לעובדים לדאוג למספרים של העסק כאילו היו שלהם? זו בדיוק המטרה של המסך הזה. כאן מגדירים תכניות בונוס שמתגמלות עובדים כשהם משפרים מדד מסוים: הורדת עלות העובדים, הגדלת ממוצע ההזמנה, צמצום הוצאות ועוד. כשהעובד יודע שיש לו מה להרוויח מזה, הוא פועל אחרת. נעבור על איך זה עובד.",
+        "מה אם אפשר היה לגרום לעובדים לדאוג למספרים של העסק כאילו היו שלהם? זו המטרה של המסך הזה. כאן מגדירים תכניות בונוס שמתגמלות עובדים כשהם משפרים מדד מסוים: הורדת עלות העובדים, הגדלת ממוצע ההזמנה, צמצום הוצאות ועוד. נראה לך עכשיו גם את הרעיון וגם איך יוצרים תכנית צעד אחר צעד.",
     },
   },
   {
@@ -45,7 +39,7 @@ export const bonusPlansSteps: DriveStep[] = [
     popover: {
       title: "תכנית לכל חודש",
       description:
-        "תכניות הבונוס נקבעות לכל חודש בנפרד. כאן בוחרים את החודש והשנה, וכל התכניות והמעקב אחר הביצוע מתייחסים לתקופה הזו. כך אפשר להתאים את התמריצים מחודש לחודש, ולראות בדיעבד אילו בונוסים הושגו בכל חודש.",
+        "תכניות הבונוס נקבעות לכל חודש בנפרד. כאן בוחרים את החודש והשנה, וכל התכניות והמעקב אחר הביצוע מתייחסים לתקופה הזו. כך אפשר להתאים את התמריצים מחודש לחודש.",
       side: "bottom",
       align: "center",
     },
@@ -53,18 +47,56 @@ export const bonusPlansSteps: DriveStep[] = [
   {
     element: "#onboarding-bonus-new",
     popover: {
-      title: "יצירת תכנית בונוס",
-      description: NEW_PLAN_DESCRIPTION,
+      title: "בוא ניצור תכנית יחד",
+      description:
+        "כדי ליצור תכנית בונוס חדשה לוחצים כאן. נפתח עכשיו את הטופס יחד ונעבור על כל שדה, כדי שתדע בדיוק איך מגדירים בונוס מהתחלה ועד הסוף.",
       side: "bottom",
       align: "start",
     },
   },
   {
-    element: "#onboarding-bonus-list",
+    element: "#onboarding-bonus-field-employee",
+    onHighlightStarted: () => {
+      openForm();
+    },
     popover: {
-      title: "מעקב אחר הבונוסים",
+      title: "שלב 1: בחירת העובד",
       description:
-        "כל כרטיס הוא תכנית בונוס של עובד. הכרטיס מציג את העובד, מה נמדד, ושלוש רמות התגמול עם הסכומים. הכי חשוב: המערכת מחשבת אוטומטית את הביצוע בפועל של העובד החודש ומדגישה את הרמה שהוא עמד בה, כך שרואים מיד מי זכאי לאיזה בונוס. אפשר להפעיל או להשבית תכנית, לערוך אותה או למחוק, בכל עת.",
+        "קודם בוחרים את העובד שהבונוס מיועד לו. רק עובדים שמוגדרים בעסק יופיעו ברשימה. כל תכנית מתייחסת לעובד אחד ולמדד אחד שלו.",
+      side: "bottom",
+      align: "start",
+    },
+  },
+  {
+    element: "#onboarding-bonus-field-source",
+    popover: {
+      title: "שלב 2: מה מודדים?",
+      description:
+        "כאן בוחרים את המדד שעליו יינתן הבונוס, למשל ממוצע להזמנה, אחוז עלות עובדים או מדד מותאם אישית. בנוסף קובעים אם מודדים באחוזים, בשקלים או בכמות, ואת הכיוון: 'גבוה = טוב' למדד כמו הכנסה, או 'נמוך = טוב' למדד כמו עלות. ההגדרה הזו קובעת מתי העובד נחשב כמשתפר.",
+      side: "bottom",
+      align: "start",
+    },
+  },
+  {
+    element: "#onboarding-bonus-field-tiers",
+    popover: {
+      title: "שלב 3: רמות התגמול",
+      description:
+        "זה הלב של התכנית. מגדירים שלוש רמות עולות, ולכל אחת טווח ערכים וסכום בונוס: למשל 'עמידה ביעד' מזכה ב-1,000 ₪, 'שיפור קטן' ב-1,500 ₪, ו'שיפור משמעותי' ב-2,000 ₪. ככל שהעובד משיג תוצאה טובה יותר, כך הבונוס גדל. מערכת הרמות יוצרת תמריץ מדורג ששואף תמיד לשיפור.",
+      side: "top",
+      align: "center",
+    },
+  },
+  {
+    element: "#onboarding-bonus-list",
+    // הסיור היה עם טופס פתוח, אז נסגור אותו כדי להחזיר את המסך לרשימה
+    onHighlightStarted: () => {
+      closeForm();
+    },
+    popover: {
+      title: "מעקב אוטומטי וביצוע בפועל",
+      description:
+        "אחרי השמירה, התכנית מופיעה כאן. המערכת מחשבת אוטומטית את הביצוע בפועל של העובד החודש, מדגישה בירוק את הרמה שהוא עמד בה, ומציגה שורת 'מצב נוכחי' עם התוצאה מול היעד והבונוס שהושג. אפשר גם להגדיר פוש יומי שמעדכן את העובד, ולהפעיל, להשבית, לערוך או למחוק כל תכנית. כך כולם יודעים בכל רגע איפה הם עומדים.",
       side: "top",
       align: "center",
     },
