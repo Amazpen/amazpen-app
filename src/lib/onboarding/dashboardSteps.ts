@@ -1,6 +1,44 @@
 import type { DriveStep } from "driver.js";
 
 /**
+ * דמו ויזואלי של טופס ההזנה היומית, מוצג בתוך כרטיס הסיור עצמו
+ * כדי שהמשתמש יראה איך נראה הטופס בלי צורך לפתוח אותו.
+ * משתמש ב-inline styles כי התוכן מוזרק דינמית ל-popover של driver.js.
+ */
+const DAILY_ENTRY_FORM_DEMO = `
+<div style="margin-top:12px;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px;background:rgba(255,255,255,0.04);">
+  <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:10px;font-weight:600;">דוגמה לטופס הזנה יומית</div>
+
+  <div style="margin-bottom:8px;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px;">תאריך האירוע</div>
+    <div style="border:1px solid #727BA0;border-radius:6px;padding:5px 8px;font-size:12px;color:#fff;background:rgba(0,0,0,0.15);">15/05/2026</div>
+  </div>
+
+  <div style="margin-bottom:8px;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px;">סה"כ הכנסות</div>
+    <div style="border:1px solid #727BA0;border-radius:6px;padding:5px 8px;font-size:12px;color:#fff;background:rgba(0,0,0,0.15);">₪ 8,450</div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:8px;">
+    <div style="flex:1;">
+      <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px;">מזומן</div>
+      <div style="border:1px solid #727BA0;border-radius:6px;padding:5px 8px;font-size:12px;color:#fff;background:rgba(0,0,0,0.15);">₪ 3,200</div>
+    </div>
+    <div style="flex:1;">
+      <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px;">אשראי</div>
+      <div style="border:1px solid #727BA0;border-radius:6px;padding:5px 8px;font-size:12px;color:#fff;background:rgba(0,0,0,0.15);">₪ 5,250</div>
+    </div>
+  </div>
+
+  <div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:3px;">כמות הזמנות</div>
+    <div style="border:1px solid #727BA0;border-radius:6px;padding:5px 8px;font-size:12px;color:#fff;background:rgba(0,0,0,0.15);">128</div>
+  </div>
+</div>`;
+
+const DAILY_ENTRY_DESCRIPTION = `<div>כאן מזינים את הנתונים היומיים של העסק שנבחר: ההכנסה של היום, אמצעי התשלום, כמות ההזמנות ועלות העובדים. הזנה יומית עקבית היא הבסיס לכל המערכת, כי ממנה נבנים כל הסיכומים, הגרפים וההשוואות ליעדים. בכפתור 'הצגת ועריכת נתונים' אפשר לחזור אחורה, לבדוק ימים קודמים ולתקן טעויות. כך נראה הטופס בפועל:</div>${DAILY_ENTRY_FORM_DEMO}`;
+
+/**
  * שלבי הסיור של דף הדשבורד הראשי.
  * כל שלב מצביע על אלמנט עם id="onboarding-*" שקיים בדף.
  * השלב הראשון ללא element, ולכן driver.js מציג אותו ממורכז על המסך.
@@ -40,8 +78,7 @@ export const dashboardSteps: DriveStep[] = [
     element: "#onboarding-daily-entry",
     popover: {
       title: "הזנת והצגת נתונים יומיים",
-      description:
-        "כאן מזינים את הנתונים היומיים של העסק שנבחר: ההכנסה של היום, מספר ההזמנות ועוד. הזנה יומית עקבית היא הבסיס לכל המערכת, כי ממנה נבנים כל הסיכומים, הגרפים וההשוואות ליעדים. בכפתור 'הצגת ועריכת נתונים' תוכל לחזור אחורה, לבדוק ימים קודמים ולתקן טעויות. ככל שהנתונים מעודכנים ומדויקים יותר, כך התמונה הפיננסית שתראה תהיה אמינה יותר.",
+      description: DAILY_ENTRY_DESCRIPTION,
       side: "bottom",
       align: "center",
     },

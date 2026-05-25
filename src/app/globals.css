@@ -824,6 +824,9 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   font-size: 13px;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.8);
+  /* allow long steps (e.g. with a demo form) to scroll instead of overflowing */
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 /* close (X) button — top-left corner in RTL, clear circular hit area */
