@@ -8,6 +8,7 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { GoalsHelpButton } from "@/components/onboarding/GoalsHelpButton";
 import { Input } from "@/components/ui/input";
 import { Trophy, CookingPot, Receipt } from "@phosphor-icons/react";
 
@@ -1173,6 +1174,12 @@ export default function GoalsPage() {
       {/* Main Container */}
       <div className="bg-[#0F1535] rounded-[10px] p-[5px]">
 
+        {/* Header row with help button */}
+        <div className="flex items-center justify-between mb-[8px] px-[3px]">
+          <h2 className="text-[18px] font-bold text-white">יעדים</h2>
+          <GoalsHelpButton />
+        </div>
+
         {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} dir="rtl">
           <TabsList id="onboarding-goals-tabs" className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-[10px] gap-0 border border-[#6B6B6B]">
@@ -1221,7 +1228,7 @@ export default function GoalsPage() {
 
         {/* Expected Work Days - KPI tab only */}
         {activeTab === "kpi" && (
-          <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] p-[10px]" dir="rtl">
+          <div id="onboarding-goals-workdays" className="mt-[10px] bg-[#29318A]/20 rounded-[10px] p-[10px]" dir="rtl">
             <div className="flex items-center justify-between gap-[10px]">
               <div className="flex items-center gap-[8px]">
                 <span className="text-[14px] text-white font-semibold">ימי עבודה צפויים:</span>
