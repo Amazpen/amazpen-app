@@ -4183,7 +4183,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               ) : trendsChartData.length > 0 && (
-              <div className="data-card-new rounded-[10px] p-[7px]">
+              <div id="onboarding-chart-trends" className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">מגמות</h3>
                   <Select value={trendsChartPeriod} onValueChange={(v) => setTrendsChartPeriod(v as "year" | "month")}>
@@ -4331,7 +4331,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               ) : orderAvgChartData.length > 0 && incomeSourcesSummary.length > 0 ? (
-              <div className="data-card-new rounded-[10px] p-[7px]">
+              <div id="onboarding-chart-avg" className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">ממוצע הכנסה</h3>
                   <Select value={orderAvgChartPeriod} onValueChange={(v) => setOrderAvgChartPeriod(v as "year" | "month")}>

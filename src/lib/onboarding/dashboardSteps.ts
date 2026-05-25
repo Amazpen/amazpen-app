@@ -1,4 +1,5 @@
 import type { DriveStep } from "driver.js";
+import { spotlightRange } from "./spotlightRange";
 
 /**
  * דמו ויזואלי של טופס ההזנה היומית, מוצג בתוך כרטיס הסיור עצמו
@@ -84,7 +85,7 @@ export const dashboardSteps: DriveStep[] = [
     },
   },
   {
-    element: "#onboarding-income-section",
+    element: spotlightRange("#onboarding-income-section", "#onboarding-expense-section", { untilTopOfTo: true }),
     popover: {
       title: "כרטיסי ניהול הכנסות",
       description:
@@ -94,7 +95,7 @@ export const dashboardSteps: DriveStep[] = [
     },
   },
   {
-    element: "#onboarding-expense-section",
+    element: spotlightRange("#onboarding-expense-section", "#onboarding-charts", { untilTopOfTo: true }),
     popover: {
       title: "כרטיסי ניהול הוצאות",
       description:
@@ -104,11 +105,21 @@ export const dashboardSteps: DriveStep[] = [
     },
   },
   {
-    element: "#onboarding-charts",
+    element: "#onboarding-chart-trends",
     popover: {
-      title: "גרפים ומגמות לאורך זמן",
+      title: "גרף המגמות",
       description:
-        "הגרפים מציגים את ההכנסות וההוצאות לאורך התקופה שנבחרה, כך שאפשר לראות את הכיוון שאליו העסק מתקדם ולא רק מספר בודד. מגמה עולה של הכנסות או מגמה יורדת של הוצאות הן סימן חיובי, וקפיצות חריגות בגרף מסמנות נקודות שכדאי לבדוק לעומק. הגרפים מתעדכנים אוטומטית לפי התקופה והעסק שנבחרו, ומאפשרים לזהות עונתיות, לאתר בעיות בזמן ולתכנן קדימה על בסיס נתונים.",
+        "גרף המגמות מציג את ההכנסות וההוצאות לאורך זמן, כך שאפשר לראות את הכיוון שאליו העסק מתקדם ולא רק מספר בודד. מגמה עולה של הכנסות או מגמה יורדת של הוצאות הן סימן חיובי, וקפיצות חריגות מסמנות נקודות שכדאי לבדוק לעומק. אפשר להחליף בין תצוגה חודשית לשנתית בעזרת הבורר שבפינת הגרף.",
+      side: "top",
+      align: "center",
+    },
+  },
+  {
+    element: "#onboarding-chart-avg",
+    popover: {
+      title: "גרפים נוספים לניתוח מעמיק",
+      description:
+        "מתחת לגרף המגמות מופיעים גרפים נוספים שמפרקים את הביצועים לעומק: ממוצע ההכנסה להזמנה, ניהול עלות המכר, עלות העבודה, וגרף לכל מוצר מנוהל שהגדרת. חלק מהגרפים קבועים וחלקם מותאמים לעסק שלך. כל גרף מאפשר מעבר בין תצוגה חודשית לשנתית, ומסייע לזהות מגמות ספציפיות בכל תחום בנפרד.",
       side: "top",
       align: "center",
     },

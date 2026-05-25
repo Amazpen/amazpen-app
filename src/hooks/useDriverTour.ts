@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { driver, type DriveStep, type Driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import { removeSpotlightProxy } from "@/lib/onboarding/spotlightRange";
 
 const STORAGE_KEY = "amazpen:completedTours";
 
@@ -85,8 +86,19 @@ export function useDriverTour({
     // כדי שהסיור לא יציג כרטיס ריק ממורכז על אזור שלא קיים.
     const visibleSteps = steps.filter((step) => {
       if (!step.element) return true; // שלב ממורכז ללא selector
-      if (typeof step.element !== "string") return true;
-      return !!document.querySelector(step.element);
+      if (typeof step.element === "string") {
+        return !!document.querySelector(step.element);
+      }
+      // element כפונקציה (spotlightRange): מחזירה document.body כ-fallback
+      // כשהטווח לא קיים, נדלג על שלב כזה.
+      if (typeof step.element === "function") {
+        try {
+          return step.element() !== document.body;
+        } catch {
+          return false;
+        }
+      }
+      return true;
     });
 
     const d = driver({
@@ -114,6 +126,7 @@ export function useDriverTour({
       },
       onDestroyed: () => {
         markCompleted(tourName);
+        removeSpotlightProxy();
       },
     });
 
