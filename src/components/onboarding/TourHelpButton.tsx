@@ -6,8 +6,8 @@ import { useDriverTour } from "@/hooks/useDriverTour";
 interface TourHelpButtonProps {
   /** מזהה ייחודי לסיור (נשמר ב-localStorage) */
   tourName: string;
-  /** שלבי הסיור */
-  steps: DriveStep[];
+  /** שלבי הסיור: מערך קבוע או פונקציה שמחושבת ברגע ההפעלה */
+  steps: DriveStep[] | (() => DriveStep[]);
   /** הפעלה אוטומטית בכניסה ראשונה (ברירת מחדל: true) */
   autoStart?: boolean;
   /** נעשה true כשתוכן הדף מוכן, כדי לעכב את ה-auto-start עד לרינדור מלא */

@@ -1,12 +1,13 @@
 "use client";
 
 import { TourHelpButton } from "./TourHelpButton";
-import { reportsSteps } from "@/lib/onboarding/reportsSteps";
+import { getReportsSteps } from "@/lib/onboarding/reportsSteps";
 
 /**
  * אייקון מידע (?) לדף דוח רווח והפסד.
- * מפעיל את סיור הדוח, ומפעיל אותו אוטומטית בכניסה ראשונה.
+ * מעביר את getReportsSteps כפונקציה כדי שהשלבים יחושבו ברגע ההפעלה לפי
+ * התצוגה הפעילה (חודשית/שנתית), שמציגות אזורים שונים בדף.
  */
 export function ReportsHelpButton() {
-  return <TourHelpButton tourName="reports" steps={reportsSteps} />;
+  return <TourHelpButton tourName="reports" steps={getReportsSteps} />;
 }

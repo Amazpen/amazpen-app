@@ -39,8 +39,11 @@ function markCompleted(tourName: string) {
 interface UseDriverTourOptions {
   /** מזהה ייחודי לסיור, נשמר ב-localStorage כדי לא לחזור על הסיור */
   tourName: string;
-  /** שלבי הסיור */
-  steps: DriveStep[];
+  /**
+   * שלבי הסיור. אפשר להעביר מערך קבוע, או פונקציה שמחושבת ברגע ההפעלה
+   * (שימושי לדפים שמציגים אזורים שונים לפי מצב, למשל תצוגה חודשית/שנתית).
+   */
+  steps: DriveStep[] | (() => DriveStep[]);
   /**
    * האם להפעיל אוטומטית בכניסה ראשונה (כשהסיור לא הושלם).
    * ברירת מחדל: false. הפעל רק כשתוכן הדף מוכן (ראה `ready`).
@@ -82,9 +85,12 @@ export function useDriverTour({
     // הרוס מופע קודם אם קיים (הרצה חוזרת)
     driverRef.current?.destroy();
 
+    // אם steps היא פונקציה, חשב אותה עכשיו (לכידת מצב הדף הנוכחי).
+    const resolvedSteps = typeof steps === "function" ? steps() : steps;
+
     // סנן שלבים שה-element שלהם לא קיים ב-DOM (למשל אזורים מותנים שלא מוצגים),
     // כדי שהסיור לא יציג כרטיס ריק ממורכז על אזור שלא קיים.
-    const visibleSteps = steps.filter((step) => {
+    const visibleSteps = resolvedSteps.filter((step) => {
       if (!step.element) return true; // שלב ממורכז ללא selector
       if (typeof step.element === "string") {
         return !!document.querySelector(step.element);

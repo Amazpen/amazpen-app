@@ -1782,7 +1782,7 @@ export default function ReportsPage() {
           the supplier matrix below: outer overflow-x-auto, inner min-w sets the
           horizontal budget. The right-pinned label stays inside the scrolling
           row (sticky was an option but added complexity without much gain). */}
-      <section aria-label="סיכום הכנסות שנתי" className="bg-[#2C3595] rounded-[10px] overflow-x-auto">
+      <section id="onboarding-reports-yearly-income" aria-label="סיכום הכנסות שנתי" className="bg-[#2C3595] rounded-[10px] overflow-x-auto">
         <div dir="rtl" className="min-w-[900px] p-[7px] min-h-[80px] flex items-center justify-between gap-[5px]">
           <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
           <div className="flex items-center gap-[5px] flex-1 min-w-0">
@@ -1804,7 +1804,7 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      <section aria-label="פירוט שנתי לפי ספק" className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+      <section id="onboarding-reports-yearly-breakdown" aria-label="פירוט שנתי לפי ספק" className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
         {/* Title row — title on the right (RTL natural), grand total on the
             left. flex-row-reverse + justify-between would push them apart in
             visual-LTR, which read as the title floating away from its number.
