@@ -4664,7 +4664,7 @@ function ExpensesPageInner() {
       </div>
 
       {/* Chart and Summary Section */}
-      <div className="bg-[#0F1535] rounded-[20px] pb-[10px] mt-[10px]">
+      <div id="onboarding-expenses-chart" className="bg-[#0F1535] rounded-[20px] pb-[10px] mt-[10px]">
         {/* Donut Chart Area */}
         <div className="relative h-[350px] flex items-center justify-center mt-[17px]">
           {chartDataSource.length === 0 ? (
@@ -4883,7 +4883,7 @@ function ExpensesPageInner() {
 
       {/* Recent Invoices Section - חשבוניות אחרונות שהוזנו (hidden for employees tab and when no invoices) */}
       {recentInvoices.length > 0 && activeTab !== "employees" && (
-      <div id="onboarding-expenses-filters" className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
+      <div id="onboarding-expenses-recent" className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
         {/* Header Row - RTL: פילטר בימין, כותרת באמצע, הורדה בשמאל */}
         <div className="flex items-center justify-between">
           {/* Filter Dropdown - Right side */}

@@ -81,6 +81,14 @@ export function useDriverTour({
     // הרוס מופע קודם אם קיים (הרצה חוזרת)
     driverRef.current?.destroy();
 
+    // סנן שלבים שה-element שלהם לא קיים ב-DOM (למשל אזורים מותנים שלא מוצגים),
+    // כדי שהסיור לא יציג כרטיס ריק ממורכז על אזור שלא קיים.
+    const visibleSteps = steps.filter((step) => {
+      if (!step.element) return true; // שלב ממורכז ללא selector
+      if (typeof step.element !== "string") return true;
+      return !!document.querySelector(step.element);
+    });
+
     const d = driver({
       showProgress: true,
       progressText: "{{current}} מתוך {{total}}",
@@ -97,7 +105,7 @@ export function useDriverTour({
       showButtons: ["next", "previous", "close"],
       // לחיצה על הרקע סוגרת את הסיור
       allowClose: true,
-      steps,
+      steps: visibleSteps,
       onPopoverRender: (popover) => {
         // החלף את התו "×" של driver.js ב-SVG הסטנדרטי של המערכת
         if (popover.closeButton) {
