@@ -848,6 +848,11 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   color: rgba(255, 255, 255, 0.4);
 }
 
+.amazpen-driver-popover .driver-popover-navigation-btns {
+  display: flex;
+  gap: 8px;
+}
+
 .amazpen-driver-popover .driver-popover-navigation-btns button {
   background-color: transparent;
   color: rgba(255, 255, 255, 0.7);
