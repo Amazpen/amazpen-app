@@ -87,13 +87,15 @@ export const suppliersSteps: DriveStep[] = [
     },
   },
   {
-    element: "#onboarding-suppliers-list",
+    // ממקדים על כרטיס הספק הראשון בלבד (לא כל הרשימה הארוכה), כדי שה-popover
+    // יופיע צמוד אליו ולא ייחתך בתחתית המסך.
+    element: "#onboarding-suppliers-list .grid > button:first-child",
     popover: {
       title: "רשימת הספקים",
       description:
         "כל כרטיס ברשימה מייצג ספק, ומציג את שמו, היתרה הפתוחה מולו והקטגוריה שלו. לחיצה על ספק פותחת את כל הפרטים: היסטוריית החשבוניות, התשלומים שבוצעו והיתרה לתשלום. זהו המקום לעקוב אחר כל ספק בנפרד, לעדכן פרטים ולנהל את ההתחשבנות מולו.",
-      side: "top",
-      align: "center",
+      side: "bottom",
+      align: "start",
     },
   },
 ];
