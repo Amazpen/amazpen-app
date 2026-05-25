@@ -810,6 +810,20 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   text-align: right;
 }
 
+/* Amazpen logo at the top of the tour card */
+.amazpen-driver-popover .amazpen-driver-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.amazpen-driver-popover .amazpen-driver-logo img {
+  width: 96px;
+  height: auto;
+  object-fit: contain;
+}
+
 .amazpen-driver-popover .driver-popover-title {
   font-size: 16px;
   font-weight: 700;

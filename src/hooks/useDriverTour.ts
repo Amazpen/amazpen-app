@@ -14,6 +14,14 @@ const CLOSE_ICON_SVG =
   '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>' +
   "</svg>";
 
+// לוגו Amazpen הלבן, מוצג בקטן בראש כרטיס הסיור
+const LOGO_URL =
+  "https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/cdn-cgi/image/w=192,h=88,f=auto,dpr=2,fit=contain/f1740495696315x242439751655884480/logo%20white.png";
+const LOGO_HTML =
+  '<div class="amazpen-driver-logo">' +
+  `<img src="${LOGO_URL}" alt="Amazpen" width="96" height="44" />` +
+  "</div>";
+
 function readCompleted(): Record<string, boolean> {
   if (typeof window === "undefined") return {};
   try {
@@ -101,6 +109,10 @@ export function useDriverTour({
         // החלף את התו "×" של driver.js ב-SVG הסטנדרטי של המערכת
         if (popover.closeButton) {
           popover.closeButton.innerHTML = CLOSE_ICON_SVG;
+        }
+        // הוסף את לוגו Amazpen בראש הכרטיס (לפני הכותרת), פעם אחת
+        if (popover.wrapper && !popover.wrapper.querySelector(".amazpen-driver-logo")) {
+          popover.wrapper.insertAdjacentHTML("afterbegin", LOGO_HTML);
         }
       },
       onDestroyed: () => {
