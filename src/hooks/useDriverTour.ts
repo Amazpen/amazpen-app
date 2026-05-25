@@ -6,6 +6,12 @@ import "driver.js/dist/driver.css";
 
 const STORAGE_KEY = "amazpen:completedTours";
 
+// אותו אייקון X כמו בשאר כפתורי הסגירה במערכת (במקום התו "×" של driver.js)
+const CLOSE_ICON_SVG =
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none">' +
+  '<path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+  "</svg>";
+
 function readCompleted(): Record<string, boolean> {
   if (typeof window === "undefined") return {};
   try {
@@ -27,7 +33,7 @@ function markCompleted(tourName: string) {
 }
 
 interface UseDriverTourOptions {
-  /** מזהה ייחודי לסיור — נשמר ב-localStorage כדי לא לחזור על הסיור */
+  /** מזהה ייחודי לסיור, נשמר ב-localStorage כדי לא לחזור על הסיור */
   tourName: string;
   /** שלבי הסיור */
   steps: DriveStep[];
@@ -48,8 +54,8 @@ interface UseDriverTourOptions {
  * driver.js תומך RTL אוטומטית (קורא את dir של המסמך), בניגוד ל-nextstepjs.
  *
  * מחזיר:
- *  - `start()` — מפעיל את הסיור מיד (להרצה חוזרת דרך אייקון העזרה).
- *  - `hasCompleted()` — האם הסיור כבר הושלם.
+ *  - `start()`: מפעיל את הסיור מיד (להרצה חוזרת דרך אייקון העזרה).
+ *  - `hasCompleted()`: האם הסיור כבר הושלם.
  */
 export function useDriverTour({
   tourName,
@@ -89,6 +95,12 @@ export function useDriverTour({
       // לחיצה על הרקע סוגרת את הסיור
       allowClose: true,
       steps,
+      onPopoverRender: (popover) => {
+        // החלף את התו "×" של driver.js ב-SVG הסטנדרטי של המערכת
+        if (popover.closeButton) {
+          popover.closeButton.innerHTML = CLOSE_ICON_SVG;
+        }
+      },
       onDestroyed: () => {
         markCompleted(tourName);
       },

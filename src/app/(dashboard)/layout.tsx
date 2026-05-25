@@ -17,8 +17,7 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { Button } from "@/components/ui/button";
-import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
-// HelpButton הוסר מה-header הגלובלי — אייקון המידע ממוקם כרגע רק בדף הדשבורד עצמו
+// אייקון המידע/סיור ממוקם כרגע רק בדף הדשבורד עצמו (DashboardHelpButton), לא בסרגל הגלובלי
 
 // Context for sharing selected businesses across pages
 interface DashboardContextType {
