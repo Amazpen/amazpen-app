@@ -92,6 +92,9 @@ export function useDriverTour({
     // כדי שהסיור לא יציג כרטיס ריק ממורכז על אזור שלא קיים.
     const visibleSteps = resolvedSteps.filter((step) => {
       if (!step.element) return true; // שלב ממורכז ללא selector
+      // שלב עם onHighlightStarted עשוי ליצור את ה-element בעצמו (למשל לפתוח
+      // טופס), אז לא מסננים אותו מראש גם אם ה-element עדיין לא קיים.
+      if (step.onHighlightStarted) return true;
       if (typeof step.element === "string") {
         return !!document.querySelector(step.element);
       }
