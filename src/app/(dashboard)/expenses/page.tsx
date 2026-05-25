@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Suspense } from "react";
 import { X } from "lucide-react";
-import { CookingPot, Receipt, UsersThree } from "@phosphor-icons/react";
+import { CookingPotIcon as CookingPot, ReceiptIcon as Receipt, UsersThreeIcon as UsersThree } from "@phosphor-icons/react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";

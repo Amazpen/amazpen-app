@@ -192,20 +192,20 @@ const pageTitles: Record<string, string> = {
 
 // Dashboard icon component
 import {
-  ChartPieSlice,
-  Receipt as ReceiptIcon,
-  ListChecks,
-  LightbulbFilament,
-  PresentationChart as PresentationChartIcon,
-  ClipboardText,
-  Trophy as TrophyIcon,
-  Wallet as WalletIcon,
-  ArrowsLeftRight as ArrowsLeftRightIcon,
-  Package as PackageIcon,
-  SignOut,
-  SquaresFour,
-  GearSix,
-  UsersThree,
+  ChartPieSliceIcon as ChartPieSlice,
+  ReceiptIcon,
+  ListChecksIcon as ListChecks,
+  LightbulbFilamentIcon as LightbulbFilament,
+  PresentationChartIcon,
+  ClipboardTextIcon as ClipboardText,
+  TrophyIcon,
+  WalletIcon,
+  ArrowsLeftRightIcon,
+  PackageIcon,
+  SignOutIcon as SignOut,
+  SquaresFourIcon as SquaresFour,
+  GearSixIcon as GearSix,
+  UsersThreeIcon as UsersThree,
 } from "@phosphor-icons/react";
 
 const PhosphorSidebarIcon = ({ Icon, active }: { Icon: React.ElementType; active?: boolean }) => (

@@ -1,16 +1,16 @@
 import {
-  ChartLineUp,
-  UsersThree,
-  CookingPot,
-  Receipt,
-  MopedFront,
-  Package,
-  Trophy,
-  ArrowsLeftRight,
-  Wallet,
-  PresentationChart,
-  LightbulbFilament,
-  GearSix,
+  ChartLineUpIcon as ChartLineUp,
+  UsersThreeIcon as UsersThree,
+  CookingPotIcon as CookingPot,
+  ReceiptIcon as Receipt,
+  MopedFrontIcon as MopedFront,
+  PackageIcon as Package,
+  TrophyIcon as Trophy,
+  ArrowsLeftRightIcon as ArrowsLeftRight,
+  WalletIcon as Wallet,
+  PresentationChartIcon as PresentationChart,
+  LightbulbFilamentIcon as LightbulbFilament,
+  GearSixIcon as GearSix,
 } from "@phosphor-icons/react";
 
 export const METRIC_ICONS = {

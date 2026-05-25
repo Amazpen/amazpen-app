@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
-import { ChartLineUp, Receipt, UsersThree, Package, ArrowsLeftRight, GearSix, Trophy } from "@phosphor-icons/react";
+import { ChartLineUpIcon as ChartLineUp, ReceiptIcon as Receipt, UsersThreeIcon as UsersThree, PackageIcon as Package, ArrowsLeftRightIcon as ArrowsLeftRight, GearSixIcon as GearSix, TrophyIcon as Trophy } from "@phosphor-icons/react";
 
 // ============================================================================
 // TYPES

@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { GoalsHelpButton } from "@/components/onboarding/GoalsHelpButton";
 import { Input } from "@/components/ui/input";
-import { Trophy, CookingPot, Receipt } from "@phosphor-icons/react";
+import { TrophyIcon as Trophy, CookingPotIcon as CookingPot, ReceiptIcon as Receipt } from "@phosphor-icons/react";
 
 // Types
 type TabType = "vs-goods" | "vs-current" | "kpi";
