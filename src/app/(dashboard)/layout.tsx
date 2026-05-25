@@ -17,8 +17,8 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { Button } from "@/components/ui/button";
-// import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
-// import { HelpButton } from "@/components/onboarding/HelpButton";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
+// HelpButton הוסר מה-header הגלובלי — אייקון המידע ממוקם כרגע רק בדף הדשבורד עצמו
 
 // Context for sharing selected businesses across pages
 interface DashboardContextType {
@@ -1248,9 +1248,6 @@ export default function DashboardLayout({
               </Link>
             )}
 
-            {/* Help/Tour Button - disabled temporarily */}
-            {/* <HelpButton /> */}
-
             {/* מרכזת Button */}
             <Button
               type="button"
@@ -1271,7 +1268,7 @@ export default function DashboardLayout({
             lastSyncResult={offlineSync.lastSyncResult}
             onSync={offlineSync.syncPending}
           />
-          {children}
+          <OnboardingProvider>{children}</OnboardingProvider>
         </main>
 
         {/* Coordinator Modal */}

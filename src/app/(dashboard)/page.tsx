@@ -8,6 +8,7 @@ import { DailyEntryForm } from "@/components/dashboard/DailyEntryForm";
 import { DailyEntriesModal } from "@/components/dashboard/DailyEntriesModal";
 import { HistoryModal } from "@/components/dashboard/HistoryModal";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DashboardHelpButton } from "@/components/onboarding/DashboardHelpButton";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
@@ -3001,6 +3002,7 @@ export default function DashboardPage() {
                   </svg>
                 </Button>
                 <h2 className="text-[18px] sm:text-lg font-semibold text-white">לקוחות</h2>
+                <DashboardHelpButton />
               </>
             )}
           </div>
@@ -3015,7 +3017,9 @@ export default function DashboardPage() {
                 </div>
               )}
               <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
-              <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+              <div id="onboarding-datepicker">
+                <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+              </div>
             </div>
           )}
         </div>

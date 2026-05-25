@@ -19,6 +19,22 @@ export const dashboardTour: Tour = {
       pointerRadius: 0,
     },
     {
+      icon: <>📅</>,
+      title: "בחירת תקופה",
+      content: (
+        <>
+          כאן בוחרים את התקופה המוצגת — חודש, טווח תאריכים מותאם או תקופות
+          מוכנות. כל הנתונים בדף מתעדכנים בהתאם לבחירה.
+        </>
+      ),
+      selector: "#onboarding-datepicker",
+      side: "bottom",
+      showControls: true,
+      showSkip: true,
+      pointerPadding: 8,
+      pointerRadius: 10,
+    },
+    {
       icon: <>🏢</>,
       title: "כרטיסי עסקים",
       content: (
