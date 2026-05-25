@@ -4664,9 +4664,9 @@ function ExpensesPageInner() {
       </div>
 
       {/* Chart and Summary Section */}
-      <div id="onboarding-expenses-chart" className="bg-[#0F1535] rounded-[20px] pb-[10px] mt-[10px]">
+      <div className="bg-[#0F1535] rounded-[20px] pb-[10px] mt-[10px]">
         {/* Donut Chart Area */}
-        <div className="relative h-[350px] flex items-center justify-center mt-[17px]">
+        <div id="onboarding-expenses-chart" className="relative h-[350px] flex items-center justify-center mt-[17px]">
           {chartDataSource.length === 0 ? (
             /* Empty State - No Data */
             <div className="flex flex-col items-center justify-center gap-[15px]">
@@ -4720,7 +4720,7 @@ function ExpensesPageInner() {
             ? categoryData.length > 0
             : expensesData.length > 0
         ) && (
-        <div className="max-w-[400px] mx-auto">
+        <div id="onboarding-expenses-breakdown" className="max-w-[400px] mx-auto">
           <h2 className="text-[24px] font-bold text-center mb-[20px]">פירוט הוצאות</h2>
 
           {/* Table Header */}
