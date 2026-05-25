@@ -227,11 +227,34 @@ export default function RootLayout({
                   }).catch(function() {});
                 });
 
+                // A new SW took control (we now skipWaiting() automatically on
+                // deploy). Reload so the client runs the fresh build. To avoid
+                // yanking the page out from under someone mid-task, only reload
+                // immediately when the tab is hidden; otherwise reload on the
+                // next time the tab regains focus / becomes visible.
                 var refreshing = false;
-                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                function doRefresh() {
                   if (refreshing) return;
                   refreshing = true;
                   window.location.reload();
+                }
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                  if (document.visibilityState === 'hidden') {
+                    doRefresh();
+                  } else {
+                    var onVisible = function() {
+                      if (document.visibilityState === 'visible') {
+                        document.removeEventListener('visibilitychange', onVisible);
+                        doRefresh();
+                      }
+                    };
+                    // Reload as soon as the user leaves and comes back, or on
+                    // next focus — whichever happens first. Falls back to a
+                    // short delay so an always-foreground PWA still updates.
+                    document.addEventListener('visibilitychange', onVisible);
+                    window.addEventListener('focus', doRefresh, { once: true });
+                    setTimeout(doRefresh, 3000);
+                  }
                 });
               }
         `}</Script>

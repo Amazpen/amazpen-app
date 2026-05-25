@@ -1,5 +1,5 @@
 // BUILD_TIME=1779613933322
-const CACHE_NAME = 'amazpen-v5';
+const CACHE_NAME = 'amazpen-v6';
 const STATIC_ASSETS = [
   '/',
   '/icon.svg',
@@ -7,15 +7,21 @@ const STATIC_ASSETS = [
   '/icon-512.png',
 ];
 
-// Install event - cache static assets, wait for user to approve update
+// Install event - cache static assets, then activate immediately.
+// We call skipWaiting() so a freshly-deployed SW takes over without waiting
+// for the user to click an update banner. This is what guarantees that an
+// installed PWA always picks up the latest build (the previous "wait for
+// UpdatePrompt" approach left installed apps stuck on the old version when
+// the banner was missed). The fetch handler never caches HTML or _next/
+// chunks, so taking over mid-session just means the next navigation/chunk
+// load comes fresh from the network.
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  // Do NOT call self.skipWaiting() here — let UpdatePrompt handle it
-  // so users don't lose their screen mid-use
+  self.skipWaiting();
 });
 
 // Activate event - clear ALL caches on new SW version to prevent stale content
