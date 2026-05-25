@@ -3954,7 +3954,7 @@ function PaymentsPageInner() {
       )}
 
       {/* Chart and Summary Section */}
-      <div id="onboarding-payments-chart" className="bg-[#0F1535] rounded-[20px] p-[20px_0px_10px] mt-[10px]">
+      <div className="bg-[#0F1535] rounded-[20px] p-[20px_0px_10px] mt-[10px]">
         {/* Header - Title and Total - hidden when no data */}
         {paymentMethodsData.length > 0 && (
           <div className="flex items-center justify-between">
@@ -3969,7 +3969,7 @@ function PaymentsPageInner() {
         )}
 
         {/* Pie Chart Area */}
-        <div className="relative h-[350px] min-w-[1px] min-h-[1px] flex items-center justify-center mt-[35px]">
+        <div id="onboarding-payments-chart" className="relative h-[350px] min-w-[1px] min-h-[1px] flex items-center justify-center mt-[35px]">
           {paymentMethodsData.length === 0 ? (
             /* Empty State - No Data */
             <div className="flex flex-col items-center justify-center gap-[15px]">
@@ -4009,7 +4009,7 @@ function PaymentsPageInner() {
 
         {/* Payment Methods Summary Table - hidden when no data */}
         {paymentMethodsData.length > 0 && (
-        <div className="max-w-[350px] mx-auto">
+        <div id="onboarding-payments-breakdown" className="max-w-[350px] mx-auto">
           <h2 className="text-[24px] font-bold text-center mb-[20px]">סיכום לפי אמצעי תשלום</h2>
 
           {/* Table Header */}

@@ -87,6 +87,16 @@ export const paymentsSteps: DriveStep[] = [
     },
   },
   {
+    element: "#onboarding-payments-breakdown",
+    popover: {
+      title: "סיכום לפי אמצעי תשלום",
+      description:
+        "מתחת לגרף מופיע פירוט מספרי של התשלומים לפי כל אמצעי תשלום: הסכום ששולם בכל אמצעי והאחוז שלו מתוך סך התשלומים. זה עוזר לך להבין במדויק כמה כסף עובר בכל ערוץ, לעקוב אחר עמלות אשראי ולתכנן את התזרים בהתאם.",
+      side: "top",
+      align: "center",
+    },
+  },
+  {
     element: "#onboarding-payments-list",
     popover: {
       title: "רשימת התשלומים",
