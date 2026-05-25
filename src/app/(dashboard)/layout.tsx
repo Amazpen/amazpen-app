@@ -1268,7 +1268,7 @@ export default function DashboardLayout({
             lastSyncResult={offlineSync.lastSyncResult}
             onSync={offlineSync.syncPending}
           />
-          <OnboardingProvider>{children}</OnboardingProvider>
+          {children}
         </main>
 
         {/* Coordinator Modal */}

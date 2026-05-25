@@ -793,3 +793,91 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
 .ocr-confidence-low {
   background-color: #EB5757;
 }
+
+/* ============================================================
+   Onboarding tour (driver.js) — Amazpen brand theme, RTL
+   ============================================================ */
+.amazpen-driver-popover.driver-popover {
+  background-color: #29318a;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  max-width: 340px;
+  min-width: 280px;
+  padding: 20px;
+  direction: rtl;
+  text-align: right;
+}
+
+.amazpen-driver-popover .driver-popover-title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.amazpen-driver-popover .driver-popover-description {
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* close (X) button — top-left in RTL */
+.amazpen-driver-popover .driver-popover-close-btn {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 20px;
+  inset-inline-end: auto;
+  inset-inline-start: 12px;
+  top: 12px;
+  transition: color 0.2s;
+}
+.amazpen-driver-popover .driver-popover-close-btn:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* footer: progress + nav buttons */
+.amazpen-driver-popover .driver-popover-footer {
+  margin-top: 16px;
+  gap: 8px;
+}
+
+.amazpen-driver-popover .driver-popover-progress-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.amazpen-driver-popover .driver-popover-navigation-btns button {
+  background-color: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  text-shadow: none;
+  transition: all 0.2s;
+}
+.amazpen-driver-popover .driver-popover-navigation-btns button:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.4);
+  background-color: transparent;
+}
+
+/* primary "next/done" button — last button in the nav group */
+.amazpen-driver-popover .driver-popover-navigation-btns button.driver-popover-next-btn {
+  background-color: #6366f1;
+  color: #ffffff;
+  border-color: #6366f1;
+  font-weight: 700;
+}
+.amazpen-driver-popover .driver-popover-navigation-btns button.driver-popover-next-btn:hover {
+  background-color: #5558e3;
+  border-color: #5558e3;
+}
+
+/* arrow color to match popover background */
+.amazpen-driver-popover .driver-popover-arrow {
+  border-color: #29318a;
+}

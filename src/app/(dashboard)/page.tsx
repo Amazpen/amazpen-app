@@ -3002,7 +3002,7 @@ export default function DashboardPage() {
                   </svg>
                 </Button>
                 <h2 className="text-[18px] sm:text-lg font-semibold text-white">לקוחות</h2>
-                <DashboardHelpButton />
+                <DashboardHelpButton ready={!isLoading} />
               </>
             )}
           </div>

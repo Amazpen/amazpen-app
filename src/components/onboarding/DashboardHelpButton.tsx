@@ -1,28 +1,36 @@
 "use client";
 
-import { useNextStep } from "nextstepjs";
-import { useOnboarding } from "@/hooks/useOnboarding";
+import { useDriverTour } from "@/hooks/useDriverTour";
+import { dashboardSteps } from "@/lib/onboarding/dashboardSteps";
+
+interface DashboardHelpButtonProps {
+  /**
+   * נעשה true כשתוכן הדשבורד נטען (עסקים + נתונים) כדי שה-auto-start
+   * יחכה לרינדור מלא לפני שמפעיל את הסיור בכניסה ראשונה.
+   */
+  ready?: boolean;
+}
 
 /**
- * אייקון מידע (?) לדף הדשבורד.
- * מאפס את הסיור "dashboard" ומפעיל אותו מחדש בלחיצה.
+ * אייקון מידע (?) לדף הדשבורד + הפעלה אוטומטית של הסיור בכניסה ראשונה.
+ * משתמש ב-driver.js (תומך RTL אוטומטית) ובמופע יחיד של הסיור — לחיצה על
+ * האייקון והפעלה אוטומטית חולקים את אותו hook.
  * עוצב להתאים בדיוק לסטייל כפתור החיפוש שלצד הכותרת "לקוחות".
  */
-export function DashboardHelpButton() {
-  const { startNextStep } = useNextStep();
-  const { resetTour } = useOnboarding();
-
-  const handleClick = () => {
-    resetTour("dashboard");
-    startNextStep("dashboard");
-  };
+export function DashboardHelpButton({ ready = true }: DashboardHelpButtonProps) {
+  const { start } = useDriverTour({
+    tourName: "dashboard",
+    steps: dashboardSteps,
+    autoStart: true,
+    ready,
+  });
 
   return (
     <button
       type="button"
       aria-label="הצג מדריך"
       title="הצג מדריך"
-      onClick={handleClick}
+      onClick={start}
       className="w-[40px] h-[40px] sm:w-[30px] sm:h-[30px] flex-shrink-0 flex items-center justify-center text-[#4C526B] hover:text-[#7B91B0] transition-colors cursor-pointer touch-manipulation"
     >
       <svg
