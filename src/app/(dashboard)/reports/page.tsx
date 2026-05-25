@@ -1311,7 +1311,7 @@ export default function ReportsPage() {
             reads as part of the "what am I looking at" controls. Monthly is
             the default (and what the rest of the report was built around);
             yearly swaps the report body for a 12-month supplier breakdown. */}
-        <div className="flex flex-row-reverse items-center w-full gap-[5px] p-[3px] bg-[#1a1f4e] rounded-[7px] border border-[#727BA0]">
+        <div id="onboarding-reports-viewtoggle" className="flex flex-row-reverse items-center w-full gap-[5px] p-[3px] bg-[#1a1f4e] rounded-[7px] border border-[#727BA0]">
           <button
             type="button"
             onClick={() => setViewMode("monthly")}
@@ -1334,7 +1334,7 @@ export default function ReportsPage() {
 
         {/* Date Filters Row — month selector is hidden in yearly view because
             the whole point of yearly is to show all 12 months side-by-side. */}
-        <div className="flex flex-row-reverse items-center justify-between w-full min-h-[40px] gap-[10px]">
+        <div id="onboarding-reports-filters" className="flex flex-row-reverse items-center justify-between w-full min-h-[40px] gap-[10px]">
           {viewMode === "monthly" && (
           <div className="flex-1">
             <Select value={selectedMonth || "__none__"} onValueChange={(val) => setSelectedMonth(val === "__none__" ? "" : val)}>
@@ -1371,7 +1371,7 @@ export default function ReportsPage() {
 
       {/* 6-Month Income vs Expenses Chart */}
       {trendsData.length > 0 && trendsData.some(d => d.income > 0 || d.expenses > 0) && (
-        <section aria-label="מגמות הכנסות מול הוצאות" className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
+        <section id="onboarding-reports-trends" aria-label="מגמות הכנסות מול הוצאות" className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
           <div className="flex items-center justify-between">
             <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות (ללא מע&quot;מ) — 6 חודשים</span>
             <div className="flex items-center gap-[12px]">
@@ -1404,7 +1404,7 @@ export default function ReportsPage() {
       )}
 
       {/* Income Summary Card */}
-      <section aria-label="סיכום הכנסות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]">
+      <section id="onboarding-reports-income" aria-label="סיכום הכנסות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]">
         <div className="flex flex-row-reverse items-center gap-[5px] flex-1 min-w-0">
           <div className="flex flex-col items-center flex-1 min-w-0">
             <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-%</span>
@@ -1438,7 +1438,7 @@ export default function ReportsPage() {
         </div>
 
         {/* Table Header */}
-        <div className="flex flex-row-reverse items-center justify-between min-h-[50px] border-b-2 border-white/15 p-[5px] gap-[5px]">
+        <div id="onboarding-reports-columns" className="flex flex-row-reverse items-center justify-between min-h-[50px] border-b-2 border-white/15 p-[5px] gap-[5px]">
           <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
             <span className="text-[11px] sm:text-[14px] font-semibold flex-1 min-w-0 text-center leading-[1.4]">נותר לניצול</span>
             <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center leading-[1.4]">הפרש ב-₪</span>
