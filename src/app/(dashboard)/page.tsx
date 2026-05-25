@@ -3002,7 +3002,6 @@ export default function DashboardPage() {
                   </svg>
                 </Button>
                 <h2 className="text-[18px] sm:text-lg font-semibold text-white">לקוחות</h2>
-                <DashboardHelpButton ready={!isLoading} />
               </>
             )}
           </div>
@@ -3020,6 +3019,7 @@ export default function DashboardPage() {
               <div id="onboarding-datepicker">
                 <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
               </div>
+              <DashboardHelpButton ready={!isLoading} />
             </div>
           )}
         </div>

@@ -31,7 +31,7 @@ export function DashboardHelpButton({ ready = true }: DashboardHelpButtonProps) 
       aria-label="הצג מדריך"
       title="הצג מדריך"
       onClick={start}
-      className="w-[40px] h-[40px] sm:w-[30px] sm:h-[30px] flex-shrink-0 flex items-center justify-center text-[#4C526B] hover:text-[#7B91B0] transition-colors cursor-pointer touch-manipulation"
+      className="w-[40px] h-[40px] sm:w-[34px] sm:h-[34px] flex-shrink-0 flex items-center justify-center rounded-full bg-[#FFA412] text-white hover:bg-[#e8950c] transition-colors cursor-pointer touch-manipulation shadow-sm"
     >
       <svg
         width="24"
