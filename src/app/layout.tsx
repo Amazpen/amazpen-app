@@ -110,35 +110,50 @@ export default function RootLayout({
         {children}
         <Script
           id="auto-cache-buster"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         >{`
               (function() {
-                var BUILD_VERSION = "${Date.now()}";
+                // Detect a new build by reading sw.js BUILD_TIME, which is always
+                // served fresh (no-cache header) and is regenerated on every deploy.
+                // The previous approach embedded Date.now() at SSR time, but when the
+                // HTML itself came from a stale cache that value never changed, so the
+                // buster never fired and clients stayed stuck on old code.
                 var KEY = "amazpen_build_version";
+                var TOURS_KEY = "amazpen:completedTours";
+                function nukeAndReload() {
+                  var done = function() { window.location.reload(); };
+                  var unreg = function() {
+                    if ('serviceWorker' in navigator) {
+                      navigator.serviceWorker.getRegistrations().then(function(regs) {
+                        return Promise.all(regs.map(function(r) { return r.unregister(); }));
+                      }).then(done, done);
+                    } else { done(); }
+                  };
+                  if ('caches' in window) {
+                    caches.keys().then(function(keys) {
+                      return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+                    }).then(unreg, unreg);
+                  } else { unreg(); }
+                }
                 try {
-                  var stored = localStorage.getItem(KEY);
-                  localStorage.setItem(KEY, BUILD_VERSION);
-                  if (stored && stored !== BUILD_VERSION) {
-                    // Version changed — nuke all caches and unregister SW
-                    if ('caches' in window) {
-                      caches.keys().then(function(keys) {
-                        return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-                      }).then(function() {
-                        if ('serviceWorker' in navigator) {
-                          navigator.serviceWorker.getRegistrations().then(function(regs) {
-                            return Promise.all(regs.map(function(r) { return r.unregister(); }));
-                          }).then(function() {
-                            window.location.reload();
-                          });
-                        } else {
-                          window.location.reload();
-                        }
-                      });
-                    } else {
-                      window.location.reload();
-                    }
-                  }
-                } catch(e) {}
+                  fetch('/sw.js?_cb=' + Date.now(), { cache: 'no-store' })
+                    .then(function(r) { return r.text(); })
+                    .then(function(text) {
+                      var m = text.match(/BUILD_TIME=(\\d+)/);
+                      if (!m) return;
+                      var serverBuild = m[1];
+                      var stored = localStorage.getItem(KEY);
+                      if (!stored) { localStorage.setItem(KEY, serverBuild); return; }
+                      if (stored !== serverBuild) {
+                        localStorage.setItem(KEY, serverBuild);
+                        // New build: re-show the onboarding tours so users see the
+                        // latest steps, and wipe stale caches so new code loads.
+                        try { localStorage.removeItem(TOURS_KEY); } catch (e) {}
+                        nukeAndReload();
+                      }
+                    })
+                    .catch(function() {});
+                } catch (e) {}
               })();
         `}</Script>
         <Script
