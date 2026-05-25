@@ -810,19 +810,6 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   text-align: right;
 }
 
-/* Amazpen logo at the top of the tour card */
-.amazpen-driver-popover .amazpen-driver-logo {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-}
-.amazpen-driver-popover .amazpen-driver-logo img {
-  width: 96px;
-  height: auto;
-  object-fit: contain;
-}
 
 .amazpen-driver-popover .driver-popover-title {
   font-size: 16px;
@@ -854,18 +841,23 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   inset-inline-end: auto;
   inset-inline-start: 12px;
   top: 12px;
-  color: #ffffff;
+  color: #ffffff !important;
   line-height: 1;
   background-color: transparent;
   transition: opacity 0.2s;
 }
-.amazpen-driver-popover .driver-popover-close-btn:hover {
-  color: #ffffff;
+.amazpen-driver-popover .driver-popover-close-btn:hover,
+.amazpen-driver-popover .driver-popover-close-btn:focus {
+  color: #ffffff !important;
   opacity: 0.75;
 }
 .amazpen-driver-popover .driver-popover-close-btn svg {
   width: 24px;
   height: 24px;
+}
+/* force the X strokes white regardless of inherited/UA color */
+.amazpen-driver-popover .driver-popover-close-btn svg path {
+  stroke: #ffffff !important;
 }
 
 /* footer: progress + nav buttons */
