@@ -12,6 +12,7 @@ import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { fireBudgetAlert } from "@/lib/budget-alert";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { ExpensesHelpButton } from "@/components/onboarding/ExpensesHelpButton";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -4631,7 +4632,7 @@ function ExpensesPageInner() {
     <div className="text-white p-[7px] pb-[10px] w-full">
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val as "expenses" | "purchases" | "employees"); setFilterBy(""); setFilterValue(""); }} dir="rtl">
-        <TabsList className="w-full bg-transparent rounded-[7px] p-0 h-auto sm:h-[60px] mb-[20px] sm:mb-[34px] gap-0 border border-[#6B6B6B] overflow-hidden grid grid-cols-3">
+        <TabsList id="onboarding-expenses-tabs" className="w-full bg-transparent rounded-[7px] p-0 h-auto sm:h-[60px] mb-[20px] sm:mb-[34px] gap-0 border border-[#6B6B6B] overflow-hidden grid grid-cols-3">
           <TabsTrigger value="purchases" className="text-[12px] sm:text-[20px] font-semibold py-0 h-[44px] sm:h-full rounded-none border-none border-l border-[#6B6B6B]/60 data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><CookingPot size={16} weight="duotone" className="shrink-0 hidden sm:inline-block" />קניות סחורה</span></TabsTrigger>
           <TabsTrigger value="expenses" className="text-[12px] sm:text-[20px] font-semibold py-0 h-[44px] sm:h-full rounded-none border-none border-l border-[#6B6B6B]/60 data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><Receipt size={16} weight="duotone" className="shrink-0 hidden sm:inline-block" />הוצאות שוטפות</span></TabsTrigger>
           <TabsTrigger value="employees" className="text-[12px] sm:text-[20px] font-semibold py-0 h-[44px] sm:h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><UsersThree size={16} weight="duotone" className="shrink-0 hidden sm:inline-block" />עלות עובדים</span></TabsTrigger>
@@ -4655,7 +4656,10 @@ function ExpensesPageInner() {
         </Button>
         <div className="flex items-center gap-[8px]">
           <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
-          <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+          <div id="onboarding-expenses-datepicker">
+            <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+          </div>
+          <ExpensesHelpButton />
         </div>
       </div>
 
