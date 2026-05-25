@@ -8,7 +8,7 @@ import type { DriveStep } from "driver.js";
 export const dashboardSteps: DriveStep[] = [
   {
     popover: {
-      title: "👋 ברוכים הבאים למצפן!",
+      title: "ברוכים הבאים למצפן!",
       description:
         "זהו הדשבורד הראשי שלך. כאן תוכל לראות סיכום של כל העסקים, נתונים פיננסיים ומגמות בזמן אמת. בוא נעבור על זה יחד.",
     },
@@ -16,7 +16,7 @@ export const dashboardSteps: DriveStep[] = [
   {
     element: "#onboarding-datepicker",
     popover: {
-      title: "📅 בחירת תקופה",
+      title: "בחירת תקופה",
       description:
         "כאן בוחרים את התקופה המוצגת — חודש, טווח תאריכים מותאם או תקופות מוכנות. כל הנתונים בדף מתעדכנים בהתאם לבחירה.",
       side: "bottom",
@@ -26,7 +26,7 @@ export const dashboardSteps: DriveStep[] = [
   {
     element: "#onboarding-business-cards",
     popover: {
-      title: "🏢 כרטיסי עסקים",
+      title: "כרטיסי עסקים",
       description:
         "לחץ על כרטיס עסק כדי לבחור אותו. לאחר הבחירה יוצגו נתונים מפורטים כולל הכנסות, הוצאות והפרש מהיעד.",
       side: "bottom",
@@ -36,7 +36,7 @@ export const dashboardSteps: DriveStep[] = [
   {
     element: "#onboarding-daily-entry",
     popover: {
-      title: "📝 הזנת נתונים יומית",
+      title: "הזנת נתונים יומית",
       description:
         "כאן תזין את הנתונים היומיים של העסק — הכנסות, הזמנות ועוד. לחץ על הכפתור כדי להתחיל.",
       side: "bottom",
@@ -46,7 +46,7 @@ export const dashboardSteps: DriveStep[] = [
   {
     element: "#onboarding-data-cards",
     popover: {
-      title: "📊 כרטיסי נתונים",
+      title: "כרטיסי נתונים",
       description:
         "כרטיסים אלו מציגים סיכום מפורט: הכנסות, עלות עובדים, עלות מכר, הוצאות שוטפות והשוואה לתקופות קודמות.",
       side: "top",
@@ -56,7 +56,7 @@ export const dashboardSteps: DriveStep[] = [
   {
     element: "#onboarding-charts",
     popover: {
-      title: "📈 גרפים ומגמות",
+      title: "גרפים ומגמות",
       description:
         "עקוב אחרי מגמות הכנסות והוצאות לאורך זמן. הגרפים מתעדכנים אוטומטית בהתאם לתקופה שנבחרה.",
       side: "top",
