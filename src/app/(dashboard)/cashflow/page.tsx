@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { CashflowHelpButton } from "@/components/onboarding/CashflowHelpButton";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
@@ -584,7 +585,7 @@ export default function CashFlowPage() {
       <section className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
         <div className="flex items-center justify-between flex-wrap gap-[10px]">
           {/* Opening balance */}
-          <div className="flex items-center gap-[10px]">
+          <div id="onboarding-cashflow-opening" className="flex items-center gap-[10px]">
             <div className="flex flex-col items-center">
               <span className="text-[12px] text-white/50">מצב בבנק תחילת פעילות</span>
               <button
@@ -607,17 +608,20 @@ export default function CashFlowPage() {
           {/* Date range picker */}
           <div className="flex items-center gap-[8px]">
             <span className="text-[13px] text-white/50 font-medium hidden sm:inline">צפי עד:</span>
-            <DateRangePicker
-              dateRange={{ start: new Date(settings?.opening_date || formatLocalDate(new Date())), end: endDate }}
-              onChange={handleEndDateChange}
-              variant="compact"
-            />
+            <div id="onboarding-cashflow-datepicker">
+              <DateRangePicker
+                dateRange={{ start: new Date(settings?.opening_date || formatLocalDate(new Date())), end: endDate }}
+                onChange={handleEndDateChange}
+                variant="compact"
+              />
+            </div>
+            <CashflowHelpButton />
           </div>
         </div>
       </section>
 
       {/* ============= SUMMARY CARDS ============= */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-[10px]">
+      <section id="onboarding-cashflow-summary" className="grid grid-cols-2 lg:grid-cols-4 gap-[10px]">
         <div className="bg-[#0F1535] rounded-[10px] p-[15px] flex flex-col items-center gap-[5px]">
           <span className="text-[13px] text-white/60">סה&quot;כ הכנסות</span>
           {isLoading ? (
@@ -657,7 +661,7 @@ export default function CashFlowPage() {
       </section>
 
       {/* ============= MAIN TABLE ============= */}
-      <section className="bg-[#0F1535] rounded-[10px] p-[7px]">
+      <section id="onboarding-cashflow-table" className="bg-[#0F1535] rounded-[10px] p-[7px]">
         {/* Table Header */}
         <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] pe-[13px] mb-[10px]">
           <div className="w-[70px] sm:w-[90px] flex-shrink-0 text-center">
