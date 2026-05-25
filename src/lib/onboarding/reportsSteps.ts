@@ -1,4 +1,5 @@
 import type { DriveStep } from "driver.js";
+import { spotlightRange } from "./spotlightRange";
 
 /**
  * שלבי הסיור של דף דוח רווח והפסד.
@@ -15,16 +16,6 @@ export const reportsSteps: DriveStep[] = [
     },
   },
   {
-    element: "#report-title",
-    popover: {
-      title: "סיכום תוצאות רווח והפסד",
-      description:
-        "כותרת הדוח. כל מה שמוצג מתחת מתייחס לעסק שבחרת ולתקופה שתבחר בהמשך. הדוח בנוי מלמעלה למטה: קודם השורה התחתונה, אחר כך פירוט מלא של ההכנסות וההוצאות שמרכיבים אותה.",
-      side: "bottom",
-      align: "start",
-    },
-  },
-  {
     element: "#onboarding-reports-summary-top",
     popover: {
       title: "השורה התחתונה: רווח או הפסד",
@@ -35,21 +26,11 @@ export const reportsSteps: DriveStep[] = [
     },
   },
   {
-    element: "#onboarding-reports-viewtoggle",
+    element: spotlightRange("#onboarding-reports-viewtoggle", "#onboarding-reports-filters"),
     popover: {
-      title: "תצוגה חודשית או שנתית",
+      title: "בחירת התצוגה והתקופה",
       description:
-        "כאן בוחרים איך להסתכל על הנתונים. 'תצוגה חודשית' מתמקדת בחודש בודד ומציגה את הפירוט המלא שלו. 'תצוגה שנתית' פורסת את כל חודשי השנה זה לצד זה, כדי שתוכל להשוות בין חודשים ולראות מגמות לאורך השנה.",
-      side: "bottom",
-      align: "center",
-    },
-  },
-  {
-    element: "#onboarding-reports-filters",
-    popover: {
-      title: "בחירת החודש והשנה",
-      description:
-        "כאן בוחרים את החודש ואת השנה שהדוח יציג. שינוי הבחירה מעדכן מיד את כל הנתונים בדוח. כך אפשר לחזור אחורה ולבחון חודשים קודמים, או להשוות את אותו חודש בין שנים שונות.",
+        "כאן שולטים במה שהדוח מציג. למעלה בוחרים בין 'תצוגה חודשית', שמתמקדת בחודש בודד עם פירוט מלא, ל'תצוגה שנתית', שפורסת את כל חודשי השנה זה לצד זה להשוואה. מתחת בוחרים את החודש והשנה הספציפיים. כל שינוי כאן מעדכן מיד את כל הנתונים בדוח.",
       side: "bottom",
       align: "center",
     },
