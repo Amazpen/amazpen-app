@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { BonusPlansHelpButton } from "@/components/onboarding/BonusPlansHelpButton";
 import { Loader2, Trash2, Pencil, Plus, X, Trophy, ChevronRight, ChevronLeft } from "lucide-react";
 
 // ===== Types =====
@@ -531,27 +532,31 @@ export default function BonusPlansPage() {
   return (
     <div className="p-3 sm:p-4 lg:p-6 max-w-4xl mx-auto" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
+      <div id="onboarding-bonus-header" className="flex items-center justify-between mb-4 sm:mb-6">
         <h1 className="text-white text-lg sm:text-xl lg:text-2xl font-bold">
           תכניות בונוסים ותגמול
         </h1>
-        {selectedBusinessId && !showForm && (
-          <Button
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-            className="inline-flex items-center h-[36px] sm:h-[40px] px-3 sm:px-4 bg-[#4A56D4] hover:bg-[#5A66E4] text-white rounded-[10px] font-medium gap-1.5 whitespace-nowrap shrink-0 text-[13px] sm:text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            תכנית חדשה
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {selectedBusinessId && !showForm && (
+            <Button
+              id="onboarding-bonus-new"
+              onClick={() => {
+                resetForm();
+                setShowForm(true);
+              }}
+              className="inline-flex items-center h-[36px] sm:h-[40px] px-3 sm:px-4 bg-[#4A56D4] hover:bg-[#5A66E4] text-white rounded-[10px] font-medium gap-1.5 whitespace-nowrap shrink-0 text-[13px] sm:text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              תכנית חדשה
+            </Button>
+          )}
+          <BonusPlansHelpButton />
+        </div>
       </div>
 
       {/* Month/Year selector */}
       {selectedBusinessId && (
-        <div className="flex items-center justify-center gap-3 mb-4 sm:mb-6">
+        <div id="onboarding-bonus-month" className="flex items-center justify-center gap-3 mb-4 sm:mb-6">
           <button
             onClick={() => {
               if (selectedMonth === 12) { setSelectedMonth(1); setSelectedYear(y => y + 1); }
@@ -896,7 +901,7 @@ export default function BonusPlansPage() {
                 אין תכניות בונוסים לעסק זה
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div id="onboarding-bonus-list" className="flex flex-col gap-3">
                 {plans.map((plan) => {
                   const status = planStatuses[plan.id];
                   const empName = getEmployeeName(plan.employee_user_id);
