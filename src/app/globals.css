@@ -828,6 +828,24 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   /* allow long steps (e.g. with a demo form) to scroll instead of overflowing */
   max-height: 60vh;
   overflow-y: auto;
+  /* themed scrollbar (Firefox) — translucent white thumb on the purple bg */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+
+/* themed scrollbar (Chrome/Edge/Safari) — match the popover's purple theme */
+.amazpen-driver-popover .driver-popover-description::-webkit-scrollbar {
+  width: 6px;
+}
+.amazpen-driver-popover .driver-popover-description::-webkit-scrollbar-track {
+  background: transparent;
+}
+.amazpen-driver-popover .driver-popover-description::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+}
+.amazpen-driver-popover .driver-popover-description::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.55);
 }
 
 /* close (X) button — lucide-x icon, top-left corner in RTL, no background */
