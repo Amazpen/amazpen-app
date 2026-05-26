@@ -1521,13 +1521,15 @@ export default function OCRBusinessPage() {
           <span className="text-[13px] text-white/60">
             {pendingCount} ממתינים
           </span>
-          <OcrBusinessHelpButton />
         </div>
-        <div id="onboarding-ocr-scanned">
-          <ScannedDocumentsButton
-            businessId={selectedBusinessId || undefined}
-            suppliers={suppliers}
-          />
+        <div className="flex items-center gap-2">
+          <OcrBusinessHelpButton />
+          <div id="onboarding-ocr-scanned">
+            <ScannedDocumentsButton
+              businessId={selectedBusinessId || undefined}
+              suppliers={suppliers}
+            />
+          </div>
         </div>
       </div>
 
