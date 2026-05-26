@@ -57,7 +57,7 @@ export const ocrBusinessSteps: DriveStep[] = [
   {
     element: "#onboarding-ocr-scanned",
     popover: {
-      title: "ארכיון המסמכים הסרוקים",
+      title: "הפרדת מסמכים סרוקים",
       description:
         "כאן ניתן להעביר כמות מסמכים שנסרקו והמערכת תדע לסנן אותם בהתאם לכמות הדפים שעלו יחדיו. מתאים למי שסורק מסמכים ומעוניין להפריד אותם.",
       side: "bottom",
