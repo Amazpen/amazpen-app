@@ -1523,13 +1523,13 @@ export default function OCRBusinessPage() {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <OcrBusinessHelpButton />
           <div id="onboarding-ocr-scanned">
             <ScannedDocumentsButton
               businessId={selectedBusinessId || undefined}
               suppliers={suppliers}
             />
           </div>
+          <OcrBusinessHelpButton />
         </div>
       </div>
 

@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Amazpen (המצפן) is a Hebrew RTL business management SaaS application for tracking financial metrics, expenses, goals, suppliers, and AI-powered insights. Built for restaurant/business operations.
 
+**Production URL:** https://app.amazpenbiz.co.il
+
 ## Commands
 
 ```bash
@@ -87,7 +89,28 @@ The app is a Progressive Web App with:
 
 ## RTL & Hebrew Requirements
 
-This is a Hebrew RTL application (`<html lang="he" dir="rtl">`):
+This is a Hebrew RTL application (`<html lang="he" dir="rtl">`).
+
+### ⚠️ DOM order is REVERSED visually — first child in flex = RIGHT, last child = LEFT
+
+In an RTL flex row: **the first JSX sibling appears on the RIGHT side of the screen.**
+This is the opposite of LTR. I (Claude) keep getting this wrong. Internalize it:
+
+- "Put X on the **RIGHT** of Y" → write `<X /><Y />` (X first in JSX)
+- "Put X on the **LEFT** of Y" → write `<Y /><X />` (X last in JSX)
+
+Example — to render `[A] [B]` visually with A on the right:
+```jsx
+<div className="flex gap-2">
+  <A />  {/* this appears on the RIGHT */}
+  <B />  {/* this appears on the LEFT */}
+</div>
+```
+
+Before writing positional code, ask yourself: "RIGHT means FIRST in DOM. Did I write it first?"
+If you can't visualize it, write the JSX, then mentally label first=right, last=left, and check against the user's request.
+
+### Other RTL rules:
 - Use `flex-row-reverse` instead of `justify-end` for icon placement
 - Use `text-align: start` not `text-align: left`
 - Currency symbol (₪) and percentage (%) must render correctly next to numbers
