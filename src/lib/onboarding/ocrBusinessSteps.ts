@@ -64,4 +64,54 @@ export const ocrBusinessSteps: DriveStep[] = [
       align: "end",
     },
   },
+  {
+    popover: {
+      title: "טיפים לצילום מסמך מנצח",
+      description: `
+<p style="margin:0 0 12px 0;font-size:13px;line-height:1.6;color:rgba(255,255,255,0.85);">
+  איכות הצילום קובעת איכות הקריאה. כמה כללים פשוטים ישפרו לך את הדיוק משמעותית:
+</p>
+<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;">
+  <li style="display:flex;align-items:flex-start;gap:10px;">
+    <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:rgba(255,164,18,0.2);color:#FFA412;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">✓</span>
+    <div style="font-size:12.5px;line-height:1.5;">
+      <strong style="color:#fff;">תאורה טובה</strong>
+      <div style="color:rgba(255,255,255,0.7);">צלם בחדר מואר, בלי צל של היד על המסמך.</div>
+    </div>
+  </li>
+  <li style="display:flex;align-items:flex-start;gap:10px;">
+    <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:rgba(255,164,18,0.2);color:#FFA412;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">✓</span>
+    <div style="font-size:12.5px;line-height:1.5;">
+      <strong style="color:#fff;">מסמך ישר ומלא</strong>
+      <div style="color:rgba(255,255,255,0.7);">החזק את הטלפון מקביל למסמך, וודא שכל הפינות נראות.</div>
+    </div>
+  </li>
+  <li style="display:flex;align-items:flex-start;gap:10px;">
+    <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:rgba(255,164,18,0.2);color:#FFA412;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">✓</span>
+    <div style="font-size:12.5px;line-height:1.5;">
+      <strong style="color:#fff;">רקע נקי וכהה</strong>
+      <div style="color:rgba(255,255,255,0.7);">הניח את המסמך על משטח כהה ואחיד כדי שהמערכת תזהה את הגבולות.</div>
+    </div>
+  </li>
+  <li style="display:flex;align-items:flex-start;gap:10px;">
+    <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:rgba(255,164,18,0.2);color:#FFA412;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">✓</span>
+    <div style="font-size:12.5px;line-height:1.5;">
+      <strong style="color:#fff;">חד וממוקד</strong>
+      <div style="color:rgba(255,255,255,0.7);">המתן שהמצלמה תתמקד לפני הצילום. תמונה מטושטשת = קריאה שגויה.</div>
+    </div>
+  </li>
+  <li style="display:flex;align-items:flex-start;gap:10px;">
+    <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,0.25);color:#FCA5A5;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">✕</span>
+    <div style="font-size:12.5px;line-height:1.5;">
+      <strong style="color:#fff;">להימנע: מסמך מקופל או חתוך</strong>
+      <div style="color:rgba(255,255,255,0.7);">פתח את הקיפולים. אם חלק מהמסמך חסר, גם הסכום והתאריך עלולים לחסר.</div>
+    </div>
+  </li>
+</ul>
+<p style="margin:14px 0 0 0;padding:10px 12px;background:rgba(255,255,255,0.08);border-radius:8px;font-size:12px;line-height:1.5;color:rgba(255,255,255,0.85);">
+  💡 <strong>טיפ:</strong> אפשר לשלוח מסמכים גם דרך הוואטסאפ של המערכת. הקליטה תקרה אוטומטית גם בלי לפתוח את האפליקציה.
+</p>
+      `.trim(),
+    },
+  },
 ];
