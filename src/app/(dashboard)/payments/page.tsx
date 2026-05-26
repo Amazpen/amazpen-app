@@ -3900,14 +3900,25 @@ function PaymentsPageInner() {
   return (
     <div className="text-white p-[7px] pb-[10px]">
       <ConfirmDialog />
-      {/* Date Range and Add Button */}
-      <div className="flex items-center justify-between mb-[10px]">
-        <div className="flex items-center gap-[8px] flex-wrap">
+      {/* Date Range and Add Button.
+          Mobile: stacked — date picker + help on top row, action buttons full-width below.
+          Desktop (sm+): single row with actions on the right, date/help on the left. */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[10px] mb-[10px]">
+        {/* Date picker + help — first on mobile, last (left) on desktop */}
+        <div className="order-1 sm:order-2 flex items-center justify-between sm:justify-start gap-[8px]">
+          <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
+          <div id="onboarding-payments-datepicker">
+            <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+          </div>
+          <PaymentsHelpButton />
+        </div>
+        {/* Action buttons — second on mobile (full width), first (right) on desktop */}
+        <div className="order-2 sm:order-1 flex items-center gap-[8px]">
           <Button
             id="onboarding-payments-import"
             type="button"
             onClick={() => setShowAddPaymentPopup(true)}
-            className="bg-[#29318A] text-white text-[16px] font-semibold px-[20px] py-[10px] rounded-[7px] transition-colors hover:bg-[#3D44A0]"
+            className="flex-1 sm:flex-none justify-center bg-[#29318A] text-white text-[15px] sm:text-[16px] font-semibold px-[16px] sm:px-[20px] py-[10px] rounded-[7px] transition-colors hover:bg-[#3D44A0]"
           >
             הוספת תשלום
           </Button>
@@ -3915,7 +3926,7 @@ function PaymentsPageInner() {
             id="onboarding-payments-pending"
             type="button"
             onClick={() => setShowPendingReport(v => !v)}
-            className={`text-white text-[16px] font-semibold px-[20px] py-[10px] rounded-[7px] transition-colors flex items-center gap-[6px] ${
+            className={`flex-1 sm:flex-none justify-center text-white text-[15px] sm:text-[16px] font-semibold px-[16px] sm:px-[20px] py-[10px] rounded-[7px] transition-colors flex items-center gap-[6px] ${
               showPendingReport ? "bg-[#3D44A0]" : "bg-[#29318A] hover:bg-[#3D44A0]"
             }`}
           >
@@ -3926,13 +3937,6 @@ function PaymentsPageInner() {
             <span>דו&quot;ח ממתינים לתשלום</span>
           </Button>
         </div>
-        <div className="flex items-center gap-[8px]">
-            <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
-            <div id="onboarding-payments-datepicker">
-              <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
-            </div>
-            <PaymentsHelpButton />
-          </div>
       </div>
 
       {/* Pending Payments Report — דו"ח ממתינים לתשלום */}
