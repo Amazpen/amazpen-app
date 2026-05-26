@@ -1050,7 +1050,7 @@ export default function CustomersPage() {
           onClick={handleAddStandaloneCustomer}
           className="w-full md:w-auto min-h-[50px] bg-[#6B21A8] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#7C3AED] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
         >
-          הוספת לקוח חדש
+          הוספת לקוח/הכנסה חדשה
         </Button>
       </div>
 
