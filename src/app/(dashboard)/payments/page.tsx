@@ -3905,7 +3905,7 @@ function PaymentsPageInner() {
           Desktop (sm+): single row with actions on the right, date/help on the left. */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[10px] mb-[10px]">
         {/* Date picker + help — first on mobile, last (left) on desktop */}
-        <div className="order-1 sm:order-2 flex items-center justify-between sm:justify-start gap-[8px]">
+        <div className="order-1 sm:order-2 flex items-center justify-end sm:justify-start gap-[8px]">
           <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
           <div id="onboarding-payments-datepicker">
             <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
@@ -3926,7 +3926,7 @@ function PaymentsPageInner() {
             id="onboarding-payments-pending"
             type="button"
             onClick={() => setShowPendingReport(v => !v)}
-            className={`flex-1 sm:flex-none justify-center text-white text-[15px] sm:text-[16px] font-semibold px-[16px] sm:px-[20px] py-[10px] rounded-[7px] transition-colors flex items-center gap-[6px] ${
+            className={`flex-1 sm:flex-none justify-center whitespace-nowrap text-white text-[14px] sm:text-[16px] font-semibold px-[12px] sm:px-[20px] py-[10px] rounded-[7px] transition-colors flex items-center gap-[6px] ${
               showPendingReport ? "bg-[#3D44A0]" : "bg-[#29318A] hover:bg-[#3D44A0]"
             }`}
           >
@@ -3934,7 +3934,8 @@ function PaymentsPageInner() {
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
-            <span>דו&quot;ח ממתינים לתשלום</span>
+            <span className="sm:hidden">ממתינים לתשלום</span>
+            <span className="hidden sm:inline">דו&quot;ח ממתינים לתשלום</span>
           </Button>
         </div>
       </div>
