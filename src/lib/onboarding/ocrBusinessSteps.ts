@@ -69,7 +69,49 @@ export const ocrBusinessSteps: DriveStep[] = [
       title: "טיפים לצילום מסמך מנצח",
       description: `
 <p style="margin:0 0 12px 0;font-size:13px;line-height:1.6;color:rgba(255,255,255,0.85);">
-  איכות הצילום קובעת איכות הקריאה. כמה כללים פשוטים ישפרו לך את הדיוק משמעותית:
+  איכות הצילום קובעת איכות הקריאה. הסתכל על ההבדל בין שתי הדוגמאות:
+</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    <div style="position:relative;aspect-ratio:3/4;background:#fafafa;border-radius:6px;border:2px solid #10b981;overflow:hidden;padding:8px 6px;font-family:'Courier New',monospace;direction:ltr;text-align:left;">
+      <div style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:#10b981;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:sans-serif;">✓</div>
+      <div style="font-size:6px;color:#111;font-weight:700;text-align:center;border-bottom:1px solid #999;padding-bottom:2px;margin-bottom:3px;">חשבונית מס</div>
+      <div style="font-size:5px;color:#333;line-height:1.4;">
+        <div>ספק: מאפיית הבית</div>
+        <div>ח.פ. 514876321</div>
+        <div>תאריך: 15/03/2026</div>
+        <div>מספר: 1247</div>
+        <div style="margin-top:4px;border-top:1px dashed #aaa;padding-top:3px;">
+          <div>לחם פרוס &nbsp;&nbsp; ₪24.00</div>
+          <div>חלות &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ₪36.00</div>
+          <div>בורקס &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ₪48.00</div>
+        </div>
+        <div style="margin-top:4px;border-top:1px solid #333;padding-top:2px;font-weight:700;">סה"כ: ₪108.00</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#10b981;text-align:center;font-weight:700;">תקין ✓</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    <div style="position:relative;aspect-ratio:3/4;background:linear-gradient(135deg,#d4d4d4 0%,#9ca3af 100%);border-radius:6px;border:2px solid #ef4444;overflow:hidden;padding:8px 6px;font-family:'Courier New',monospace;direction:ltr;text-align:left;transform:rotate(-4deg) scale(0.92);filter:blur(0.8px);">
+      <div style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:sans-serif;transform:rotate(4deg);">✕</div>
+      <div style="font-size:6px;color:#444;font-weight:700;text-align:center;border-bottom:1px solid #888;padding-bottom:2px;margin-bottom:3px;opacity:0.6;">חשב__ית ___</div>
+      <div style="font-size:5px;color:#555;line-height:1.4;opacity:0.7;">
+        <div>ספק: מ___ית הב__</div>
+        <div>ח.פ. 5148__321</div>
+        <div>תא___: __/03/__26</div>
+        <div>מ____: 1__7</div>
+        <div style="margin-top:4px;border-top:1px dashed #888;padding-top:3px;">
+          <div>לחם פר__ &nbsp; ₪__.00</div>
+          <div>חלו_ &nbsp;&nbsp;&nbsp;&nbsp; ₪36.__</div>
+        </div>
+        <div style="position:absolute;bottom:8px;left:6px;right:6px;height:14px;background:rgba(0,0,0,0.3);border-radius:2px;"></div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#ef4444;text-align:center;font-weight:700;">לא תקין ✕</div>
+  </div>
+</div>
+<p style="margin:0 0 10px 0;font-size:12.5px;line-height:1.5;color:rgba(255,255,255,0.8);">
+  מטושטש, מקופל וחתוך = שדות ייקראו שגוי. ככה תצלם נכון:
 </p>
 <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;">
   <li style="display:flex;align-items:flex-start;gap:10px;">
