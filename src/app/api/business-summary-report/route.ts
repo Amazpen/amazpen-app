@@ -291,8 +291,57 @@ export async function GET(request: NextRequest) {
         ? ((currentExpensesActual - currentExpensesTarget) / currentExpensesTarget) * 100
         : 0;
 
-    // ===== Income sources breakdown =====
+    // entryIds shared by managed products + income sources breakdown queries
     const entryIds = entries.map((e) => e.id);
+
+    // ===== Managed products (מוצרים מנוהלים) =====
+    // Same calc as dashboard: totalCost = unit_cost × SUM(quantity) from daily_product_usage,
+    // actualPct = totalCost / incomeBeforeVat × 100, diff vs target_pct.
+    const { data: managedProductsData } = await supabase
+      .from("managed_products")
+      .select("id, name, unit_cost, target_pct, display_order")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("display_order");
+    const managedProducts = (managedProductsData || []) as Array<{
+      id: string;
+      name: string;
+      unit_cost: number | null;
+      target_pct: number | null;
+      display_order: number | null;
+    }>;
+    let productQuantities: Record<string, number> = {};
+    if (entryIds.length > 0 && managedProducts.length > 0) {
+      const { data: usageRows } = await supabase
+        .from("daily_product_usage")
+        .select("product_id, quantity")
+        .in("daily_entry_id", entryIds);
+      productQuantities = (usageRows || []).reduce<Record<string, number>>((acc, u) => {
+        acc[u.product_id] = (acc[u.product_id] || 0) + (Number(u.quantity) || 0);
+        return acc;
+      }, {});
+    }
+    const managedProductsReport = managedProducts.map((p) => {
+      const unitCost = Number(p.unit_cost) || 0;
+      const quantity = productQuantities[p.id] || 0;
+      const totalCost = unitCost * quantity;
+      const actualPct = incomeBeforeVat > 0 ? (totalCost / incomeBeforeVat) * 100 : 0;
+      const targetPct = Number(p.target_pct) || 0;
+      const diffPct = actualPct - targetPct;
+      const diffNis = (diffPct * incomeBeforeVat) / 100;
+      return {
+        id: p.id,
+        name: p.name,
+        targetPct: Math.round(targetPct * 100) / 100,
+        actualPct: Math.round(actualPct * 100) / 100,
+        actualNis: Math.round(totalCost),
+        diffPct: Math.round(diffPct * 100) / 100,
+        diffNis: Math.round(diffNis * 100) / 100,
+      };
+    });
+
+    // ===== Income sources breakdown =====
     let incomeBreakdown: { income_source_id: string; amount: number; orders_count: number }[] = [];
     if (entryIds.length > 0) {
       const { data } = await supabase
@@ -503,6 +552,9 @@ export async function GET(request: NextRequest) {
 
       // Income sources
       incomeSources: incomeSourcesReport,
+
+      // Managed products (מוצרים מנוהלים)
+      managedProducts: managedProductsReport,
 
       // Prior commitments (loans)
       priorCommitmentsTotal: Math.round(priorCommitmentsTotal),

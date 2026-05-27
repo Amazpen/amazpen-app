@@ -54,3 +54,6 @@ security/
 
 # tlae skill (local profile + lessons)
 .tlae/
+
+# Marketing content (local only - strategy, templates, posts)
+content-marketing/
