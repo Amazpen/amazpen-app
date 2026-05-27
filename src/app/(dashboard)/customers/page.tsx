@@ -169,9 +169,17 @@ function computeBillingSummary(
     return isNaN(d.getTime()) ? null : d;
   };
 
-  let startDate =
-    parseDate(customer.retainer_start_date) ||
-    parseDate(customer.work_start_date);
+  // Start from the EARLIEST anchor we know about — the user wants to see the
+  // full customer history, not just from the retainer start date. So we take
+  // the min of work_start_date and retainer_start_date (defensively).
+  const workStart = parseDate(customer.work_start_date);
+  const retainerStart = parseDate(customer.retainer_start_date);
+  let startDate: Date | null = null;
+  if (workStart && retainerStart) {
+    startDate = workStart < retainerStart ? workStart : retainerStart;
+  } else {
+    startDate = workStart || retainerStart;
+  }
   if (!startDate && hasPayments) {
     const earliest = customerPayments
       .map((p) => parseDate(p.payment_date))
@@ -200,12 +208,16 @@ function computeBillingSummary(
     safety++;
   }
 
+  // Bucket payments by month. Payments are stored net (the amount typed in
+  // the form was net). The table shows everything gross, so we multiply by
+  // the VAT multiplier here. Foreign customers have vatMultiplier=1.
   const paidByMonth = new Map<string, number>();
   for (const p of customerPayments) {
     const d = parseDate(p.payment_date);
     if (!d) continue;
     const key = `${d.getFullYear()}-${d.getMonth()}`;
-    paidByMonth.set(key, (paidByMonth.get(key) || 0) + Number(p.amount));
+    const grossPaid = Number(p.amount) * vatMultiplier;
+    paidByMonth.set(key, (paidByMonth.get(key) || 0) + grossPaid);
   }
 
   const currentYear = today.getFullYear();
