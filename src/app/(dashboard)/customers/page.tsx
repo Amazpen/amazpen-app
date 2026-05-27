@@ -2728,7 +2728,14 @@ export default function CustomersPage() {
                           setNewPaymentDate(ymd);
                         }
                         if (!newPaymentAmount && selectedItem.customer.retainer_amount) {
-                          setNewPaymentAmount(String(selectedItem.customer.retainer_amount));
+                          // Pre-fill with VAT-inclusive amount — that's what
+                          // the customer actually paid. Foreign customers
+                          // bypass VAT (vat_percentage * 0).
+                          const vatRate = Number(selectedItem.business?.vat_percentage) || 0.18;
+                          const multiplier = selectedItem.customer.is_foreign ? 1 : 1 + vatRate;
+                          const gross = selectedItem.customer.retainer_amount * multiplier;
+                          // Round to 2 decimals to avoid 3540.0000000000005 noise
+                          setNewPaymentAmount(String(Math.round(gross * 100) / 100));
                         }
                       }
                       setIsAddPaymentOpen(!isAddPaymentOpen);
@@ -2750,7 +2757,9 @@ export default function CustomersPage() {
                         />
                       </div>
                       <div className="flex flex-col gap-[3px]">
-                        <label className="text-[13px] text-white/70 text-right">סכום (₪)</label>
+                        <label className="text-[13px] text-white/70 text-right">
+                          {selectedItem.customer?.is_foreign ? 'סכום (₪, ללא מע"מ)' : 'סכום (₪, כולל מע"מ)'}
+                        </label>
                         <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
                           <Input
                             type="tel"
@@ -2761,6 +2770,22 @@ export default function CustomersPage() {
                             className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
                           />
                         </div>
+                        {(() => {
+                          // Helper: show VAT breakdown so the user can sanity-
+                          // check that what they typed matches the customer's
+                          // gross retainer.
+                          const amt = parseFloat(newPaymentAmount);
+                          if (!amt || amt <= 0 || !selectedItem.customer) return null;
+                          if (selectedItem.customer.is_foreign) return null;
+                          const vatRate = Number(selectedItem.business?.vat_percentage) || 0.18;
+                          const net = amt / (1 + vatRate);
+                          const vatPart = amt - net;
+                          return (
+                            <span className="text-[11px] text-white/50 text-center">
+                              ₪{net.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} + מע&quot;מ ₪{vatPart.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">עבור מה</label>
