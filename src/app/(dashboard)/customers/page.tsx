@@ -112,6 +112,26 @@ interface CustomerDocument {
   created_at: string;
 }
 
+// Computed monthly billing row (derived from retainer + payments)
+type BillingRowStatus = 'paid' | 'partial' | 'open' | 'overpaid' | 'no-charge';
+
+interface BillingRow {
+  key: string;            // "2026-3"
+  label: string;          // "מרץ 2026"
+  expected: number;       // VAT-inclusive (net if customer.is_foreign)
+  paid: number;
+  open: number;           // max(0, expected - paid)
+  overpaid: number;       // max(0, paid - expected)
+  status: BillingRowStatus;
+}
+
+interface BillingSummary {
+  totalExpected: number;
+  totalPaid: number;
+  totalOpen: number;
+  rows: BillingRow[];     // newest first
+}
+
 // Business member
 interface BusinessMember {
   user_id: string;
@@ -421,6 +441,123 @@ export default function CustomersPage() {
   });
   const monthlyTotal = monthlyPayments.reduce((sum, p) => sum + Number(p.amount), 0);
   const totalIncome = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+  // Per-customer monthly billing breakdown. Returns null when the section
+  // should not render (no retainer + no payments). All amounts are
+  // VAT-inclusive unless customer.is_foreign === true.
+  const billingSummary = useMemo<BillingSummary | null>(() => {
+    const customer = selectedItem?.customer;
+    if (!customer) return null;
+
+    const retainerAmount = Number(customer.retainer_amount) || 0;
+    const hasRetainer = retainerAmount > 0;
+    const hasPayments = payments.length > 0;
+    if (!hasRetainer && !hasPayments) return null;
+
+    const vatRate = Number(selectedItem?.business?.vat_percentage) || 0.18;
+    const vatMultiplier = customer.is_foreign ? 1 : 1 + vatRate;
+    const monthlyExpectedGross = retainerAmount * vatMultiplier;
+
+    const parseDate = (s: string | null | undefined): Date | null => {
+      if (!s) return null;
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    let startDate =
+      parseDate(customer.retainer_start_date) ||
+      parseDate(customer.work_start_date);
+    if (!startDate && hasPayments) {
+      const earliest = payments
+        .map((p) => parseDate(p.payment_date))
+        .filter((d): d is Date => d !== null)
+        .sort((a, b) => a.getTime() - b.getTime())[0];
+      if (earliest) startDate = earliest;
+    }
+    if (!startDate) return null;
+
+    const today = new Date();
+    const endCap = parseDate(customer.retainer_end_date);
+    const endDate = endCap && endCap < today ? endCap : today;
+
+    const startAnchor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const endAnchor = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    if (startAnchor > endAnchor) {
+      return { totalExpected: 0, totalPaid: 0, totalOpen: 0, rows: [] };
+    }
+
+    const monthsAsc: { year: number; month: number }[] = [];
+    const cursor = new Date(startAnchor);
+    let safety = 0;
+    while (cursor <= endAnchor && safety < 120) {
+      monthsAsc.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
+      cursor.setMonth(cursor.getMonth() + 1);
+      safety++;
+    }
+
+    const paidByMonth = new Map<string, number>();
+    for (const p of payments) {
+      const d = parseDate(p.payment_date);
+      if (!d) continue;
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      paidByMonth.set(key, (paidByMonth.get(key) || 0) + Number(p.amount));
+    }
+
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const startKey = `${startAnchor.getFullYear()}-${startAnchor.getMonth()}`;
+
+    const rows: BillingRow[] = [];
+    for (const m of monthsAsc) {
+      const key = `${m.year}-${m.month}`;
+      const isStartMonth = key === startKey;
+      const isCurrentOrFuture =
+        m.year > currentYear ||
+        (m.year === currentYear && m.month >= currentMonth);
+
+      let expected = 0;
+      if (hasRetainer) {
+        if (customer.retainer_status === 'paused') {
+          expected = isCurrentOrFuture ? 0 : monthlyExpectedGross;
+        } else if (customer.retainer_type === 'one_time') {
+          expected = isStartMonth ? monthlyExpectedGross : 0;
+        } else if (
+          customer.retainer_type === 'monthly' ||
+          customer.retainer_type === 'fixed_term'
+        ) {
+          expected = monthlyExpectedGross;
+        }
+      }
+
+      const paid = paidByMonth.get(key) || 0;
+
+      if (expected === 0 && paid === 0) continue;
+
+      const open = Math.max(0, expected - paid);
+      const overpaid = Math.max(0, paid - expected);
+
+      let status: BillingRowStatus;
+      if (expected === 0 && paid > 0) status = 'overpaid';
+      else if (paid + 0.01 >= expected) status = 'paid';
+      else if (paid > 0) status = 'partial';
+      else status = 'open';
+
+      const label = new Date(m.year, m.month, 1).toLocaleDateString('he-IL', {
+        month: 'long',
+        year: 'numeric',
+      });
+
+      rows.push({ key, label, expected, paid, open, overpaid, status });
+    }
+
+    rows.reverse();
+
+    const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
+    const totalPaid = rows.reduce((s, r) => s + r.paid, 0);
+    const totalOpen = rows.reduce((s, r) => s + r.open, 0);
+
+    return { totalExpected, totalPaid, totalOpen, rows };
+  }, [selectedItem, payments]);
 
   // ─── Handlers ──────────────────────────────────────────────
 
@@ -1912,6 +2049,113 @@ export default function CustomersPage() {
                       </Button>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* ── Monthly Billing Summary + Table ──────────────── */}
+              {billingSummary && (
+                <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
+                  <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right mb-[12px]">
+                    סיכום הכנסות
+                  </h3>
+
+                  {/* Summary cards — RTL: first child renders right */}
+                  <div className="grid grid-cols-3 gap-[10px] mb-[15px]">
+                    {/* Right: total expected */}
+                    <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
+                      <span className="text-[12px] text-white/60 text-center">סה&quot;כ צריך לשלם</span>
+                      <span dir="ltr" className="text-[18px] font-bold text-white">
+                        ₪{billingSummary.totalExpected.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {/* Center: total paid */}
+                    <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
+                      <span className="text-[12px] text-white/60 text-center">סה&quot;כ שולם</span>
+                      <span dir="ltr" className="text-[18px] font-bold text-[#0BB783]">
+                        ₪{billingSummary.totalPaid.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {/* Left: open */}
+                    <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
+                      <span className="text-[12px] text-white/60 text-center">פתוח לתשלום</span>
+                      <span dir="ltr" className={`text-[18px] font-bold ${billingSummary.totalOpen > 0 ? "text-[#F64E60]" : "text-white/50"}`}>
+                        ₪{billingSummary.totalOpen.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Monthly table — only if there are rows */}
+                  {billingSummary.rows.length > 0 && (
+                    <>
+                      <h4 className="text-[14px] font-semibold text-white text-right mb-[8px]">
+                        פירוט חודשי
+                      </h4>
+                      <div className="w-full flex flex-col">
+                        {/* Header — RTL: first child renders right */}
+                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1.2fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px] font-semibold text-white">
+                          <div className="text-center">חודש</div>
+                          <div className="text-center">צריך</div>
+                          <div className="text-center">שולם</div>
+                          <div className="text-center">פתוח</div>
+                          <div className="text-center">סטטוס</div>
+                        </div>
+
+                        {/* Rows */}
+                        <div className="max-h-[320px] overflow-y-auto flex flex-col gap-[3px] mt-[3px]">
+                          {billingSummary.rows.map((row) => {
+                            const badgeClasses =
+                              row.status === "paid"
+                                ? "bg-[#0BB783]/20 text-[#0BB783]"
+                                : row.status === "partial"
+                                ? "bg-[#F6A609]/20 text-[#F6A609]"
+                                : row.status === "open"
+                                ? "bg-[#F64E60]/20 text-[#F64E60]"
+                                : row.status === "overpaid"
+                                ? "bg-[#3F97FF]/20 text-[#3F97FF]"
+                                : "bg-white/10 text-white/50";
+                            const badgeLabel =
+                              row.status === "paid"
+                                ? "✓ שולם"
+                                : row.status === "partial"
+                                ? "חלקי"
+                                : row.status === "open"
+                                ? "פתוח"
+                                : row.status === "overpaid"
+                                ? "עודף"
+                                : "—";
+                            return (
+                              <div
+                                key={row.key}
+                                className="grid grid-cols-[2fr_1fr_1fr_1fr_1.2fr] w-full p-[8px_5px] bg-white/5 hover:bg-white/10 rounded-[5px] items-center"
+                              >
+                                <div className="text-center text-[13px] text-white">{row.label}</div>
+                                <div dir="ltr" className="text-center text-[13px] text-white">
+                                  {row.expected > 0
+                                    ? `₪${row.expected.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+                                    : "—"}
+                                </div>
+                                <div dir="ltr" className="text-center text-[13px] text-white">
+                                  {row.paid > 0
+                                    ? `₪${row.paid.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+                                    : "—"}
+                                </div>
+                                <div dir="ltr" className={`text-center text-[13px] font-medium ${row.open > 0 ? "text-[#F64E60]" : "text-white/40"}`}>
+                                  {row.open > 0
+                                    ? `₪${row.open.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+                                    : "—"}
+                                </div>
+                                <div className="text-center">
+                                  <span className={`text-[11px] px-[8px] py-[2px] rounded-full font-bold ${badgeClasses}`}>
+                                    {badgeLabel}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
