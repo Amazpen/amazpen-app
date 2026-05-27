@@ -208,21 +208,33 @@ function computeBillingSummary(
     safety++;
   }
 
-  // Bucket payments by month. Payments are stored net (the amount typed in
-  // the form was net). The table shows everything gross, so we multiply by
-  // the VAT multiplier here. Foreign customers have vatMultiplier=1.
+  // Bucket payments by month. customer_payments.amount is treated as the
+  // gross (VAT-inclusive) amount the customer actually paid — that's what
+  // the "+ הוספת תשלום" form auto-fills and what the helper hint shows.
+  // We do NOT multiply by VAT here: doing so double-counts VAT for any
+  // payment that was already entered as a gross amount.
   const paidByMonth = new Map<string, number>();
   for (const p of customerPayments) {
     const d = parseDate(p.payment_date);
     if (!d) continue;
     const key = `${d.getFullYear()}-${d.getMonth()}`;
-    const grossPaid = Number(p.amount) * vatMultiplier;
-    paidByMonth.set(key, (paidByMonth.get(key) || 0) + grossPaid);
+    paidByMonth.set(key, (paidByMonth.get(key) || 0) + Number(p.amount));
   }
 
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth();
   const startKey = `${startAnchor.getFullYear()}-${startAnchor.getMonth()}`;
+
+  // Make sure any month that has a payment is included in the iteration,
+  // even if it falls outside the retainer window (e.g. setup-fee payment
+  // recorded on work_start_date when work_start_date < retainer_start_date).
+  for (const [paidKey] of paidByMonth) {
+    if (monthsAsc.some((m) => `${m.year}-${m.month}` === paidKey)) continue;
+    const [yStr, mStr] = paidKey.split("-");
+    monthsAsc.push({ year: parseInt(yStr, 10), month: parseInt(mStr, 10) });
+  }
+  // Re-sort ascending after potential additions
+  monthsAsc.sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
 
   const rows: BillingRow[] = [];
   for (const m of monthsAsc) {
@@ -2562,9 +2574,9 @@ export default function CustomersPage() {
                         {/* Header — RTL: first child renders right */}
                         <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1.2fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px] font-semibold text-white">
                           <div className="text-center">חודש</div>
-                          <div className="text-center">צריך</div>
+                          <div className="text-center">סכום לתשלום</div>
                           <div className="text-center">שולם</div>
-                          <div className="text-center">פתוח</div>
+                          <div className="text-center">פתוח לתשלום</div>
                           <div className="text-center">סטטוס</div>
                         </div>
 
