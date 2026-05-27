@@ -985,7 +985,8 @@ export default function CustomersPage() {
 
       // ── Create initial retainer payment if "האם שולם?" was checked ──
       // Only on new-customer creation (not edit) — and only when there's a
-      // retainer to compute against.
+      // retainer to compute against (no retainer → nothing to bill, the
+      // checkbox is effectively a no-op).
       if (
         !isEditMode &&
         savedCustomerId &&
@@ -1610,36 +1611,6 @@ export default function CustomersPage() {
               </div>
             </div>
 
-            {/* שם החברה */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">שם החברה</label>
-              <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
-                <Input
-                  type="text"
-                  title="שם החברה"
-                  value={fCompanyName}
-                  onChange={(e) => setFCompanyName(e.target.value)}
-                  placeholder="לא רלוונטי"
-                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
-                />
-              </div>
-            </div>
-
-            {/* ע.מ/ח.פ */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">ע.מ/ח.פ</label>
-              <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
-                <Input
-                  type="tel"
-                  title="ע.מ/ח.פ"
-                  value={fTaxId}
-                  onChange={(e) => setFTaxId(e.target.value)}
-                  placeholder="123456789"
-                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
-                />
-              </div>
-            </div>
-
             {/* תאריך תחילת עבודה */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">תאריך תחילת עבודה</label>
@@ -1652,128 +1623,6 @@ export default function CustomersPage() {
                   }
                 }}
               />
-            </div>
-
-            {/* דמי הקמה */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">דמי הקמה</label>
-              <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
-                <Input
-                  type="text"
-                  title="דמי הקמה"
-                  value={fSetupFee}
-                  onChange={(e) => setFSetupFee(e.target.value)}
-                  placeholder="לדוגמה: 600 במקום 1200"
-                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
-                />
-              </div>
-            </div>
-
-            {/* סוג עסק */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">סוג עסק</label>
-              <Select value={fCustomerBusinessType || "__none__"} onValueChange={(val) => setFCustomerBusinessType(val === "__none__" ? "" : val)}>
-                <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
-                  <SelectValue placeholder="בחר סוג עסק" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">בחר סוג עסק</SelectItem>
-                  {customerBusinessTypes.map((bt) => (
-                    <SelectItem key={bt.id} value={bt.id}>{bt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {fCustomerBusinessType === "other" && (
-                <div className="border border-[#727BA0] rounded-[10px] h-[50px] mt-[5px]">
-                  <Input
-                    type="text"
-                    title="פרט סוג עסק"
-                    value={fCustomerBusinessTypeOther}
-                    onChange={(e) => setFCustomerBusinessTypeOther(e.target.value)}
-                    placeholder="פרט סוג עסק..."
-                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* אמצעי תשלום */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">אמצעי תשלום</label>
-              <Select value={fCustomerPaymentMethod || "__none__"} onValueChange={(val) => setFCustomerPaymentMethod(val === "__none__" ? "" : val)}>
-                <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
-                  <SelectValue placeholder="בחר אמצעי תשלום" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">בחר אמצעי תשלום</SelectItem>
-                  {Object.entries(paymentMethodLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* לקוח חו"ל */}
-            <div className="flex items-center gap-[10px] py-[5px]">
-              <Button
-                variant="ghost"
-                type="button"
-                onClick={() => setFIsForeign(!fIsForeign)}
-                className="flex items-center gap-[8px] px-0 hover:bg-transparent"
-              >
-                <div className={`w-[20px] h-[20px] rounded-[4px] border-2 flex items-center justify-center transition-colors ${fIsForeign ? 'bg-[#3F97FF] border-[#3F97FF]' : 'border-[#4C526B]'}`}>
-                  {fIsForeign && (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-                <span className="text-[14px] text-white">לקוח חו&quot;ל (ללא מע&quot;מ)</span>
-              </Button>
-            </div>
-
-            {/* הסכם עבודה - file upload */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">הסכם עבודה</label>
-              <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[80px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#6B21A8] transition-colors">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
-                  <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <span className="text-[14px] text-[#979797]">
-                  {agreementFile ? agreementFile.name : isEditMode && editingCustomer?.agreement_url ? "הסכם קיים - לחץ להחלפה" : "לחץ להעלאת קובץ"}
-                </span>
-                <input
-                  type="file"
-                  title="העלאת הסכם"
-                  onChange={(e) => setAgreementFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                />
-              </label>
-              {isEditMode && editingCustomer?.agreement_url && (
-                <button
-                  type="button"
-                  onClick={() => setPreviewDocUrl(editingCustomer.agreement_url)}
-                  className="text-[13px] text-[#3F97FF] hover:underline text-right cursor-pointer"
-                >
-                  צפה בהסכם הנוכחי
-                </button>
-              )}
-            </div>
-
-            {/* הערות */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">הערות</label>
-              <div className="border border-[#727BA0] rounded-[10px] min-h-[80px] px-[10px] py-[8px]">
-                <Textarea
-                  title="הערות"
-                  value={fNotes}
-                  onChange={(e) => setFNotes(e.target.value)}
-                  placeholder="הערות נוספות..."
-                  className="w-full h-full min-h-[60px] bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none resize-none placeholder:text-white/30"
-                />
-              </div>
             </div>
 
             {/* ── Retainer Section ── */}
@@ -1885,43 +1734,44 @@ export default function CustomersPage() {
                 ) : null;
               })()}
 
-              {/* ── Paid-on-setup checkbox (creation only, must have a retainer) ── */}
-              {!isEditMode && fRetainerAmount && parseFloat(fRetainerAmount) > 0 && (
-                <div className="flex flex-col gap-[8px] mt-[6px] border-t border-white/10 pt-[10px]">
-                  <Button
-                    variant="ghost"
-                    type="button"
-                    onClick={() => setFPaidOnSetup(!fPaidOnSetup)}
-                    className="flex items-center gap-[8px] px-0 hover:bg-transparent justify-start"
-                  >
-                    <div className={`w-[20px] h-[20px] rounded-[4px] border-2 flex items-center justify-center transition-colors ${fPaidOnSetup ? 'bg-[#0BB783] border-[#0BB783]' : 'border-[#4C526B]'}`}>
-                      {fPaidOnSetup && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                          <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
-                    </div>
-                    <span className="text-[14px] text-white">התשלום הראשון כבר שולם</span>
-                  </Button>
-                  {fPaidOnSetup && (
-                    <div className="flex flex-col gap-[5px]">
-                      <label className="text-[13px] font-medium text-white/70 text-right">אמצעי תשלום</label>
-                      <Select value={fPaidOnSetupMethod || "__none__"} onValueChange={(val) => setFPaidOnSetupMethod(val === "__none__" ? "" : val)}>
-                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
-                          <SelectValue placeholder="בחר אמצעי תשלום" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">בחר אמצעי תשלום</SelectItem>
-                          {Object.entries(paymentMethodLabels).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
+
+            {/* ── Paid-on-setup checkbox (creation only — always visible) ── */}
+            {!isEditMode && (
+              <div className="flex flex-col gap-[8px] mt-[5px] border border-[#727BA0]/40 rounded-[10px] p-[12px] bg-white/5">
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setFPaidOnSetup(!fPaidOnSetup)}
+                  className="flex items-center gap-[8px] px-0 hover:bg-transparent justify-start"
+                >
+                  <div className={`w-[20px] h-[20px] rounded-[4px] border-2 flex items-center justify-center transition-colors ${fPaidOnSetup ? 'bg-[#0BB783] border-[#0BB783]' : 'border-[#4C526B]'}`}>
+                    {fPaidOnSetup && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <span className="text-[14px] text-white font-medium">התשלום הראשון כבר שולם</span>
+                </Button>
+                {fPaidOnSetup && (
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[13px] font-medium text-white/70 text-right">אמצעי תשלום</label>
+                    <Select value={fPaidOnSetupMethod || "__none__"} onValueChange={(val) => setFPaidOnSetupMethod(val === "__none__" ? "" : val)}>
+                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                        <SelectValue placeholder="בחר אמצעי תשלום (אשראי/העברה/מזומן וכו׳)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">בחר אמצעי תשלום</SelectItem>
+                        {Object.entries(paymentMethodLabels).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Additional Setup Payments (creation only) ── */}
             {!isEditMode && (
@@ -2029,6 +1879,20 @@ export default function CustomersPage() {
               </div>
             )}
 
+            {/* הערות */}
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-[15px] font-medium text-white text-right">הערות</label>
+              <div className="border border-[#727BA0] rounded-[10px] min-h-[80px] px-[10px] py-[8px]">
+                <Textarea
+                  title="הערות"
+                  value={fNotes}
+                  onChange={(e) => setFNotes(e.target.value)}
+                  placeholder="הערות נוספות..."
+                  className="w-full h-full min-h-[60px] bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none resize-none placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
             {/* ── More Details (collapsible) ── */}
             <div className="flex flex-col gap-[10px] mt-[5px]">
               <Button
@@ -2049,6 +1913,36 @@ export default function CustomersPage() {
 
               {showMoreDetails && (
                 <div className="flex flex-col gap-[10px] border border-[#727BA0]/40 rounded-[10px] p-[12px] bg-white/5">
+                  {/* שם החברה */}
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[14px] font-medium text-white text-right">שם החברה</label>
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+                      <Input
+                        type="text"
+                        title="שם החברה"
+                        value={fCompanyName}
+                        onChange={(e) => setFCompanyName(e.target.value)}
+                        placeholder="לא רלוונטי"
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* ע.מ/ח.פ */}
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[14px] font-medium text-white text-right">ע.מ/ח.פ</label>
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+                      <Input
+                        type="tel"
+                        title="ע.מ/ח.פ"
+                        value={fTaxId}
+                        onChange={(e) => setFTaxId(e.target.value)}
+                        placeholder="123456789"
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                      />
+                    </div>
+                  </div>
+
                   {/* טלפון לקוח */}
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white text-right">טלפון לקוח</label>
@@ -2081,6 +1975,55 @@ export default function CustomersPage() {
                     </div>
                   </div>
 
+                  {/* לקוח חו"ל */}
+                  <div className="flex items-center gap-[10px] py-[5px]">
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      onClick={() => setFIsForeign(!fIsForeign)}
+                      className="flex items-center gap-[8px] px-0 hover:bg-transparent"
+                    >
+                      <div className={`w-[20px] h-[20px] rounded-[4px] border-2 flex items-center justify-center transition-colors ${fIsForeign ? 'bg-[#3F97FF] border-[#3F97FF]' : 'border-[#4C526B]'}`}>
+                        {fIsForeign && (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-[14px] text-white">לקוח חו&quot;ל (ללא מע&quot;מ)</span>
+                    </Button>
+                  </div>
+
+                  {/* הסכם עבודה */}
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[14px] font-medium text-white text-right">הסכם עבודה</label>
+                    <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[70px] px-[10px] py-[12px] flex flex-col items-center justify-center gap-[6px] cursor-pointer hover:border-[#6B21A8] transition-colors">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
+                        <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className="text-[13px] text-[#979797]">
+                        {agreementFile ? agreementFile.name : isEditMode && editingCustomer?.agreement_url ? "הסכם קיים - לחץ להחלפה" : "לחץ להעלאת קובץ"}
+                      </span>
+                      <input
+                        type="file"
+                        title="העלאת הסכם"
+                        onChange={(e) => setAgreementFile(e.target.files?.[0] || null)}
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      />
+                    </label>
+                    {isEditMode && editingCustomer?.agreement_url && (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDocUrl(editingCustomer.agreement_url)}
+                        className="text-[13px] text-[#3F97FF] hover:underline text-right cursor-pointer"
+                      >
+                        צפה בהסכם הנוכחי
+                      </button>
+                    )}
+                  </div>
+
                   {/* מקור הגעה */}
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white text-right">מקור הגעה</label>
@@ -2105,6 +2048,49 @@ export default function CustomersPage() {
                           value={fReferralSourceOther}
                           onChange={(e) => setFReferralSourceOther(e.target.value)}
                           placeholder="פרט מקור הגעה..."
+                          className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* דמי הקמה */}
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[14px] font-medium text-white text-right">דמי הקמה</label>
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+                      <Input
+                        type="text"
+                        title="דמי הקמה"
+                        value={fSetupFee}
+                        onChange={(e) => setFSetupFee(e.target.value)}
+                        placeholder="לדוגמה: 600 במקום 1200"
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* סוג עסק */}
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[14px] font-medium text-white text-right">סוג עסק</label>
+                    <Select value={fCustomerBusinessType || "__none__"} onValueChange={(val) => setFCustomerBusinessType(val === "__none__" ? "" : val)}>
+                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                        <SelectValue placeholder="בחר סוג עסק" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">בחר סוג עסק</SelectItem>
+                        {customerBusinessTypes.map((bt) => (
+                          <SelectItem key={bt.id} value={bt.id}>{bt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fCustomerBusinessType === "other" && (
+                      <div className="border border-[#727BA0] rounded-[10px] h-[50px] mt-[5px]">
+                        <Input
+                          type="text"
+                          title="פרט סוג עסק"
+                          value={fCustomerBusinessTypeOther}
+                          onChange={(e) => setFCustomerBusinessTypeOther(e.target.value)}
+                          placeholder="פרט סוג עסק..."
                           className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
                         />
                       </div>
