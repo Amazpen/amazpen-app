@@ -54,6 +54,9 @@ interface Customer {
   payment_method: string | null;
   business_type: string | null;
   business_type_other: string | null;
+  phone: string | null;
+  email: string | null;
+  referral_source: string | null; // "facebook" | "google" | "referral" | "instagram" | "other:<text>"
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -326,6 +329,28 @@ export default function CustomersPage() {
   const [fRetainerMonths, setFRetainerMonths] = useState("");
   const [fRetainerStartDate, setFRetainerStartDate] = useState("");
   const [fRetainerDayOfMonth, setFRetainerDayOfMonth] = useState("1");
+
+  // ── New field state: contact info, referral source, "more details" toggle ──
+  const [fPhone, setFPhone] = useState("");
+  const [fEmail, setFEmail] = useState("");
+  const [fReferralSource, setFReferralSource] = useState(""); // "facebook" | "google" | "referral" | "instagram" | "other"
+  const [fReferralSourceOther, setFReferralSourceOther] = useState("");
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
+
+  // ── "Paid on setup" — initial retainer payment recorded when the customer is created ──
+  const [fPaidOnSetup, setFPaidOnSetup] = useState(false);
+  const [fPaidOnSetupMethod, setFPaidOnSetupMethod] = useState(""); // bank_transfer | credit | cash | bit | paybox | check | other
+
+  // ── Additional setup payments (setup fees, one-offs) added during customer creation ──
+  type SetupExtraPayment = {
+    tempId: string;       // for React key only
+    name: string;         // e.g. "דמי הקמה"
+    amount: string;       // gross, VAT-inclusive
+    paymentMethod: string;
+    isPaid: boolean;      // create a customer_payment if true
+    date: string;         // YYYY-MM-DD
+  };
+  const [fSetupExtraPayments, setFSetupExtraPayments] = useState<SetupExtraPayment[]>([]);
 
   // All payments for currently-selected businesses (for per-card debt computation)
   const [allPayments, setAllPayments] = useState<CustomerPayment[]>([]);
@@ -697,6 +722,14 @@ export default function CustomersPage() {
     setFLaborType("");
     setFLaborMonthlySalary("");
     setFLaborHourlyRate("");
+    setFPhone("");
+    setFEmail("");
+    setFReferralSource("");
+    setFReferralSourceOther("");
+    setShowMoreDetails(false);
+    setFPaidOnSetup(false);
+    setFPaidOnSetupMethod("");
+    setFSetupExtraPayments([]);
     setFormErrors(new Set());
   };
 
@@ -736,6 +769,23 @@ export default function CustomersPage() {
       setFLaborType(item.customer.labor_type || "");
       setFLaborMonthlySalary(item.customer.labor_monthly_salary != null ? String(item.customer.labor_monthly_salary) : "");
       setFLaborHourlyRate(item.customer.labor_hourly_rate != null ? String(item.customer.labor_hourly_rate) : "");
+      setFPhone(item.customer.phone || "");
+      setFEmail(item.customer.email || "");
+      // referral_source is stored as "facebook" | "google" | "referral" | "instagram" | "other:<text>"
+      const rs = item.customer.referral_source || "";
+      if (rs.startsWith("other:")) {
+        setFReferralSource("other");
+        setFReferralSourceOther(rs.substring("other:".length));
+      } else {
+        setFReferralSource(rs);
+        setFReferralSourceOther("");
+      }
+      // In edit mode, "more details" should auto-expand only if we have data for it.
+      setShowMoreDetails(Boolean(item.customer.phone || item.customer.email || item.customer.referral_source));
+      // Edit mode never re-creates initial payments — clear those toggles.
+      setFPaidOnSetup(false);
+      setFPaidOnSetupMethod("");
+      setFSetupExtraPayments([]);
       setEditingCustomer(item.customer);
       setIsEditMode(true);
     } else {
@@ -826,6 +876,15 @@ export default function CustomersPage() {
         retainerEndDate = startDate.toISOString().split('T')[0];
       }
 
+      // Encode referral_source as "facebook" | "google" | "referral" | "instagram" | "other:<text>"
+      let referralSourceValue: string | null = null;
+      if (fReferralSource === "other") {
+        const otherText = fReferralSourceOther.trim();
+        referralSourceValue = otherText ? `other:${otherText}` : "other";
+      } else if (fReferralSource) {
+        referralSourceValue = fReferralSource;
+      }
+
       const customerData = {
         business_id: formBusinessId || null,
         contact_name: fContactName.trim(),
@@ -842,6 +901,9 @@ export default function CustomersPage() {
         payment_method: fCustomerPaymentMethod || null,
         business_type: fCustomerBusinessType || null,
         business_type_other: fCustomerBusinessType === "other" ? (fCustomerBusinessTypeOther.trim() || null) : null,
+        phone: fPhone.trim() || null,
+        email: fEmail.trim() || null,
+        referral_source: referralSourceValue,
         retainer_amount: retainerAmount,
         retainer_type: retainerType,
         retainer_months: retainerMonths,
@@ -917,6 +979,70 @@ export default function CustomersPage() {
               .eq("id", savedCustomerId);
           } else {
             console.error("Error creating income source:", incomeError);
+          }
+        }
+      }
+
+      // ── Create initial retainer payment if "האם שולם?" was checked ──
+      // Only on new-customer creation (not edit) — and only when there's a
+      // retainer to compute against.
+      if (
+        !isEditMode &&
+        savedCustomerId &&
+        fPaidOnSetup &&
+        retainerAmount &&
+        retainerAmount > 0
+      ) {
+        const vatRate = Number(
+          allBusinesses.find((b) => b.id === formBusinessId)?.vat_percentage,
+        ) || 0.18;
+        const grossAmount = fIsForeign
+          ? retainerAmount
+          : Math.round(retainerAmount * (1 + vatRate) * 100) / 100;
+        const initialPaymentDate = fRetainerStartDate || fWorkStartDate || new Date().toISOString().split("T")[0];
+        const { error: initialPaymentError } = await supabase
+          .from("customer_payments")
+          .insert({
+            id: generateUUID(),
+            customer_id: savedCustomerId,
+            payment_date: initialPaymentDate,
+            amount: grossAmount,
+            description: "תשלום ראשוני (הקמה)",
+            payment_method: fPaidOnSetupMethod || null,
+            notes: null,
+          });
+        if (initialPaymentError) {
+          console.error("Initial payment insert error:", initialPaymentError);
+        }
+      }
+
+      // ── Create extra setup payments (e.g. setup fee + one-offs) ──
+      // For each extra: create customer_service + (if isPaid) customer_payment.
+      // Edit mode skips this — extras are creation-only to avoid double-charging
+      // when a user re-opens the form.
+      if (!isEditMode && savedCustomerId && fSetupExtraPayments.length > 0) {
+        for (const extra of fSetupExtraPayments) {
+          const amt = parseFloat(extra.amount);
+          if (!extra.name.trim() || isNaN(amt) || amt <= 0) continue;
+          const serviceDate = extra.date || fWorkStartDate || new Date().toISOString().split("T")[0];
+          await supabase.from("customer_services").insert({
+            id: generateUUID(),
+            customer_id: savedCustomerId,
+            name: extra.name.trim(),
+            amount: amt,
+            service_date: serviceDate,
+            notes: null,
+          });
+          if (extra.isPaid) {
+            await supabase.from("customer_payments").insert({
+              id: generateUUID(),
+              customer_id: savedCustomerId,
+              payment_date: serviceDate,
+              amount: amt,
+              description: extra.name.trim(),
+              payment_method: extra.paymentMethod || null,
+              notes: null,
+            });
           }
         }
       }
@@ -1758,6 +1884,234 @@ export default function CustomersPage() {
                   </div>
                 ) : null;
               })()}
+
+              {/* ── Paid-on-setup checkbox (creation only, must have a retainer) ── */}
+              {!isEditMode && fRetainerAmount && parseFloat(fRetainerAmount) > 0 && (
+                <div className="flex flex-col gap-[8px] mt-[6px] border-t border-white/10 pt-[10px]">
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    onClick={() => setFPaidOnSetup(!fPaidOnSetup)}
+                    className="flex items-center gap-[8px] px-0 hover:bg-transparent justify-start"
+                  >
+                    <div className={`w-[20px] h-[20px] rounded-[4px] border-2 flex items-center justify-center transition-colors ${fPaidOnSetup ? 'bg-[#0BB783] border-[#0BB783]' : 'border-[#4C526B]'}`}>
+                      {fPaidOnSetup && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                          <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-[14px] text-white">התשלום הראשון כבר שולם</span>
+                  </Button>
+                  {fPaidOnSetup && (
+                    <div className="flex flex-col gap-[5px]">
+                      <label className="text-[13px] font-medium text-white/70 text-right">אמצעי תשלום</label>
+                      <Select value={fPaidOnSetupMethod || "__none__"} onValueChange={(val) => setFPaidOnSetupMethod(val === "__none__" ? "" : val)}>
+                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                          <SelectValue placeholder="בחר אמצעי תשלום" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">בחר אמצעי תשלום</SelectItem>
+                          {Object.entries(paymentMethodLabels).map(([key, label]) => (
+                            <SelectItem key={key} value={key}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── Additional Setup Payments (creation only) ── */}
+            {!isEditMode && (
+              <div className="flex flex-col gap-[10px] mt-[10px] border border-[#727BA0]/40 rounded-[10px] p-[12px] bg-white/5">
+                <h3 className="text-[15px] font-bold text-white text-right">תשלומים נוספים</h3>
+                <span className="text-[12px] text-white/50 text-right">לדוגמה: דמי הקמה או כל תשלום חד-פעמי נוסף.</span>
+
+                {fSetupExtraPayments.map((extra, idx) => (
+                  <div key={extra.tempId} className="flex flex-col gap-[6px] bg-[#0F1535]/60 border border-[#4C526B] rounded-[10px] p-[10px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-white/50">תשלום #{idx + 1}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        onClick={() => setFSetupExtraPayments((arr) => arr.filter((p) => p.tempId !== extra.tempId))}
+                        className="text-[#F64E60]/70 hover:text-[#F64E60] text-[12px]"
+                      >
+                        הסר
+                      </Button>
+                    </div>
+                    <div className="flex flex-col gap-[3px]">
+                      <label className="text-[12px] text-white/70 text-right">סוג / שם תשלום</label>
+                      <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
+                        <Input
+                          type="text"
+                          title="סוג תשלום"
+                          value={extra.name}
+                          onChange={(e) => setFSetupExtraPayments((arr) => arr.map((p) => p.tempId === extra.tempId ? { ...p, name: e.target.value } : p))}
+                          placeholder="לדוגמה: דמי הקמה"
+                          className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-[3px]">
+                      <label className="text-[12px] text-white/70 text-right">סכום (כולל מע&quot;מ)</label>
+                      <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
+                        <Input
+                          type="tel"
+                          title="סכום"
+                          value={extra.amount}
+                          onChange={(e) => setFSetupExtraPayments((arr) => arr.map((p) => p.tempId === extra.tempId ? { ...p, amount: e.target.value } : p))}
+                          placeholder="0"
+                          className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-[3px]">
+                      <label className="text-[12px] text-white/70 text-right">תאריך</label>
+                      <DatePickerField
+                        value={extra.date}
+                        onChange={(val) => setFSetupExtraPayments((arr) => arr.map((p) => p.tempId === extra.tempId ? { ...p, date: val } : p))}
+                        className="h-[40px] rounded-[7px] text-[13px]"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      onClick={() => setFSetupExtraPayments((arr) => arr.map((p) => p.tempId === extra.tempId ? { ...p, isPaid: !p.isPaid } : p))}
+                      className="flex items-center gap-[8px] px-0 hover:bg-transparent justify-start"
+                    >
+                      <div className={`w-[18px] h-[18px] rounded-[4px] border-2 flex items-center justify-center transition-colors ${extra.isPaid ? 'bg-[#0BB783] border-[#0BB783]' : 'border-[#4C526B]'}`}>
+                        {extra.isPaid && (
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-[13px] text-white">כבר שולם</span>
+                    </Button>
+                    {extra.isPaid && (
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[12px] text-white/70 text-right">אמצעי תשלום</label>
+                        <Select value={extra.paymentMethod || "__none__"} onValueChange={(val) => setFSetupExtraPayments((arr) => arr.map((p) => p.tempId === extra.tempId ? { ...p, paymentMethod: val === "__none__" ? "" : val } : p))}>
+                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center">
+                            <SelectValue placeholder="בחר אמצעי תשלום" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">בחר אמצעי תשלום</SelectItem>
+                            {Object.entries(paymentMethodLabels).map(([key, label]) => (
+                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setFSetupExtraPayments((arr) => [...arr, {
+                    tempId: generateUUID(),
+                    name: "",
+                    amount: "",
+                    paymentMethod: "",
+                    isPaid: false,
+                    date: fWorkStartDate || new Date().toISOString().split("T")[0],
+                  }])}
+                  className="bg-white/5 hover:bg-white/10 text-white text-[13px] font-semibold py-[8px] rounded-[7px] border border-dashed border-[#727BA0]"
+                >
+                  + הוסף תשלום נוסף
+                </Button>
+              </div>
+            )}
+
+            {/* ── More Details (collapsible) ── */}
+            <div className="flex flex-col gap-[10px] mt-[5px]">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setShowMoreDetails(!showMoreDetails)}
+                className="flex items-center gap-[8px] px-0 hover:bg-transparent justify-start"
+              >
+                <div className={`w-[20px] h-[20px] rounded-[4px] border-2 flex items-center justify-center transition-colors ${showMoreDetails ? 'bg-[#3F97FF] border-[#3F97FF]' : 'border-[#4C526B]'}`}>
+                  {showMoreDetails && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                <span className="text-[14px] text-white font-medium">לעדכון פרטים נוספים</span>
+              </Button>
+
+              {showMoreDetails && (
+                <div className="flex flex-col gap-[10px] border border-[#727BA0]/40 rounded-[10px] p-[12px] bg-white/5">
+                  {/* טלפון לקוח */}
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[14px] font-medium text-white text-right">טלפון לקוח</label>
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+                      <Input
+                        type="tel"
+                        title="טלפון"
+                        value={fPhone}
+                        onChange={(e) => setFPhone(e.target.value)}
+                        placeholder="050-0000000"
+                        dir="ltr"
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* אי-מייל לקוח */}
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[14px] font-medium text-white text-right">אי-מייל לקוח</label>
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+                      <Input
+                        type="email"
+                        title="אי-מייל"
+                        value={fEmail}
+                        onChange={(e) => setFEmail(e.target.value)}
+                        placeholder="customer@example.com"
+                        dir="ltr"
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* מקור הגעה */}
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[14px] font-medium text-white text-right">מקור הגעה</label>
+                    <Select value={fReferralSource || "__none__"} onValueChange={(val) => setFReferralSource(val === "__none__" ? "" : val)}>
+                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                        <SelectValue placeholder="בחר מקור הגעה" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">בחר מקור הגעה</SelectItem>
+                        <SelectItem value="facebook">פייסבוק</SelectItem>
+                        <SelectItem value="google">גוגל</SelectItem>
+                        <SelectItem value="referral">חבר מביא חבר</SelectItem>
+                        <SelectItem value="instagram">אינסטגרם</SelectItem>
+                        <SelectItem value="other">אחר</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {fReferralSource === "other" && (
+                      <div className="border border-[#727BA0] rounded-[10px] h-[50px] mt-[5px]">
+                        <Input
+                          type="text"
+                          title="פרט מקור הגעה"
+                          value={fReferralSourceOther}
+                          onChange={(e) => setFReferralSourceOther(e.target.value)}
+                          placeholder="פרט מקור הגעה..."
+                          className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
 
@@ -1967,6 +2321,52 @@ export default function CustomersPage() {
                         <Badge className="bg-[#3F97FF]/20 text-[#3F97FF] text-[12px] px-[10px] py-[3px] rounded-full font-bold">
                           לקוח חו&quot;ל (ללא מע&quot;מ)
                         </Badge>
+                      </div>
+                    )}
+                    {/* Contact info + referral source */}
+                    {(selectedItem.customer.phone || selectedItem.customer.email || selectedItem.customer.referral_source) && (
+                      <div className="grid grid-cols-2 gap-[10px] mb-[15px]">
+                        {selectedItem.customer.phone && (
+                          <div className="flex flex-col items-center text-center">
+                            <span className="text-[12px] text-white/60">טלפון</span>
+                            <a
+                              href={`tel:${selectedItem.customer.phone}`}
+                              dir="ltr"
+                              className="text-[14px] text-[#3F97FF] hover:underline font-medium"
+                            >
+                              {selectedItem.customer.phone}
+                            </a>
+                          </div>
+                        )}
+                        {selectedItem.customer.email && (
+                          <div className="flex flex-col items-center text-center">
+                            <span className="text-[12px] text-white/60">אי-מייל</span>
+                            <a
+                              href={`mailto:${selectedItem.customer.email}`}
+                              dir="ltr"
+                              className="text-[14px] text-[#3F97FF] hover:underline font-medium break-all"
+                            >
+                              {selectedItem.customer.email}
+                            </a>
+                          </div>
+                        )}
+                        {selectedItem.customer.referral_source && (
+                          <div className="flex flex-col items-center text-center">
+                            <span className="text-[12px] text-white/60">מקור הגעה</span>
+                            <span className="text-[14px] text-white font-medium">
+                              {(() => {
+                                const rs = selectedItem.customer.referral_source;
+                                if (rs.startsWith("other:")) return rs.substring("other:".length) || "אחר";
+                                if (rs === "facebook") return "פייסבוק";
+                                if (rs === "google") return "גוגל";
+                                if (rs === "referral") return "חבר מביא חבר";
+                                if (rs === "instagram") return "אינסטגרם";
+                                if (rs === "other") return "אחר";
+                                return rs;
+                              })()}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* Notes */}
