@@ -1189,6 +1189,11 @@ export default function OCRForm({
     supplierPaymentTermsDays?: number | null,
   ): string => {
     if (!method) return "";
+    // Cash is paid on the spot — always pin to the invoice date, ignoring
+    // supplier.payment_terms_days (terms describe credit, not cash).
+    if (method === "cash") {
+      return invoiceDate || new Date().toISOString().split("T")[0];
+    }
     if (method === "credit_card") {
       if (creditCardId) {
         const card = businessCreditCards.find(c => c.id === creditCardId);
