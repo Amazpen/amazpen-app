@@ -143,6 +143,124 @@ interface BusinessMember {
   };
 }
 
+// Pure helper used by both the in-Sheet monthly table and the per-card
+// debt indicator. Returns null when there's nothing to bill (no retainer
+// and no payments). All amounts are VAT-inclusive unless customer.is_foreign.
+function computeBillingSummary(
+  customer: Customer,
+  businessVatPercentage: number | null,
+  customerPayments: CustomerPayment[],
+): BillingSummary | null {
+  const retainerAmount = Number(customer.retainer_amount) || 0;
+  const hasRetainer = retainerAmount > 0;
+  const hasPayments = customerPayments.length > 0;
+  if (!hasRetainer && !hasPayments) return null;
+
+  const vatRate = Number(businessVatPercentage) || 0.18;
+  const vatMultiplier = customer.is_foreign ? 1 : 1 + vatRate;
+  const monthlyExpectedGross = retainerAmount * vatMultiplier;
+
+  const parseDate = (s: string | null | undefined): Date | null => {
+    if (!s) return null;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  let startDate =
+    parseDate(customer.retainer_start_date) ||
+    parseDate(customer.work_start_date);
+  if (!startDate && hasPayments) {
+    const earliest = customerPayments
+      .map((p) => parseDate(p.payment_date))
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+    if (earliest) startDate = earliest;
+  }
+  if (!startDate) return null;
+
+  const today = new Date();
+  const endCap = parseDate(customer.retainer_end_date);
+  const endDate = endCap && endCap < today ? endCap : today;
+
+  const startAnchor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const endAnchor = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+  if (startAnchor > endAnchor) {
+    return { totalExpected: 0, totalPaid: 0, totalOpen: 0, rows: [] };
+  }
+
+  const monthsAsc: { year: number; month: number }[] = [];
+  const cursor = new Date(startAnchor);
+  let safety = 0;
+  while (cursor <= endAnchor && safety < 120) {
+    monthsAsc.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
+    cursor.setMonth(cursor.getMonth() + 1);
+    safety++;
+  }
+
+  const paidByMonth = new Map<string, number>();
+  for (const p of customerPayments) {
+    const d = parseDate(p.payment_date);
+    if (!d) continue;
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    paidByMonth.set(key, (paidByMonth.get(key) || 0) + Number(p.amount));
+  }
+
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+  const startKey = `${startAnchor.getFullYear()}-${startAnchor.getMonth()}`;
+
+  const rows: BillingRow[] = [];
+  for (const m of monthsAsc) {
+    const key = `${m.year}-${m.month}`;
+    const isStartMonth = key === startKey;
+    const isCurrentOrFuture =
+      m.year > currentYear ||
+      (m.year === currentYear && m.month >= currentMonth);
+
+    let expected = 0;
+    if (hasRetainer) {
+      if (customer.retainer_status === 'paused') {
+        expected = isCurrentOrFuture ? 0 : monthlyExpectedGross;
+      } else if (customer.retainer_type === 'one_time') {
+        expected = isStartMonth ? monthlyExpectedGross : 0;
+      } else if (
+        customer.retainer_type === 'monthly' ||
+        customer.retainer_type === 'fixed_term'
+      ) {
+        expected = monthlyExpectedGross;
+      }
+    }
+
+    const paid = paidByMonth.get(key) || 0;
+
+    if (expected === 0 && paid === 0) continue;
+
+    const open = Math.max(0, expected - paid);
+    const overpaid = Math.max(0, paid - expected);
+
+    let status: BillingRowStatus;
+    if (expected === 0 && paid > 0) status = 'overpaid';
+    else if (paid + 0.01 >= expected) status = 'paid';
+    else if (paid > 0) status = 'partial';
+    else status = 'open';
+
+    const label = new Date(m.year, m.month, 1).toLocaleDateString('he-IL', {
+      month: 'long',
+      year: 'numeric',
+    });
+
+    rows.push({ key, label, expected, paid, open, overpaid, status });
+  }
+
+  rows.reverse();
+
+  const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
+  const totalPaid = rows.reduce((s, r) => s + r.paid, 0);
+  const totalOpen = rows.reduce((s, r) => s + r.open, 0);
+
+  return { totalExpected, totalPaid, totalOpen, rows };
+}
+
 const paymentMethodLabels: Record<string, string> = {
   bank_transfer: "העברה בנקאית",
   credit: "אשראי",
@@ -208,6 +326,9 @@ export default function CustomersPage() {
   const [fRetainerMonths, setFRetainerMonths] = useState("");
   const [fRetainerStartDate, setFRetainerStartDate] = useState("");
   const [fRetainerDayOfMonth, setFRetainerDayOfMonth] = useState("1");
+
+  // All payments for currently-selected businesses (for per-card debt computation)
+  const [allPayments, setAllPayments] = useState<CustomerPayment[]>([]);
 
   // Detail popup state
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -330,6 +451,24 @@ export default function CustomersPage() {
 
       setDisplayItems(items);
 
+      // Fetch payments for all customers in scope — needed to compute the
+      // open-debt amount shown on every customer card and the total-debt
+      // KPI in the page header. We fetch only id/customer_id/payment_date/
+      // amount since that's all the debt math uses.
+      const customerIds = customerList.map((c) => c.id);
+      if (customerIds.length > 0) {
+        const { data: pmts } = await supabase
+          .from("customer_payments")
+          .select("id, customer_id, payment_date, amount, deleted_at")
+          .in("customer_id", customerIds)
+          .is("deleted_at", null);
+        // Cast — we only selected a subset of fields but the debt math
+        // doesn't touch the others.
+        setAllPayments((pmts as CustomerPayment[]) || []);
+      } else {
+        setAllPayments([]);
+      }
+
       // Fetch income sources for retainer linking (#35)
       const bizIds = selectedBusinesses;
       if (bizIds.length > 0) {
@@ -448,116 +587,32 @@ export default function CustomersPage() {
   const billingSummary = useMemo<BillingSummary | null>(() => {
     const customer = selectedItem?.customer;
     if (!customer) return null;
-
-    const retainerAmount = Number(customer.retainer_amount) || 0;
-    const hasRetainer = retainerAmount > 0;
-    const hasPayments = payments.length > 0;
-    if (!hasRetainer && !hasPayments) return null;
-
-    const vatRate = Number(selectedItem?.business?.vat_percentage) || 0.18;
-    const vatMultiplier = customer.is_foreign ? 1 : 1 + vatRate;
-    const monthlyExpectedGross = retainerAmount * vatMultiplier;
-
-    const parseDate = (s: string | null | undefined): Date | null => {
-      if (!s) return null;
-      const d = new Date(s);
-      return isNaN(d.getTime()) ? null : d;
-    };
-
-    let startDate =
-      parseDate(customer.retainer_start_date) ||
-      parseDate(customer.work_start_date);
-    if (!startDate && hasPayments) {
-      const earliest = payments
-        .map((p) => parseDate(p.payment_date))
-        .filter((d): d is Date => d !== null)
-        .sort((a, b) => a.getTime() - b.getTime())[0];
-      if (earliest) startDate = earliest;
-    }
-    if (!startDate) return null;
-
-    const today = new Date();
-    const endCap = parseDate(customer.retainer_end_date);
-    const endDate = endCap && endCap < today ? endCap : today;
-
-    const startAnchor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-    const endAnchor = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-    if (startAnchor > endAnchor) {
-      return { totalExpected: 0, totalPaid: 0, totalOpen: 0, rows: [] };
-    }
-
-    const monthsAsc: { year: number; month: number }[] = [];
-    const cursor = new Date(startAnchor);
-    let safety = 0;
-    while (cursor <= endAnchor && safety < 120) {
-      monthsAsc.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
-      cursor.setMonth(cursor.getMonth() + 1);
-      safety++;
-    }
-
-    const paidByMonth = new Map<string, number>();
-    for (const p of payments) {
-      const d = parseDate(p.payment_date);
-      if (!d) continue;
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      paidByMonth.set(key, (paidByMonth.get(key) || 0) + Number(p.amount));
-    }
-
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-    const startKey = `${startAnchor.getFullYear()}-${startAnchor.getMonth()}`;
-
-    const rows: BillingRow[] = [];
-    for (const m of monthsAsc) {
-      const key = `${m.year}-${m.month}`;
-      const isStartMonth = key === startKey;
-      const isCurrentOrFuture =
-        m.year > currentYear ||
-        (m.year === currentYear && m.month >= currentMonth);
-
-      let expected = 0;
-      if (hasRetainer) {
-        if (customer.retainer_status === 'paused') {
-          expected = isCurrentOrFuture ? 0 : monthlyExpectedGross;
-        } else if (customer.retainer_type === 'one_time') {
-          expected = isStartMonth ? monthlyExpectedGross : 0;
-        } else if (
-          customer.retainer_type === 'monthly' ||
-          customer.retainer_type === 'fixed_term'
-        ) {
-          expected = monthlyExpectedGross;
-        }
-      }
-
-      const paid = paidByMonth.get(key) || 0;
-
-      if (expected === 0 && paid === 0) continue;
-
-      const open = Math.max(0, expected - paid);
-      const overpaid = Math.max(0, paid - expected);
-
-      let status: BillingRowStatus;
-      if (expected === 0 && paid > 0) status = 'overpaid';
-      else if (paid + 0.01 >= expected) status = 'paid';
-      else if (paid > 0) status = 'partial';
-      else status = 'open';
-
-      const label = new Date(m.year, m.month, 1).toLocaleDateString('he-IL', {
-        month: 'long',
-        year: 'numeric',
-      });
-
-      rows.push({ key, label, expected, paid, open, overpaid, status });
-    }
-
-    rows.reverse();
-
-    const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
-    const totalPaid = rows.reduce((s, r) => s + r.paid, 0);
-    const totalOpen = rows.reduce((s, r) => s + r.open, 0);
-
-    return { totalExpected, totalPaid, totalOpen, rows };
+    return computeBillingSummary(customer, selectedItem?.business?.vat_percentage ?? null, payments);
   }, [selectedItem, payments]);
+
+  // Open-debt per customer for ALL customers in scope — drives the red
+  // "חייב ₪X" line on each card and the total-debt KPI in the page header.
+  // Uses the same computeBillingSummary helper as the in-Sheet table.
+  const debtByCustomerId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of displayItems) {
+      if (!item.customer) continue;
+      const customerPayments = allPayments.filter((p) => p.customer_id === item.customer!.id);
+      const summary = computeBillingSummary(
+        item.customer,
+        item.business?.vat_percentage ?? null,
+        customerPayments,
+      );
+      map.set(item.customer.id, summary?.totalOpen ?? 0);
+    }
+    return map;
+  }, [displayItems, allPayments]);
+
+  const totalDebtAllCustomers = useMemo(() => {
+    let sum = 0;
+    for (const debt of debtByCustomerId.values()) sum += debt;
+    return sum;
+  }, [debtByCustomerId]);
 
   // ─── Handlers ──────────────────────────────────────────────
 
@@ -1167,12 +1222,20 @@ export default function CustomersPage() {
             .filter(c => c.retainer_status === "active" && c.retainer_amount && c.retainer_amount > 0)
             .reduce((sum, c) => sum + (c.retainer_amount || 0), 0);
           const activeCount = allCustomers.filter(c => c.is_active).length;
-          return activeRetainerTotal > 0 ? (
+          // Show header if there's any KPI worth showing — including total debt
+          const shouldShow = activeRetainerTotal > 0 || totalDebtAllCustomers > 0;
+          return shouldShow ? (
             <div className="bg-[#6B21A8]/30 rounded-[10px] p-[12px] flex flex-row-reverse items-center justify-between gap-[10px]">
               <div className="flex flex-col items-center">
                 <span className="text-[12px] text-white/60">הכנסה חודשית מריטיינרים</span>
                 <span className="text-[20px] font-bold text-white ltr-num">₪{activeRetainerTotal.toLocaleString("he-IL")}</span>
               </div>
+              {totalDebtAllCustomers > 0 && (
+                <div className="flex flex-col items-center">
+                  <span className="text-[12px] text-white/60">חייבים לי</span>
+                  <span className="text-[20px] font-bold text-[#F64E60] ltr-num">₪{totalDebtAllCustomers.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                </div>
+              )}
               <div className="flex flex-col items-center">
                 <span className="text-[12px] text-white/60">לקוחות פעילים</span>
                 <span className="text-[18px] font-bold text-white">{activeCount}</span>
@@ -1331,6 +1394,13 @@ export default function CustomersPage() {
                         </Badge>
                       )}
                     </div>
+                  )}
+
+                  {/* Open debt — only if > 0 */}
+                  {item.customer && (debtByCustomerId.get(item.customer.id) ?? 0) > 0 && (
+                    <span className="text-[12px] text-[#F64E60] font-bold" dir="rtl">
+                      חייב ₪{(debtByCustomerId.get(item.customer.id) ?? 0).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </span>
                   )}
                 </Button>
               ))}
