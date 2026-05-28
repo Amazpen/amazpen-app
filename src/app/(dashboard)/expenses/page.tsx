@@ -2486,6 +2486,21 @@ function ExpensesPageInner() {
       return;
     }
 
+    // Block save when "שולמה במלואה" is ticked but any payment row has an
+    // amount without a chosen method. Otherwise the payment row is inserted
+    // with no payment_splits → /payments shows it as "אחר" and the invoice's
+    // linkedPayments view stays empty (built only from splits).
+    if (isPaidInFull) {
+      const hasAmountWithoutMethod = popupPaymentMethods.some(pm => {
+        const amt = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
+        return amt > 0 && !pm.method;
+      });
+      if (hasAmountWithoutMethod) {
+        showToast("נא לבחור אמצעי תשלום עבור כל שורת תשלום", "warning");
+        return;
+      }
+    }
+
     setIsSaving(true);
     const supabase = createClient();
 
@@ -3343,6 +3358,20 @@ function ExpensesPageInner() {
     if (!editingInvoice || !selectedSupplier || !expenseDate || !amountBeforeVat) {
       showToast("נא למלא את כל השדות הנדרשים", "warning");
       return;
+    }
+
+    // Same guard as handleSaveExpense — when "החשבונית שולמה במלואה" is ticked
+    // in the edit popup, every row with an amount must have a chosen method,
+    // otherwise the saved payment ends up labeled "אחר" with no splits.
+    if (isPaidInFull && (editingInvoice.linkedPayments?.length || 0) === 0) {
+      const hasAmountWithoutMethod = popupPaymentMethods.some(pm => {
+        const amt = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
+        return amt > 0 && !pm.method;
+      });
+      if (hasAmountWithoutMethod) {
+        showToast("נא לבחור אמצעי תשלום עבור כל שורת תשלום", "warning");
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -6483,30 +6512,10 @@ function ExpensesPageInner() {
                     <h3 className="text-[18px] font-semibold text-white text-center mb-[20px]">הוספת הוצאה - קליטת תשלום</h3>
 
                     <div className="flex flex-col gap-[15px]">
-                      {/* Payment Date */}
-                      <div className="flex flex-col gap-[3px]">
-                        <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
-                        <DatePickerField
-                          value={paymentDate}
-                          onChange={(val) => {
-                            setPaymentDate(val);
-                            setPopupPaymentMethods(prev => prev.map(p => {
-                              const numInstallments = parseInt(p.installments) || 1;
-                              const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
-                              if (numInstallments >= 1 && totalAmount > 0) {
-                                const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
-                                if (card) {
-                                  return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, val, card.billing_day) };
-                                }
-                                return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, val) };
-                              }
-                              return { ...p, customInstallments: [] };
-                            }));
-                          }}
-                        />
-                      </div>
-
-                      {/* Payment Methods Section */}
+                      {/* Payment Methods Section — moved above the date because
+                          payment terms (credit-card billing day, supplier
+                          payment_terms_days) shift the date when the method
+                          is picked. */}
                       <div className="flex flex-col gap-[15px]">
                         <div className="flex items-center justify-between">
                           <span className="text-[15px] font-medium text-white">אמצעי תשלום</span>
@@ -6698,6 +6707,32 @@ function ExpensesPageInner() {
                             </div>
                           </div>
                         ))}
+                      </div>
+
+                      {/* Payment Date — placed after the method picker so the
+                          smart date (credit-card billing day, supplier terms)
+                          set when the method is chosen is what the user sees
+                          and can adjust last. */}
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
+                        <DatePickerField
+                          value={paymentDate}
+                          onChange={(val) => {
+                            setPaymentDate(val);
+                            setPopupPaymentMethods(prev => prev.map(p => {
+                              const numInstallments = parseInt(p.installments) || 1;
+                              const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
+                              if (numInstallments >= 1 && totalAmount > 0) {
+                                const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+                                if (card) {
+                                  return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, val, card.billing_day) };
+                                }
+                                return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, val) };
+                              }
+                              return { ...p, customInstallments: [] };
+                            }));
+                          }}
+                        />
                       </div>
 
                       {/* Payment Reference */}
@@ -7350,30 +7385,9 @@ function ExpensesPageInner() {
                       <h3 className="text-[18px] font-semibold text-white text-center mb-[20px]">קליטת תשלום</h3>
 
                       <div className="flex flex-col gap-[15px]">
-                        {/* Payment Date */}
-                        <div className="flex flex-col gap-[3px]">
-                          <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
-                          <DatePickerField
-                            value={paymentDate}
-                            onChange={(val) => {
-                              setPaymentDate(val);
-                              setPopupPaymentMethods(prev => prev.map(p => {
-                                const numInstallments = parseInt(p.installments) || 1;
-                                const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
-                                if (numInstallments >= 1 && totalAmount > 0) {
-                                  const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
-                                  if (card) {
-                                    return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, val, card.billing_day) };
-                                  }
-                                  return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, val) };
-                                }
-                                return { ...p, customInstallments: [] };
-                              }));
-                            }}
-                          />
-                        </div>
-
-                        {/* Payment Methods */}
+                        {/* Payment Methods — placed above the date because
+                            the method (credit-card billing day, supplier
+                            payment terms) shifts the date. */}
                         <div className="flex flex-col gap-[15px]">
                           <div className="flex items-center justify-between">
                             <span className="text-[15px] font-medium text-white">אמצעי תשלום</span>
@@ -7559,6 +7573,31 @@ function ExpensesPageInner() {
                               </div>
                             </div>
                           ))}
+                        </div>
+
+                        {/* Payment Date — placed after the method picker so
+                            the smart date set by the chosen method is what
+                            the user adjusts last. */}
+                        <div className="flex flex-col gap-[3px]">
+                          <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
+                          <DatePickerField
+                            value={paymentDate}
+                            onChange={(val) => {
+                              setPaymentDate(val);
+                              setPopupPaymentMethods(prev => prev.map(p => {
+                                const numInstallments = parseInt(p.installments) || 1;
+                                const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
+                                if (numInstallments >= 1 && totalAmount > 0) {
+                                  const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+                                  if (card) {
+                                    return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, val, card.billing_day) };
+                                  }
+                                  return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, val) };
+                                }
+                                return { ...p, customInstallments: [] };
+                              }));
+                            }}
+                          />
                         </div>
 
                         {/* Payment Reference */}
@@ -7820,31 +7859,9 @@ function ExpensesPageInner() {
 
             {/* Form */}
             <div className="flex flex-col gap-[15px] px-[5px]">
-              {/* Payment Date */}
-              <div className="flex flex-col gap-[3px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
-                <DatePickerField
-                  value={paymentDate}
-                  onChange={(val) => {
-                    setPaymentDate(val);
-                    // Recalculate all installment dates based on new date
-                    setPopupPaymentMethods(prev => prev.map(p => {
-                      const numInstallments = parseInt(p.installments) || 1;
-                      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
-                      if (numInstallments > 1 && totalAmount > 0) {
-                        const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
-                        if (card) {
-                          return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, val, card.billing_day) };
-                        }
-                        return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, val) };
-                      }
-                      return { ...p, customInstallments: [] };
-                    }));
-                  }}
-                />
-              </div>
-
-              {/* Payment Methods Section */}
+              {/* Payment Methods Section — placed above the date because the
+                  method (credit-card billing day, supplier payment terms)
+                  shifts the date. */}
               <div className="flex flex-col gap-[15px]">
                 <div className="flex items-center justify-between">
                   <span className="text-[15px] font-medium text-white">אמצעי תשלום</span>
@@ -8037,6 +8054,32 @@ function ExpensesPageInner() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Payment Date — placed after the method picker so the smart
+                  date set by the chosen method is what the user adjusts
+                  last. */}
+              <div className="flex flex-col gap-[3px]">
+                <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
+                <DatePickerField
+                  value={paymentDate}
+                  onChange={(val) => {
+                    setPaymentDate(val);
+                    // Recalculate all installment dates based on new date
+                    setPopupPaymentMethods(prev => prev.map(p => {
+                      const numInstallments = parseInt(p.installments) || 1;
+                      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
+                      if (numInstallments > 1 && totalAmount > 0) {
+                        const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+                        if (card) {
+                          return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, val, card.billing_day) };
+                        }
+                        return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, val) };
+                      }
+                      return { ...p, customInstallments: [] };
+                    }));
+                  }}
+                />
               </div>
 
               {/* Payment Reference */}
