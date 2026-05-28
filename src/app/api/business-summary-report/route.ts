@@ -212,12 +212,9 @@ export async function GET(request: NextRequest) {
     const managerDailyCost =
       effectiveWorkDays > 0 ? (Number(business.manager_monthly_salary) || 0) / effectiveWorkDays : 0;
 
-    // Pro-rata factor: ratio of day-factor elapsed (1st → endDate) to full month.
-    // Used to scale monthly targets (revenue, current expenses, profit) so the
-    // email compares partial-month actuals against partial-month targets — same
-    // mental model David asked for: "split the target by the days elapsed".
-    const periodFactor =
-      expectedWorkDays > 0 ? expectedWorkDaysElapsed / expectedWorkDays : 1;
+    // Pro-rata factor: kept for backward-compat / future use. Targets shown in
+    // the email are now FULL-MONTH (to match dashboard cards), not scaled.
+    void expectedWorkDaysElapsed;
 
     // ===== Labor cost =====
     const rawLaborCost = entries.reduce((s, e) => s + (Number(e.labor_cost) || 0), 0);
@@ -307,14 +304,16 @@ export async function GET(request: NextRequest) {
       currentExpensesTargetFromGoal,
       currentExpensesTargetFromBudgets
     );
-    const currentExpensesTarget = currentExpensesTargetFull * periodFactor;
+    // Use FULL-MONTH target (no periodFactor) so values match the dashboard cards.
+    const currentExpensesTarget = currentExpensesTargetFull;
     const currentExpensesActual = (invoices as InvRow[])
       .filter((inv) => !inv.supplier_id || !goodsSupplierIds.has(inv.supplier_id))
       .reduce((s, inv) => s + (Number(inv.subtotal) || 0), 0);
     const currentExpensesDiffNis = currentExpensesActual - currentExpensesTarget;
+    // Attainment % (actual / target × 100), matching dashboard's "הפרש %" semantics.
     const currentExpensesDiffPct =
       currentExpensesTarget > 0
-        ? ((currentExpensesActual - currentExpensesTarget) / currentExpensesTarget) * 100
+        ? (currentExpensesActual / currentExpensesTarget) * 100
         : 0;
 
     // entryIds shared by managed products + income sources breakdown queries
@@ -414,25 +413,30 @@ export async function GET(request: NextRequest) {
     });
 
     // ===== Revenue target & diff =====
-    // Scale full-month target by periodFactor for fair partial-period comparison.
     // revenue_target is stored gross (כולל מע"מ) — divide by vatDivisor to compare
     // against incomeBeforeVat, matching the dashboard reports/page.tsx calc.
+    //
+    // IMPORTANT: revenue target shown to the user is the FULL-MONTH target (same
+    // value the dashboard's "סה\"כ הכנסות ללא מע\"מ" card shows). David asked to
+    // match that card exactly — so no periodFactor scaling on revenueTarget.
+    // "הפרש %" = (actual / target) × 100 — i.e. attainment %, matching dashboard.
     const revenueTargetFull = (Number(goal?.revenue_target) || 0) / vatDivisor;
-    const revenueTarget = revenueTargetFull * periodFactor;
+    const revenueTarget = revenueTargetFull;
     const revenueDiffNis = incomeBeforeVat - revenueTarget;
     const revenueDiffPct =
-      revenueTarget > 0 ? ((incomeBeforeVat - revenueTarget) / revenueTarget) * 100 : 0;
+      revenueTarget > 0 ? (incomeBeforeVat / revenueTarget) * 100 : 0;
 
     // ===== Profit =====
-    // Profit target is rebuilt from period-scaled revenue & current-expenses
-    // targets so it stays consistent with the partial period.
+    // Profit target is FULL-MONTH (matches dashboard's רווח ₪ KPI = ₪15.8K).
+    // Uses full-month revenueTarget and currentExpensesTargetFull (no periodFactor)
+    // so the email's profit target equals the dashboard's, not a partial scale.
     const totalExpenses = laborCost + foodCost + currentExpensesActual;
     const profitActual = incomeBeforeVat - totalExpenses;
     const profitTarget =
       revenueTarget -
       ((laborTargetPct / 100) * revenueTarget +
         (foodTargetPct / 100) * revenueTarget +
-        currentExpensesTarget);
+        currentExpensesTargetFull);
     const profitDiffNis = profitActual - profitTarget;
     const profitActualPct = incomeBeforeVat > 0 ? (profitActual / incomeBeforeVat) * 100 : 0;
     // profitTargetPct is a ratio (%), so it stays the same whether scaled or not:
