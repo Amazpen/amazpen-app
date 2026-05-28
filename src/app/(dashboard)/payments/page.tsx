@@ -3020,8 +3020,11 @@ function PaymentsPageInner() {
         receiptUrl = existingUrls.length === 1 ? existingUrls[0] : JSON.stringify(existingUrls);
       }
 
-      // Find the old payment to check if invoice link changed
-      const oldPayment = recentPaymentsData.find(p => p.id === editingPaymentId);
+      // Find the old payment to check if invoice link changed.
+      // Note: recentPaymentsData.id is `${paymentId}-${splitId}` (per-split row);
+      // match on paymentId instead, otherwise oldPayment is undefined and the
+      // status revert below skips the previously-linked invoice.
+      const oldPayment = recentPaymentsData.find(p => p.paymentId === editingPaymentId);
 
       // Update the payment record
       const { error: paymentError } = await supabase
@@ -3190,7 +3193,9 @@ function PaymentsPageInner() {
   const handleDeletePayment = async (paymentId: string) => {
     const supabase = createClient();
     try {
-      const payment = recentPaymentsData.find(p => p.id === paymentId);
+      // recentPaymentsData.id is `${paymentId}-${splitId}` for split rows; match
+      // on paymentId so the linkedInvoiceId revert path actually finds the row.
+      const payment = recentPaymentsData.find(p => p.paymentId === paymentId);
 
       // Collect all invoice IDs linked to this payment (both direct FK and N:M links)
       const invoiceIdsToRevert = new Set<string>();
@@ -3222,8 +3227,9 @@ function PaymentsPageInner() {
         }
       }
 
-      // Optimistic remove so the card vanishes right away.
-      setRecentPaymentsData(prev => prev.filter(p => p.id !== paymentId));
+      // Optimistic remove so the card vanishes right away. Match on paymentId
+      // because `id` is the split-suffixed composite key.
+      setRecentPaymentsData(prev => prev.filter(p => p.paymentId !== paymentId));
       showToast("התשלום נמחק בהצלחה", "success");
       setExpandedPaymentId(null);
       setRefreshTrigger(t => t + 1);
