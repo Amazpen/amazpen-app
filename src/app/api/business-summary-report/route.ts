@@ -469,14 +469,15 @@ export async function GET(request: NextRequest) {
 
     // ===== Profit =====
     // Profit target is FULL-MONTH (matches dashboard's רווח ₪ KPI = ₪15.8K).
-    // Uses full-month revenueTarget and currentExpensesTargetFull (no periodFactor)
-    // so the email's profit target equals the dashboard's, not a partial scale.
+    // Uses revenueTargetFull (NOT the periodFactor-scaled revenueTarget) and
+    // currentExpensesTargetFull so the email's profit target equals the
+    // dashboard's, not a partial scale.
     const totalExpenses = laborCost + foodCost + currentExpensesActual;
     const profitActual = incomeBeforeVat - totalExpenses;
     const profitTarget =
-      revenueTarget -
-      ((laborTargetPct / 100) * revenueTarget +
-        (foodTargetPct / 100) * revenueTarget +
+      revenueTargetFull -
+      ((laborTargetPct / 100) * revenueTargetFull +
+        (foodTargetPct / 100) * revenueTargetFull +
         currentExpensesTargetFull);
     const profitDiffNis = profitActual - profitTarget;
     const profitActualPct = incomeBeforeVat > 0 ? (profitActual / incomeBeforeVat) * 100 : 0;
