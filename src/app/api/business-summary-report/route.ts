@@ -212,9 +212,13 @@ export async function GET(request: NextRequest) {
     const managerDailyCost =
       effectiveWorkDays > 0 ? (Number(business.manager_monthly_salary) || 0) / effectiveWorkDays : 0;
 
-    // Pro-rata factor: kept for backward-compat / future use. Targets shown in
-    // the email are now FULL-MONTH (to match dashboard cards), not scaled.
-    void expectedWorkDaysElapsed;
+    // Pro-rata factor: ratio of day-factor elapsed (1st → endDate) to full
+    // month. Applied to revenueTarget below so the email's "סה\"כ מכירות"
+    // target reflects only the days that have actually been worked so far
+    // (sum of day_factor in daily_entries / sum of day_factor for the whole
+    // month, including business_schedule + exceptions).
+    const periodFactor =
+      expectedWorkDays > 0 ? expectedWorkDaysElapsed / expectedWorkDays : 1;
 
     // ===== Labor cost =====
     const rawLaborCost = entries.reduce((s, e) => s + (Number(e.labor_cost) || 0), 0);
@@ -444,15 +448,13 @@ export async function GET(request: NextRequest) {
     });
 
     // ===== Revenue target & diff =====
-    // revenue_target is stored gross (כולל מע"מ) — divide by vatDivisor to compare
-    // against incomeBeforeVat, matching the dashboard reports/page.tsx calc.
-    //
-    // IMPORTANT: revenue target shown to the user is the FULL-MONTH target (same
-    // value the dashboard's "סה\"כ הכנסות ללא מע\"מ" card shows). David asked to
-    // match that card exactly — so no periodFactor scaling on revenueTarget.
-    // "הפרש %" = (actual / target) × 100 — i.e. attainment %, matching dashboard.
+    // revenue_target is stored gross (כולל מע"מ) — divide by vatDivisor to
+    // compare against incomeBeforeVat. Then scale by periodFactor (work-days
+    // elapsed / work-days in full month) so the target reflects only the days
+    // that have been worked so far. David's spec:
+    //   "יעד = revenue_target / vatDivisor × (ימי עבודה שעברו / ימי עבודה בחודש)"
     const revenueTargetFull = (Number(goal?.revenue_target) || 0) / vatDivisor;
-    const revenueTarget = revenueTargetFull;
+    const revenueTarget = revenueTargetFull * periodFactor;
     const revenueDiffNis = incomeBeforeVat - revenueTarget;
     const revenueDiffPct =
       revenueTarget > 0 ? (incomeBeforeVat / revenueTarget) * 100 : 0;
