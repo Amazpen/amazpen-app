@@ -136,6 +136,8 @@ export async function GET(request: NextRequest) {
       supabase
         .from("supplier_budgets")
         .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense, parent_category_id)")
+        // expense_type is already selected (line above) — used to filter
+        // goods/labor out of the "current expenses" budget total.
         .eq("business_id", businessId)
         .eq("year", year)
         .eq("month", month)
@@ -280,7 +282,31 @@ export async function GET(request: NextRequest) {
     // deleted / has no expense_type, so they still get bucketed somewhere.
     // Target is scaled by periodFactor so partial-month actuals are compared
     // against partial-month targets (David's request: split by days elapsed).
-    const currentExpensesTargetFull = Number(goal?.current_expenses_target) || 0;
+    //
+    // current_expenses_target is stored gross (כולל מע"מ); divide by vatDivisor
+    // to match dashboard reports/page.tsx, then take MAX with the sum of
+    // supplier_budgets that aren't tagged as goods/labor — same fallback the
+    // dashboard does (use sum-of-budgets when it's larger than the single
+    // goal aggregate).
+    const currentExpensesTargetFromGoal =
+      (Number(goal?.current_expenses_target) || 0) / vatDivisor;
+    const supplierBudgetsForCurrent = (supplierBudgetsRes.data || []) as unknown as Array<{
+      budget_amount: number | null;
+      supplier:
+        | { expense_type?: string | null }
+        | Array<{ expense_type?: string | null }>
+        | null;
+    }>;
+    const currentExpensesTargetFromBudgets = supplierBudgetsForCurrent.reduce((sum, sb) => {
+      const supplierObj = Array.isArray(sb.supplier) ? sb.supplier[0] : sb.supplier;
+      const expenseType = supplierObj?.expense_type;
+      if (expenseType === "goods_purchases" || expenseType === "labor") return sum;
+      return sum + (Number(sb.budget_amount) || 0);
+    }, 0);
+    const currentExpensesTargetFull = Math.max(
+      currentExpensesTargetFromGoal,
+      currentExpensesTargetFromBudgets
+    );
     const currentExpensesTarget = currentExpensesTargetFull * periodFactor;
     const currentExpensesActual = (invoices as InvRow[])
       .filter((inv) => !inv.supplier_id || !goodsSupplierIds.has(inv.supplier_id))
@@ -389,7 +415,9 @@ export async function GET(request: NextRequest) {
 
     // ===== Revenue target & diff =====
     // Scale full-month target by periodFactor for fair partial-period comparison.
-    const revenueTargetFull = Number(goal?.revenue_target) || 0;
+    // revenue_target is stored gross (כולל מע"מ) — divide by vatDivisor to compare
+    // against incomeBeforeVat, matching the dashboard reports/page.tsx calc.
+    const revenueTargetFull = (Number(goal?.revenue_target) || 0) / vatDivisor;
     const revenueTarget = revenueTargetFull * periodFactor;
     const revenueDiffNis = incomeBeforeVat - revenueTarget;
     const revenueDiffPct =
