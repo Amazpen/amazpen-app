@@ -212,13 +212,21 @@ export async function GET(request: NextRequest) {
     const managerDailyCost =
       effectiveWorkDays > 0 ? (Number(business.manager_monthly_salary) || 0) / effectiveWorkDays : 0;
 
-    // Pro-rata factor: ratio of day-factor elapsed (1st → endDate) to full
-    // month. Applied to revenueTarget below so the email's "סה\"כ מכירות"
-    // target reflects only the days that have actually been worked so far
-    // (sum of day_factor in daily_entries / sum of day_factor for the whole
-    // month, including business_schedule + exceptions).
+    // Pro-rata factor — David's exact spec:
+    //   periodFactor = (sum of day_factor in daily_entries this month)
+    //                / (sum of day_factor in business_schedule for the full
+    //                   month, minus any business_day_exceptions)
+    // Numerator = how many "work days" the business actually clocked in for
+    // (taken from the user's filled-out daily entries — including partial
+    // Saturdays at 0.5). Denominator = how many work days it was supposed
+    // to clock in for over the whole month.
+    void expectedWorkDaysElapsed; // no longer used — numerator comes from entries
+    const actualWorkDaysFromEntries = entries.reduce(
+      (s, e) => s + (Number(e.day_factor) || 0),
+      0
+    );
     const periodFactor =
-      expectedWorkDays > 0 ? expectedWorkDaysElapsed / expectedWorkDays : 1;
+      expectedWorkDays > 0 ? actualWorkDaysFromEntries / expectedWorkDays : 1;
 
     // ===== Labor cost =====
     const rawLaborCost = entries.reduce((s, e) => s + (Number(e.labor_cost) || 0), 0);
