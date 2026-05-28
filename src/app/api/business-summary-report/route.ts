@@ -282,22 +282,53 @@ export async function GET(request: NextRequest) {
     //
     // current_expenses_target is stored gross (כולל מע"מ); divide by vatDivisor
     // to match dashboard reports/page.tsx, then take MAX with the sum of
-    // supplier_budgets that aren't tagged as goods/labor — same fallback the
-    // dashboard does (use sum-of-budgets when it's larger than the single
-    // goal aggregate).
+    // supplier_budgets that aren't under the "עלות מכר" or "עלות עובדים"
+    // top-level categories — same filter the dashboard uses (by category NAME,
+    // not by supplier.expense_type, so the two numbers stay identical).
     const currentExpensesTargetFromGoal =
       (Number(goal?.current_expenses_target) || 0) / vatDivisor;
+    // Fetch categories once for the budget filter + reuse for category breakdown later.
+    const { data: allCategoriesData } = await supabase
+      .from("expense_categories")
+      .select("id, name, parent_id")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .is("deleted_at", null);
+    const allCategoriesList = (allCategoriesData || []) as Array<{
+      id: string;
+      name: string;
+      parent_id: string | null;
+    }>;
+    const categoryNameByIdMap: Record<string, string> = {};
+    const categoryParentByIdMap: Record<string, string | null> = {};
+    for (const c of allCategoriesList) {
+      categoryNameByIdMap[c.id] = c.name;
+      categoryParentByIdMap[c.id] = c.parent_id || null;
+    }
+    const laborCostNames = new Set(["עלות עובדים", "עלויות עובדים"]);
+    const excludedTopLevelNames = new Set(["עלות מכר", ...laborCostNames]);
+    const walkToTopLevel = (catId: string | null): string | null => {
+      let cur = catId;
+      let depth = 0;
+      while (cur && categoryParentByIdMap[cur] && depth < 6) {
+        cur = categoryParentByIdMap[cur];
+        depth++;
+      }
+      return cur;
+    };
     const supplierBudgetsForCurrent = (supplierBudgetsRes.data || []) as unknown as Array<{
       budget_amount: number | null;
       supplier:
-        | { expense_type?: string | null }
-        | Array<{ expense_type?: string | null }>
+        | { expense_category_id?: string | null; parent_category_id?: string | null }
+        | Array<{ expense_category_id?: string | null; parent_category_id?: string | null }>
         | null;
     }>;
     const currentExpensesTargetFromBudgets = supplierBudgetsForCurrent.reduce((sum, sb) => {
       const supplierObj = Array.isArray(sb.supplier) ? sb.supplier[0] : sb.supplier;
-      const expenseType = supplierObj?.expense_type;
-      if (expenseType === "goods_purchases" || expenseType === "labor") return sum;
+      const catId = supplierObj?.parent_category_id || supplierObj?.expense_category_id || null;
+      const topLevelId = walkToTopLevel(catId);
+      const topLevelName = topLevelId ? categoryNameByIdMap[topLevelId] : null;
+      if (topLevelName && excludedTopLevelNames.has(topLevelName)) return sum;
       return sum + (Number(sb.budget_amount) || 0);
     }, 0);
     const currentExpensesTargetFull = Math.max(
@@ -480,39 +511,20 @@ export async function GET(request: NextRequest) {
           }>
         | null;
     }>;
-    // Fetch all expense categories for this business to map ids → names
-    const { data: allCategories } = await supabase
-      .from("expense_categories")
-      .select("id, name, parent_id")
-      .eq("business_id", businessId)
-      .eq("is_active", true)
-      .is("deleted_at", null);
-    const categoryNameById: Record<string, string> = {};
-    const categoryParentById: Record<string, string | null> = {};
-    for (const c of allCategories || []) {
-      categoryNameById[c.id] = c.name;
-      categoryParentById[c.id] = c.parent_id || null;
-    }
-
-    // Aggregate budgets by top-level category (walk up parent chain)
+    // Aggregate budgets by top-level category (walk up parent chain).
+    // Reuses categoryNameByIdMap / walkToTopLevel built above for the
+    // current-expenses-target filter.
     const categoryTotals: Record<string, number> = {};
     for (const sb of supplierBudgets) {
       const amount = Number(sb.budget_amount || 0);
       if (amount <= 0 || !sb.supplier) continue;
       const supplierObj = Array.isArray(sb.supplier) ? sb.supplier[0] : sb.supplier;
       if (!supplierObj) continue;
-      // Prefer parent_category_id from supplier; fallback to walking expense_category_id parents
-      let catId: string | null =
+      const seedCatId =
         supplierObj.parent_category_id || supplierObj.expense_category_id || null;
-      // Walk up to top-level
-      const safetyCap = 6;
-      let depth = 0;
-      while (catId && categoryParentById[catId] && depth < safetyCap) {
-        catId = categoryParentById[catId];
-        depth++;
-      }
-      if (!catId) continue;
-      const name = categoryNameById[catId] || "אחר";
+      const topLevelId = walkToTopLevel(seedCatId);
+      if (!topLevelId) continue;
+      const name = categoryNameByIdMap[topLevelId] || "אחר";
       categoryTotals[name] = (categoryTotals[name] || 0) + amount;
     }
     const expenseCategories = Object.entries(categoryTotals)
