@@ -1408,21 +1408,27 @@ export default function ReportsPage() {
           {isLoadingReport ? (
             <Skeleton className="h-[220px] w-full bg-white/10 rounded-[8px]" />
           ) : (
-            <LazyResponsiveContainer width="100%" height={220}>
-              <LazyBarChart data={trendsData} barGap={2} barCategoryGap="20%">
-                <LazyXAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }} axisLine={false} tickLine={false} />
-                <LazyYAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} width={40} />
-                <LazyTooltip
-                  contentStyle={{ background: "#1a1f4e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, direction: "rtl" }}
-                  labelStyle={{ color: "white", fontWeight: "bold", marginBottom: 4 }}
-                  itemStyle={{ color: "white" }}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={((value: number) => `₪${value.toLocaleString("he-IL")}`) as any}
-                />
-                <LazyBar dataKey="income" name="הכנסות ללא מע״מ" fill="#17DB4E" radius={[4, 4, 0, 0]} />
-                <LazyBar dataKey="expenses" name="הוצאות" fill="#F64E60" radius={[4, 4, 0, 0]} />
-              </LazyBarChart>
-            </LazyResponsiveContainer>
+            // min-w-0 on the wrapping div is what Recharts asks for in
+            // the "width(-1) and height(-1)" warning — without it the
+            // ResponsiveContainer can briefly measure the parent at -1
+            // during the lazy-load → mount transition.
+            <div className="w-full" style={{ minWidth: 0 }}>
+              <LazyResponsiveContainer width="100%" height={220} minWidth={0}>
+                <LazyBarChart data={trendsData} barGap={2} barCategoryGap="20%">
+                  <LazyXAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <LazyYAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} width={40} />
+                  <LazyTooltip
+                    contentStyle={{ background: "#1a1f4e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, direction: "rtl" }}
+                    labelStyle={{ color: "white", fontWeight: "bold", marginBottom: 4 }}
+                    itemStyle={{ color: "white" }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={((value: number) => `₪${value.toLocaleString("he-IL")}`) as any}
+                  />
+                  <LazyBar dataKey="income" name="הכנסות ללא מע״מ" fill="#17DB4E" radius={[4, 4, 0, 0]} />
+                  <LazyBar dataKey="expenses" name="הוצאות" fill="#F64E60" radius={[4, 4, 0, 0]} />
+                </LazyBarChart>
+              </LazyResponsiveContainer>
+            </div>
           )}
         </section>
       )}
