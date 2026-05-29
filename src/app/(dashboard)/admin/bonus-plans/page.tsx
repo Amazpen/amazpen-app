@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { BonusPlansHelpButton } from "@/components/onboarding/BonusPlansHelpButton";
 import { Loader2, Trash2, Pencil, Plus, X, Trophy, ChevronRight, ChevronLeft } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ===== Types =====
 
@@ -508,9 +509,33 @@ export default function BonusPlansPage() {
   // ===== Render =====
 
   if (isLoading) {
+    // Skeleton scaffold matches the loaded page shell: title + new-plan
+    // button + month/year selector + a couple of plan-card placeholders.
+    // Beats a centered spinner because the user sees what's about to
+    // appear and the layout doesn't reflow when auth resolves.
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="animate-spin w-8 h-8 text-white/40" />
+      <div className="p-3 sm:p-4 lg:p-6 max-w-4xl mx-auto" dir="rtl">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h1 className="text-white text-lg sm:text-xl lg:text-2xl font-bold">תכניות בונוסים ותגמול</h1>
+          <Skeleton className="h-[36px] sm:h-[40px] w-[120px] bg-white/10 rounded-[10px]" />
+        </div>
+        <div className="flex items-center justify-center gap-3 mb-4 sm:mb-6">
+          <Skeleton className="h-[36px] w-[100px] bg-white/10 rounded-[10px]" />
+          <Skeleton className="h-[36px] w-[80px] bg-white/10 rounded-[10px]" />
+        </div>
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="bg-[#111056]/60 border border-white/10 rounded-[10px] p-3 sm:p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-[20px] w-[200px] bg-white/10" />
+                <Skeleton className="h-[24px] w-[60px] bg-white/10 rounded-md" />
+              </div>
+              <Skeleton className="h-[14px] w-[280px] bg-white/10" />
+              <Skeleton className="h-[80px] w-full bg-white/10 rounded-lg" />
+              <Skeleton className="h-[36px] w-full bg-white/10 rounded-lg" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -890,11 +915,23 @@ export default function BonusPlansPage() {
             </div>
           )}
 
-          {/* Plans list */}
+          {/* Plans list — skeleton cards while the per-business fetch
+              is in flight (instead of a centered spinner that hides
+              the shape of the upcoming list). */}
           <div>
             {isLoadingPlans ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="animate-spin w-6 h-6 text-white/40" />
+              <div className="flex flex-col gap-3">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="bg-[#111056]/60 border border-white/10 rounded-[10px] p-3 sm:p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-[20px] w-[200px] bg-white/10" />
+                      <Skeleton className="h-[24px] w-[60px] bg-white/10 rounded-md" />
+                    </div>
+                    <Skeleton className="h-[14px] w-[280px] bg-white/10" />
+                    <Skeleton className="h-[80px] w-full bg-white/10 rounded-lg" />
+                    <Skeleton className="h-[36px] w-full bg-white/10 rounded-lg" />
+                  </div>
+                ))}
               </div>
             ) : plans.length === 0 ? (
               <div className="text-center py-16 text-white/40">
