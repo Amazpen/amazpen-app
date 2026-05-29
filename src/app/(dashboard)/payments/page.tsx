@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePickerField } from "@/components/ui/date-picker-field";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Format date as YYYY-MM-DD using local timezone (avoids UTC shift from toISOString)
 const toLocalDateStr = (date: Date) =>
@@ -1021,7 +1022,7 @@ function PaymentsPageInner() {
   const [recentPaymentsData, setRecentPaymentsData] = useState<RecentPaymentDisplay[]>([]);
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
   const [showLinkedInvoices, setShowLinkedInvoices] = useState<string | null>(null);
-  const [_isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasMorePayments, setHasMorePayments] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [paymentsOffset, setPaymentsOffset] = useState(0);
@@ -3967,17 +3968,23 @@ function PaymentsPageInner() {
       {/* Chart and Summary Section */}
       <div className="bg-[#0F1535] rounded-[20px] p-[20px_0px_10px] mt-[10px]">
         {/* Header - Title and Total - hidden when no data */}
-        {paymentMethodsData.length > 0 && (
-          <div className="flex items-center justify-between">
-            <h2 className="text-[24px] font-bold text-center">תשלומים שיצאו</h2>
-            <div className="flex flex-col items-center">
+        {/* Header is now always visible — the static labels render
+            immediately, and the dynamic total swaps in a skeleton
+            while the payments fetch is still in flight. Hiding the
+            whole header until data lands was confusing the user. */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-[24px] font-bold text-center">תשלומים שיצאו</h2>
+          <div className="flex flex-col items-center">
+            {isLoading ? (
+              <Skeleton className="h-[28px] w-[120px] bg-white/10" />
+            ) : (
               <span className="text-[24px] font-bold ltr-num">
                 ₪{totalPayments.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </span>
-              <span className="text-[14px] font-bold">כולל מע&quot;מ</span>
-            </div>
+            )}
+            <span className="text-[14px] font-bold">כולל מע&quot;מ</span>
           </div>
-        )}
+        </div>
 
         {/* Pie Chart Area */}
         <div id="onboarding-payments-chart" className="relative h-[350px] min-w-[1px] min-h-[1px] flex items-center justify-center mt-[35px]">
