@@ -2417,7 +2417,13 @@ export default function SuppliersPage() {
               )}
             </div>
           ) : (
-            <span className="text-[18px] font-bold text-white flex items-center gap-[6px]">{activeTab === "previous" ? `${suppliersCount} התחייבויות קודמות` : `${suppliersCount} ספקים`}</span>
+            <span className="text-[18px] font-bold text-white flex items-center gap-[6px]">
+              {isLoading ? (
+                <Skeleton className="h-[20px] w-[110px] bg-white/10" />
+              ) : (
+                activeTab === "previous" ? `${suppliersCount} התחייבויות קודמות` : `${suppliersCount} ספקים`
+              )}
+            </span>
           )}
           {!isSearchOpen && <div className="ms-auto"><SuppliersHelpButton /></div>}
         </div>
