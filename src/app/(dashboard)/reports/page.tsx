@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronDown } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Lazy loaded Recharts components
 const LazyBarChart = dynamic(() => import("recharts").then((mod) => ({ default: mod.BarChart })), { ssr: false });
@@ -204,6 +205,10 @@ export default function ReportsPage() {
   const [yearlyMonthlyRevenue, setYearlyMonthlyRevenue] = useState<number[]>(Array(12).fill(0));
   const [yearlySupplierSearch, setYearlySupplierSearch] = useState("");
   const [isLoadingYearly, setIsLoadingYearly] = useState(false);
+  // Single "report data is in flight" flag — gates the dynamic numbers
+  // (revenue/expenses/profit/totals/categories/prior-commitments/cashflow)
+  // so they show skeleton placeholders instead of stale or zero values.
+  const [isLoadingReport, setIsLoadingReport] = useState(true);
 
   // Fetch 6-month trends for chart
   useEffect(() => {
@@ -651,10 +656,12 @@ export default function ReportsPage() {
 
       if (selectedBusinesses.length === 0 || isNaN(year) || isNaN(month)) {
         setExpenseCategories([]);
+        setIsLoadingReport(false);
         return;
       }
 
       const supabase = createClient();
+      setIsLoadingReport(true);
 
       try {
         const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -1231,6 +1238,7 @@ export default function ReportsPage() {
       } catch (error) {
         console.error("Error fetching reports data:", error);
       } finally {
+        setIsLoadingReport(false);
       }
     };
 
@@ -1293,16 +1301,26 @@ export default function ReportsPage() {
 
       {/* Summary Card - Total Result + Filters */}
       <section id="onboarding-reports-summary-top" aria-label="סיכום תוצאות" className="bg-[#0F1535] rounded-[10px] py-[7px] min-h-[70px] flex flex-col gap-[15px]">
-        {/* Total Result Row */}
+        {/* Total Result Row — only the numbers stream in async, so the
+            label stays put and the values get a skeleton during fetch. */}
         <div className="flex flex-row-reverse items-center justify-between w-full min-h-[40px] gap-[3px]">
           <div className="flex flex-row-reverse items-center gap-[10px] flex-1">
-            <span className="text-[18px] font-bold ltr-num">₪{summary.operatingProfit.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            <div className="flex flex-row-reverse items-center gap-[2px] flex-1">
-              <svg width="15" height="15" viewBox="0 0 32 32" fill="none" className={summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"} aria-hidden="true">
-                <path d={summary.operatingProfitPct >= 0 ? "M16 26V6M16 6L6 16M16 6L26 16" : "M16 6V26M16 26L6 16M16 26L26 16"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span className={`text-[16px] font-bold ltr-num ${summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"}`}>{summary.operatingProfitPct.toFixed(2)}%</span>
-            </div>
+            {isLoadingReport ? (
+              <>
+                <Skeleton className="h-[22px] w-[110px] bg-white/10" />
+                <Skeleton className="h-[20px] w-[70px] bg-white/10" />
+              </>
+            ) : (
+              <>
+                <span className="text-[18px] font-bold ltr-num">₪{summary.operatingProfit.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <div className="flex flex-row-reverse items-center gap-[2px] flex-1">
+                  <svg width="15" height="15" viewBox="0 0 32 32" fill="none" className={summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"} aria-hidden="true">
+                    <path d={summary.operatingProfitPct >= 0 ? "M16 26V6M16 6L6 16M16 6L26 16" : "M16 6V26M16 26L6 16M16 26L26 16"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span className={`text-[16px] font-bold ltr-num ${summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"}`}>{summary.operatingProfitPct.toFixed(2)}%</span>
+                </div>
+              </>
+            )}
           </div>
           <span className="text-[20px] font-bold leading-[1.4]">סה&quot;כ תוצאות רווח/הפסד</span>
         </div>
@@ -1369,8 +1387,10 @@ export default function ReportsPage() {
 
       {viewMode === "monthly" ? (<>
 
-      {/* 6-Month Income vs Expenses Chart */}
-      {trendsData.length > 0 && trendsData.some(d => d.income > 0 || d.expenses > 0) && (
+      {/* 6-Month Income vs Expenses Chart — section header + legend are
+          static so they render immediately; the chart body shows a
+          skeleton until trendsData lands. */}
+      {(isLoadingReport || (trendsData.length > 0 && trendsData.some(d => d.income > 0 || d.expenses > 0))) && (
         <section id="onboarding-reports-trends" aria-label="מגמות הכנסות מול הוצאות" className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
           <div className="flex items-center justify-between">
             <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות (ללא מע&quot;מ) — 6 חודשים</span>
@@ -1385,46 +1405,68 @@ export default function ReportsPage() {
               </div>
             </div>
           </div>
-          <LazyResponsiveContainer width="100%" height={220}>
-            <LazyBarChart data={trendsData} barGap={2} barCategoryGap="20%">
-              <LazyXAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }} axisLine={false} tickLine={false} />
-              <LazyYAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} width={40} />
-              <LazyTooltip
-                contentStyle={{ background: "#1a1f4e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, direction: "rtl" }}
-                labelStyle={{ color: "white", fontWeight: "bold", marginBottom: 4 }}
-                itemStyle={{ color: "white" }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={((value: number) => `₪${value.toLocaleString("he-IL")}`) as any}
-              />
-              <LazyBar dataKey="income" name="הכנסות ללא מע״מ" fill="#17DB4E" radius={[4, 4, 0, 0]} />
-              <LazyBar dataKey="expenses" name="הוצאות" fill="#F64E60" radius={[4, 4, 0, 0]} />
-            </LazyBarChart>
-          </LazyResponsiveContainer>
+          {isLoadingReport ? (
+            <Skeleton className="h-[220px] w-full bg-white/10 rounded-[8px]" />
+          ) : (
+            <LazyResponsiveContainer width="100%" height={220}>
+              <LazyBarChart data={trendsData} barGap={2} barCategoryGap="20%">
+                <LazyXAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                <LazyYAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} width={40} />
+                <LazyTooltip
+                  contentStyle={{ background: "#1a1f4e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, direction: "rtl" }}
+                  labelStyle={{ color: "white", fontWeight: "bold", marginBottom: 4 }}
+                  itemStyle={{ color: "white" }}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={((value: number) => `₪${value.toLocaleString("he-IL")}`) as any}
+                />
+                <LazyBar dataKey="income" name="הכנסות ללא מע״מ" fill="#17DB4E" radius={[4, 4, 0, 0]} />
+                <LazyBar dataKey="expenses" name="הוצאות" fill="#F64E60" radius={[4, 4, 0, 0]} />
+              </LazyBarChart>
+            </LazyResponsiveContainer>
+          )}
         </section>
       )}
 
-      {/* Income Summary Card */}
+      {/* Income Summary Card — labels (יעד / בפועל / הפרש ב-₪ /
+          הפרש ב-%) and the row title stay put; only the values get a
+          skeleton while the report data is fetching. */}
       <section id="onboarding-reports-income" aria-label="סיכום הכנסות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]">
         <div className="flex flex-row-reverse items-center gap-[5px] flex-1 min-w-0">
           <div className="flex flex-col items-center flex-1 min-w-0">
             <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-%</span>
-            <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {summary.revenueTarget > 0 ? ((summary.totalRevenue / summary.revenueTarget) * 100).toFixed(2) : "0.00"}%
-            </span>
+            {isLoadingReport ? (
+              <Skeleton className="h-[16px] w-[60px] bg-white/10 mt-[2px]" />
+            ) : (
+              <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                {summary.revenueTarget > 0 ? ((summary.totalRevenue / summary.revenueTarget) * 100).toFixed(2) : "0.00"}%
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-center flex-1 min-w-0">
             <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-₪</span>
-            <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {formatCurrency(summary.totalRevenue - summary.revenueTarget)}
-            </span>
+            {isLoadingReport ? (
+              <Skeleton className="h-[16px] w-[60px] bg-white/10 mt-[2px]" />
+            ) : (
+              <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                {formatCurrency(summary.totalRevenue - summary.revenueTarget)}
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-center flex-1 min-w-0">
             <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">בפועל</span>
-            <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.totalRevenue)}</span>
+            {isLoadingReport ? (
+              <Skeleton className="h-[16px] w-[60px] bg-white/10 mt-[2px]" />
+            ) : (
+              <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.totalRevenue)}</span>
+            )}
           </div>
           <div className="flex flex-col items-center flex-1 min-w-0">
             <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">יעד</span>
-            <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.revenueTarget)}</span>
+            {isLoadingReport ? (
+              <Skeleton className="h-[16px] w-[60px] bg-white/10 mt-[2px]" />
+            ) : (
+              <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.revenueTarget)}</span>
+            )}
           </div>
         </div>
         <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
@@ -1450,9 +1492,26 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* Expense Categories */}
+        {/* Expense Categories — render skeleton rows while data is in
+            flight so the user sees the table shape immediately. */}
         <div className="flex flex-col mt-[5px]">
-          {expenseCategories.length === 0 ? (
+          {isLoadingReport ? (
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex flex-row-reverse items-center justify-between w-full min-h-[60px] p-[5px] gap-[5px] border-b-2 border-white/15">
+                  <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 flex justify-center"><Skeleton className="h-[16px] w-[50px] bg-white/10" /></div>
+                    <div className="flex-1 min-w-0 flex justify-center"><Skeleton className="h-[16px] w-[50px] bg-white/10" /></div>
+                    <div className="flex-1 min-w-0 flex justify-center"><Skeleton className="h-[16px] w-[50px] bg-white/10" /></div>
+                    <div className="flex-1 min-w-0 flex justify-center"><Skeleton className="h-[16px] w-[50px] bg-white/10" /></div>
+                  </div>
+                  <div className="shrink-0 w-[90px] sm:w-[140px] flex justify-end">
+                    <Skeleton className="h-[18px] w-[80px] bg-white/10" />
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : expenseCategories.length === 0 ? (
             <div className="flex items-center justify-center py-[40px]">
               <span className="text-[16px] text-white/50">אין נתוני הוצאות להצגה</span>
             </div>
@@ -1621,51 +1680,75 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        {/* Total Expenses Row */}
+        {/* Total Expenses Row — label stays put, values get skeleton */}
         <div className="flex flex-row-reverse items-center justify-between bg-[#2C3595] rounded-[10px] p-[7px] mt-[10px] min-h-[60px] gap-[5px]">
           <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-            <div className="flex flex-col items-center flex-1 min-w-0 gap-[2px]">
-              <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
-                {summary.expensesTarget > 0 ? (((summary.expensesTarget - summary.totalExpenses) / summary.expensesTarget) * 100).toFixed(2) : "0.00"}%
-              </span>
-            </div>
-            <span className={`text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {formatDifference(summary.expensesTarget - summary.totalExpenses)}
-            </span>
-            <span className="text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">{formatCurrency(summary.totalExpenses)}</span>
-            <span className="text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">{formatCurrency(summary.expensesTarget)}</span>
+            {isLoadingReport ? (
+              <>
+                <div className="flex-1 min-w-0 flex justify-center"><Skeleton className="h-[18px] w-[55px] bg-white/10" /></div>
+                <div className="flex-1 min-w-0 flex justify-center"><Skeleton className="h-[18px] w-[55px] bg-white/10" /></div>
+                <div className="flex-1 min-w-0 flex justify-center"><Skeleton className="h-[18px] w-[55px] bg-white/10" /></div>
+                <div className="flex-1 min-w-0 flex justify-center"><Skeleton className="h-[18px] w-[55px] bg-white/10" /></div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col items-center flex-1 min-w-0 gap-[2px]">
+                  <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                    {summary.expensesTarget > 0 ? (((summary.expensesTarget - summary.totalExpenses) / summary.expensesTarget) * 100).toFixed(2) : "0.00"}%
+                  </span>
+                </div>
+                <span className={`text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                  {formatDifference(summary.expensesTarget - summary.totalExpenses)}
+                </span>
+                <span className="text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">{formatCurrency(summary.totalExpenses)}</span>
+                <span className="text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">{formatCurrency(summary.expensesTarget)}</span>
+              </>
+            )}
           </div>
           <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הוצאות</span>
         </div>
       </section>
 
-      {/* Total Profit/Loss Summary */}
+      {/* Total Profit/Loss Summary — label stays put, values get skeleton */}
       <section id="onboarding-reports-bottom" aria-label="סיכום רווח והפסד" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
         <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <span className={`text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {(summary.revenueTarget - summary.expensesTarget) !== 0
-                ? (((summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget)) / Math.abs(summary.revenueTarget - summary.expensesTarget)) * 100).toFixed(2)
-                : "0.00"}%
-            </span>
-          </div>
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <span className={`text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {formatCurrency(summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget))}
-            </span>
-          </div>
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <span className="text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.operatingProfit)}</span>
-            <span className={`text-[11px] sm:text-[14px] font-semibold ltr-num leading-[1.4] ${summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {summary.operatingProfitPct.toFixed(1)}%
-            </span>
-          </div>
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <span className="text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.revenueTarget - summary.expensesTarget)}</span>
-            <span className={`text-[11px] sm:text-[14px] font-semibold ltr-num leading-[1.4] ${summary.revenueTarget > 0 ? "text-[#17DB4E]" : "text-white"}`}>
-              {summary.revenueTarget > 0 ? (((summary.revenueTarget - summary.expensesTarget) / summary.revenueTarget) * 100).toFixed(1) : "0.0"}%
-            </span>
-          </div>
+          {isLoadingReport ? (
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex flex-col items-center flex-1 min-w-0 gap-[2px]">
+                  <Skeleton className="h-[16px] w-[55px] bg-white/10" />
+                  <Skeleton className="h-[12px] w-[35px] bg-white/10" />
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col items-center flex-1 min-w-0">
+                <span className={`text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                  {(summary.revenueTarget - summary.expensesTarget) !== 0
+                    ? (((summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget)) / Math.abs(summary.revenueTarget - summary.expensesTarget)) * 100).toFixed(2)
+                    : "0.00"}%
+                </span>
+              </div>
+              <div className="flex flex-col items-center flex-1 min-w-0">
+                <span className={`text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                  {formatCurrency(summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget))}
+                </span>
+              </div>
+              <div className="flex flex-col items-center flex-1 min-w-0">
+                <span className="text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.operatingProfit)}</span>
+                <span className={`text-[11px] sm:text-[14px] font-semibold ltr-num leading-[1.4] ${summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                  {summary.operatingProfitPct.toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex flex-col items-center flex-1 min-w-0">
+                <span className="text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.revenueTarget - summary.expensesTarget)}</span>
+                <span className={`text-[11px] sm:text-[14px] font-semibold ltr-num leading-[1.4] ${summary.revenueTarget > 0 ? "text-[#17DB4E]" : "text-white"}`}>
+                  {summary.revenueTarget > 0 ? (((summary.revenueTarget - summary.expensesTarget) / summary.revenueTarget) * 100).toFixed(1) : "0.0"}%
+                </span>
+              </div>
+            </>
+          )}
         </div>
         <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ רווח / הפסד</span>
       </section>
@@ -1683,15 +1766,23 @@ export default function ReportsPage() {
             <span className="flex-1 min-w-0" />
             <div className="flex flex-col items-center flex-1 min-w-0">
               <span className="text-[10px] sm:text-[12px] text-white/50 leading-[1.3]">בפועל</span>
-              <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
-                {formatCurrency(priorLiabilities)}
-              </span>
+              {isLoadingReport ? (
+                <Skeleton className="h-[16px] w-[55px] bg-white/10 mt-[2px]" />
+              ) : (
+                <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+                  {formatCurrency(priorLiabilities)}
+                </span>
+              )}
             </div>
             <div className="flex flex-col items-center flex-1 min-w-0">
               <span className="text-[10px] sm:text-[12px] text-white/50 leading-[1.3]">יעד</span>
-              <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
-                {formatCurrency(priorLiabilities)}
-              </span>
+              {isLoadingReport ? (
+                <Skeleton className="h-[16px] w-[55px] bg-white/10 mt-[2px]" />
+              ) : (
+                <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+                  {formatCurrency(priorLiabilities)}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex flex-row-reverse items-center gap-[4px] shrink-0 w-[90px] sm:w-[140px]">
@@ -1734,27 +1825,39 @@ export default function ReportsPage() {
         )}
       </section>
 
-      {/* Cash Flow Forecast */}
+      {/* Cash Flow Forecast — labels + title stay put, values get skeleton */}
       <section aria-label="צפי תזרים" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px] mb-[25px]">
         <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
           <span className="flex-1 min-w-0" />
           <div className="flex flex-col items-center flex-1 min-w-0">
             <span className="text-[11px] sm:text-[14px] font-medium leading-[1.4] text-center whitespace-nowrap">הפרש ב-₪</span>
-            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] text-center whitespace-nowrap ${cashFlowForecast.actual - cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual - cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {formatCurrency(cashFlowForecast.actual - cashFlowForecast.target)}
-            </span>
+            {isLoadingReport ? (
+              <Skeleton className="h-[16px] w-[55px] bg-white/10 mt-[2px]" />
+            ) : (
+              <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] text-center whitespace-nowrap ${cashFlowForecast.actual - cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual - cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                {formatCurrency(cashFlowForecast.actual - cashFlowForecast.target)}
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-center flex-1 min-w-0">
             <span className="text-[11px] sm:text-[14px] font-medium leading-[1.4] text-center">בפועל</span>
-            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] text-center whitespace-nowrap ${cashFlowForecast.actual > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {formatCurrency(cashFlowForecast.actual)}
-            </span>
+            {isLoadingReport ? (
+              <Skeleton className="h-[16px] w-[55px] bg-white/10 mt-[2px]" />
+            ) : (
+              <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] text-center whitespace-nowrap ${cashFlowForecast.actual > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                {formatCurrency(cashFlowForecast.actual)}
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-center flex-1 min-w-0">
             <span className="text-[11px] sm:text-[14px] font-medium leading-[1.4] text-center">יעד</span>
-            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] text-center whitespace-nowrap ${cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {formatCurrency(cashFlowForecast.target)}
-            </span>
+            {isLoadingReport ? (
+              <Skeleton className="h-[16px] w-[55px] bg-white/10 mt-[2px]" />
+            ) : (
+              <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] text-center whitespace-nowrap ${cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                {formatCurrency(cashFlowForecast.target)}
+              </span>
+            )}
           </div>
         </div>
         <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">צפי תזרים</span>
