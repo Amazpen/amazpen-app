@@ -1018,14 +1018,36 @@ export default function BonusPlansPage() {
                           >
                             <div className="p-1.5 sm:p-2 text-center border-l border-white/10 truncate font-medium">{t.label}</div>
                             <div className="p-1.5 sm:p-2 text-center border-l border-white/10 ltr-num opacity-80">
-                              {t.threshold != null
-                                ? t.thresholdMax != null
-                                  ? `${formatValue(t.threshold, plan.measurement_type)} – ${formatValue(t.thresholdMax, plan.measurement_type)}`
-                                  : `${plan.is_lower_better ? "≤" : "≥"} ${formatValue(t.threshold, plan.measurement_type)}`
-                                : "—"
-                              }
+                              {t.threshold != null ? (
+                                t.thresholdMax != null ? (
+                                  // Range like "₪212 – ₪212". Wrap each side
+                                  // in dir="ltr" + the whole thing in a
+                                  // dir="ltr" span so the ₪ / – sequence
+                                  // doesn't get reordered by the RTL parent.
+                                  <span dir="ltr" style={{ display: "inline-block", unicodeBidi: "isolate" }}>
+                                    <span dir="ltr" style={{ display: "inline-block", unicodeBidi: "isolate" }}>
+                                      {formatValue(t.threshold, plan.measurement_type)}
+                                    </span>
+                                    {" – "}
+                                    <span dir="ltr" style={{ display: "inline-block", unicodeBidi: "isolate" }}>
+                                      {formatValue(t.thresholdMax, plan.measurement_type)}
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span dir="ltr" style={{ display: "inline-block", unicodeBidi: "isolate" }}>
+                                    {plan.is_lower_better ? "≤ " : "≥ "}
+                                    {formatValue(t.threshold, plan.measurement_type)}
+                                  </span>
+                                )
+                              ) : (
+                                "—"
+                              )}
                             </div>
-                            <div className="p-1.5 sm:p-2 text-center font-semibold">{formatCurrency(t.amount)}</div>
+                            <div className="p-1.5 sm:p-2 text-center font-semibold">
+                              <span dir="ltr" style={{ display: "inline-block", unicodeBidi: "isolate" }}>
+                                {formatCurrency(t.amount)}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
