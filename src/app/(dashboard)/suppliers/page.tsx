@@ -2287,12 +2287,19 @@ export default function SuppliersPage() {
       <ConfirmDialog />
       {/* Header Section with Total and Add Button */}
       <div className="flex flex-col gap-[7px]">
-        {/* Total Open Payment - פתוח לתשלום: בימין, הסכום בשמאל */}
+        {/* Total Open Payment - פתוח לתשלום: בימין, הסכום בשמאל.
+            While the supplier list + balances are still loading we
+            show a skeleton for the amount so the user doesn't briefly
+            see "₪0" while data streams in. */}
         <div id="onboarding-suppliers-total" className="flex items-center justify-center gap-[3px]">
-          <span className={`text-[23px] font-bold ${totalOpenPayment < 0 ? "text-[#0BB783]" : totalOpenPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>פתוח לתשלום:</span>
-          <span dir="ltr" className={`text-[23px] font-bold ${totalOpenPayment < 0 ? "text-[#0BB783]" : totalOpenPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>
-            ₪{totalOpenPayment < 0 ? "-" : ""}{Math.abs(totalOpenPayment).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-          </span>
+          <span className={`text-[23px] font-bold ${isLoading ? "text-white" : totalOpenPayment < 0 ? "text-[#0BB783]" : totalOpenPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>פתוח לתשלום:</span>
+          {isLoading ? (
+            <Skeleton className="h-[28px] w-[140px] bg-white/10" />
+          ) : (
+            <span dir="ltr" className={`text-[23px] font-bold ${totalOpenPayment < 0 ? "text-[#0BB783]" : totalOpenPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>
+              ₪{totalOpenPayment < 0 ? "-" : ""}{Math.abs(totalOpenPayment).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            </span>
+          )}
         </div>
 
         {/* Add Supplier Button */}
