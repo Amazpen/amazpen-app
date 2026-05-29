@@ -22,6 +22,7 @@ import {
 } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SurveyRow {
   id: string;
@@ -250,12 +251,65 @@ export default function SurveysPage() {
   );
 
   if (loading) {
+    // Skeleton mirrors the real page shape (summary strip → trend chart →
+    // ratings breakdown → responses list) so the layout doesn't reflow
+    // when the fetch resolves. Static section headers stay visible; only
+    // the numeric content swaps in once loading flips false.
     return (
       <div className="flex flex-col gap-[10px]" dir="rtl">
         {dateRangeCard}
-        <div className="bg-[#0F1535] rounded-[10px] p-[40px] text-center">
-          <span className="text-white/60 text-[14px]">טוען...</span>
-        </div>
+        {/* Summary strip skeleton — 6 stat cells */}
+        <section className="bg-[#2C3595] rounded-[10px] p-[8px] grid grid-cols-3 sm:grid-cols-6 gap-[4px] sm:gap-[5px]">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex flex-col items-center justify-center gap-[4px] px-[2px]">
+              <Skeleton className="h-[12px] w-[50px] bg-white/15" />
+              <Skeleton className="h-[16px] w-[40px] bg-white/15" />
+            </div>
+          ))}
+        </section>
+        {/* Trend chart skeleton */}
+        <section className="bg-[#0F1535] rounded-[10px] p-[12px_8px] sm:p-[15px_10px] flex flex-col gap-[10px]">
+          <div className="flex items-center justify-between gap-[10px]">
+            <span className="text-[16px] sm:text-[18px] font-bold leading-[1.4] text-white">שביעות רצון לאורך זמן</span>
+            <div className="flex items-center gap-[4px] flex-shrink-0">
+              <div className="w-[10px] h-[10px] rounded-[2px] bg-[#17DB4E]" />
+              <span className="text-[11px] text-white/60">ממוצע חודשי</span>
+            </div>
+          </div>
+          <Skeleton className="h-[200px] w-full bg-white/10 rounded-[8px]" />
+        </section>
+        {/* Ratings breakdown skeleton */}
+        <section className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
+          <span className="text-[16px] sm:text-[18px] font-bold leading-[1.4] text-white">פילוח דירוגים</span>
+          <div className="grid gap-[15px] items-center md:grid-cols-[200px_1fr]">
+            <Skeleton className="h-[180px] w-full md:w-[200px] bg-white/10 rounded-full" />
+            <div className="flex flex-col gap-[8px]">
+              {[5, 4, 3, 2, 1].map((star) => (
+                <div key={star} className="flex flex-row-reverse items-center gap-[6px] sm:gap-[10px]">
+                  <span className="text-[12px] sm:text-[14px] font-bold w-[32px] sm:w-[40px] text-right text-white/60 flex-shrink-0">{star} ★</span>
+                  <Skeleton className="flex-1 h-[8px] sm:h-[10px] bg-white/10 rounded-full" />
+                  <Skeleton className="h-[14px] w-[60px] sm:w-[70px] bg-white/10 flex-shrink-0" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+        {/* Responses list skeleton */}
+        <section className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+          <Skeleton className="h-[40px] w-full bg-white/10 rounded-[7px]" />
+          <div className="flex flex-col">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="border-b border-white/10 p-[10px_5px] flex flex-row-reverse items-center justify-between gap-[10px]">
+                <Skeleton className="h-[18px] w-[24px] bg-white/10 flex-shrink-0" />
+                <div className="flex-1 flex flex-col gap-[4px]">
+                  <Skeleton className="h-[14px] w-[120px] bg-white/10" />
+                  <Skeleton className="h-[12px] w-[160px] bg-white/10" />
+                </div>
+                <Skeleton className="h-[16px] w-[50px] bg-white/10 flex-shrink-0" />
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }
