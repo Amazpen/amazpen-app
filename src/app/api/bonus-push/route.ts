@@ -236,15 +236,21 @@ function buildConsolidatedEmailHtml(
   bestTip: string | null,
   businessLabel: string,
 ): string {
-  const LOGO_URL = "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png";
+  // Light/purple theme — matches the weekly-summary email exactly.
+  // Logo black-on-white, container white, soft purple highlights.
+  const LOGO_URL =
+    "https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/f1743926937992x581425083519520800/logo%20black%20(1).png";
   const GREEN = "#17DB4E";
-  const RED = "#FF4D4D";
-  const BG = "#0F1535";
-  const ROW_BG = "#1A1F4E";
-  const HEADER_BG = "#29318A";
-  const TEXT = "#FFFFFF";
-  const MUTED = "rgba(255,255,255,0.5)";
-  const ACCENT = totalBonus > 0 ? GREEN : "#FFA412";
+  const RED = "#F64E60";
+  const BG = "#f5f7fa"; // outer page background
+  const CONTAINER_BG = "#ffffff"; // card container
+  const CONTENT_BG = "#f8f5ff"; // inner soft-purple section bg
+  const ROW_BG = "#ffffff"; // KPI card bg
+  const ROW_BORDER = "#e8def8"; // KPI card border
+  const HEADER_BG = "#f3e8ff"; // soft purple header strip
+  const TEXT = "#333333";
+  const MUTED = "#7e7591";
+  const PURPLE = "#8328f8"; // brand accent
 
   // Build one self-contained CARD per KPI instead of a 5-column table.
   // Why: Gmail's mobile app strips the whole <style> block whenever it sees
@@ -282,10 +288,10 @@ function buildConsolidatedEmailHtml(
     }
 
     kpiCardsHtml += `
-      <table dir="rtl" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background: ${ROW_BG}; border-radius: 8px; margin: 0 0 10px 0; border: 1px solid rgba(255,255,255,0.08);">
+      <table dir="rtl" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background: ${ROW_BG}; border-radius: 8px; margin: 0 0 10px 0; border: 1px solid ${ROW_BORDER};">
         <tr>
           <td style="padding: 12px 16px;">
-            <div style="font-size: 15px; font-weight: bold; color: ${TEXT}; text-align: right; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.10);">${displayName}</div>
+            <div style="font-size: 15px; font-weight: bold; color: ${PURPLE}; text-align: right; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid ${ROW_BORDER};">${displayName}</div>
             <table dir="rtl" cellpadding="0" cellspacing="0" width="100%" style="width: 100%;">
               ${metricRow("יעד", goalStr, MUTED)}
               ${metricRow("בפועל", currentStr, valueColor, true)}
@@ -299,7 +305,7 @@ function buildConsolidatedEmailHtml(
 
   const planNames = [...new Set(kpis.map(k => k.plan.area_name))];
   const planNamesHtml = planNames.map(name =>
-    `<span style="display: inline-block; background: ${HEADER_BG}; padding: 4px 14px; border-radius: 6px; font-size: 13px; margin: 3px 4px; color: ${TEXT};">${name}</span>`
+    `<span style="display: inline-block; background: ${HEADER_BG}; padding: 4px 14px; border-radius: 6px; font-size: 13px; margin: 3px 4px; color: ${PURPLE}; font-weight: 600;">${name}</span>`
   ).join("");
 
   const bonusFormatted = new Intl.NumberFormat("he-IL", {
@@ -313,29 +319,29 @@ function buildConsolidatedEmailHtml(
     : `נכון לעכשיו אין צפי לבונוס — אפשר לשפר.`;
 
   const tipHtml = bestTip
-    ? `<div style="background: ${ROW_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid #FFA412;">
-        <p style="margin: 0; font-size: 14px; color: ${TEXT}; line-height: 1.6;">💡 <strong>עצה לביצוע היום:</strong> ${bestTip}</p>
+    ? `<div style="background: ${HEADER_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid #FFA412;">
+        <p style="margin: 0; font-size: 14px; color: ${TEXT}; line-height: 1.6;">💡 <strong style="color: ${PURPLE};">עצה לביצוע היום:</strong> ${bestTip}</p>
       </div>`
     : "";
 
   const dailyTargetText = buildDailyTargetLines(kpis);
   const dailyTargetHtml = dailyTargetText
-    ? `<div style="background: ${ROW_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid ${GREEN};">
-        <p style="margin: 0 0 6px 0; font-size: 13px; color: ${MUTED};">היעד להיום:</p>
+    ? `<div style="background: ${HEADER_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid ${GREEN};">
+        <p style="margin: 0 0 6px 0; font-size: 13px; color: ${PURPLE}; font-weight: bold;">היעד להיום:</p>
         <p style="margin: 0; font-size: 14px; color: ${TEXT}; line-height: 1.7;">${dailyTargetText}</p>
       </div>`
     : "";
 
   const dailyActionsItems = buildDailyActionsHtml(kpis);
   const dailyActionsHtml = dailyActionsItems
-    ? `<div style="background: ${ROW_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid #4A56D4;">
-        <p style="margin: 0 0 8px 0; font-size: 13px; color: ${MUTED};">משימות להיום:</p>
-        <ul style="margin: 0; padding-right: 18px;">${dailyActionsItems}</ul>
+    ? `<div style="background: ${HEADER_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid ${PURPLE};">
+        <p style="margin: 0 0 8px 0; font-size: 13px; color: ${PURPLE}; font-weight: bold;">משימות להיום:</p>
+        <ul style="margin: 0; padding-right: 18px; color: ${TEXT};">${dailyActionsItems}</ul>
       </div>`
     : "";
 
   const businessHeader = businessLabel
-    ? `<p class="header-business" style="margin: 4px 0 0 0; font-size: 15px; color: ${MUTED};">${businessLabel}</p>`
+    ? `<p style="margin: 8px 0 0 0; font-size: 14px; color: ${TEXT};">${businessLabel}</p>`
     : "";
 
   // Greeting in plural so the same copy works for any gender / multiple
@@ -349,49 +355,54 @@ function buildConsolidatedEmailHtml(
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
-    <body style="margin: 0; padding: 0; background: ${BG};">
-      <!-- Outer wrapper table: full-width on phones, capped at 600px on desktop.
-           The whole layout is responsive WITHOUT media queries (Gmail's mobile
-           app strips <style> blocks), so it renders identically everywhere. -->
+    <body style="margin: 0; padding: 0; background: ${BG}; font-family: Assistant, 'Segoe UI', Arial, sans-serif;">
+      <!-- Outer wrapper. Light/purple theme matched to the weekly-summary
+           email. No <style> block — Gmail mobile strips them — every style
+           is inline so the layout renders identically everywhere. -->
       <table dir="rtl" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background: ${BG};">
         <tr>
-          <td align="center" style="padding: 16px;">
-      <div class="container" dir="rtl" style="font-family: Assistant, Arial, sans-serif; width: 100%; max-width: 600px; margin: 0 auto; background: ${BG}; border-radius: 12px; padding: 20px; color: ${TEXT}; box-sizing: border-box;">
-        <!-- Header -->
-        <div style="text-align: center; margin-bottom: 22px;">
-          <h2 class="header-title" style="margin: 0 0 6px 0; font-size: 22px; color: ${ACCENT};">🎯 עדכון בונוס יומי</h2>
+          <td align="center" style="padding: 24px 16px;">
+      <div dir="rtl" style="font-family: Assistant, 'Segoe UI', Arial, sans-serif; width: 100%; max-width: 700px; margin: 0 auto; background: ${CONTAINER_BG}; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); color: ${TEXT};">
+        <!-- Header (purple band, like the weekly summary) -->
+        <div style="background: ${HEADER_BG}; padding: 24px; text-align: center;">
+          <img src="${LOGO_URL}" alt="המצפן" style="max-width: 140px; margin-bottom: 12px; display: inline-block;" />
+          <h2 style="margin: 0; font-size: 22px; color: ${PURPLE}; font-weight: bold;">סיכום בונוס יומי</h2>
           ${businessHeader}
-          <p style="margin: 10px 0 0 0; font-size: 16px; color: ${TEXT};">שלום${greetingName},</p>
         </div>
 
-        <!-- Plan names -->
-        <div class="plan-names" style="text-align: center; margin-bottom: 20px;">
-          ${planNamesHtml}
+        <!-- Inner content (soft-purple bg, like the weekly summary) -->
+        <div style="padding: 24px; background: ${CONTENT_BG}; line-height: 1.7;">
+          <p style="margin: 0 0 14px 0; font-size: 16px; color: ${TEXT};">שלום${greetingName},</p>
+
+          <!-- Plan names -->
+          <div style="text-align: center; margin-bottom: 18px;">
+            ${planNamesHtml}
+          </div>
+
+          <!-- Section header -->
+          <p style="font-weight: bold; color: ${PURPLE}; margin: 12px 0 8px 0; font-size: 15px;">פרמטרים שנמדדו</p>
+          ${kpiCardsHtml}
+
+          <!-- Bonus Status -->
+          <div style="text-align: center; margin: 22px 0; padding: 18px; background: ${ROW_BG}; border-radius: 8px; border: 1px solid ${ROW_BORDER};">
+            <p style="margin: 0 0 4px 0; font-size: 13px; color: ${MUTED};">סטטוס בונוס</p>
+            <p style="margin: 0; font-size: 16px; color: ${TEXT}; line-height: 1.6;">${bonusStatusText}</p>
+          </div>
+
+          ${dailyTargetHtml}
+          ${dailyActionsHtml}
+          ${tipHtml}
+
+          <div style="text-align: center; margin-top: 24px;">
+            <a href="https://app.amazpenbiz.co.il/ai" style="display: inline-block; background: ${PURPLE}; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 15px; font-weight: bold;">לפתיחת דדי — היועץ הדיגיטלי</a>
+          </div>
+
+          <p style="margin: 24px 0 8px 0; text-align: right; color: ${TEXT}; font-size: 14px;">בברכה,<br/>צוות המצפן</p>
         </div>
 
-        <!-- KPI Cards (one per parameter — no media query needed) -->
-        <div style="background: ${HEADER_BG}; border-radius: 8px; padding: 10px 16px; margin-bottom: 12px; text-align: right;">
-          <span style="font-size: 14px; font-weight: 600; color: ${TEXT};">פרמטרים שנמדדו</span>
-        </div>
-        ${kpiCardsHtml}
-
-        <!-- Bonus Status -->
-        <div style="text-align: center; margin: 22px 0; padding: 18px; background: ${ROW_BG}; border-radius: 8px; border: 1px solid ${ACCENT}40;">
-          <p style="margin: 0 0 4px 0; font-size: 13px; color: ${MUTED};">סטטוס בונוס</p>
-          <p style="margin: 0; font-size: 16px; color: ${TEXT}; line-height: 1.6;">${bonusStatusText}</p>
-        </div>
-
-        ${dailyTargetHtml}
-        ${dailyActionsHtml}
-        ${tipHtml}
-
-        <div style="text-align: center; margin-top: 20px;">
-          <a class="cta" href="https://app.amazpenbiz.co.il/ai" style="display: inline-block; background: #2C3595; color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 15px; font-weight: bold;">🤖 לפתיחת דדי — היועץ הדיגיטלי לעצות נוספות</a>
-        </div>
-
-        <div style="text-align: center; margin-top: 28px;">
-          <img src="${LOGO_URL}" alt="Amazpen" style="height: 32px; opacity: 0.7;" />
-          <p style="font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 8px;">המצפן — מערכת ניהול עסקית</p>
+        <!-- Footer -->
+        <div style="padding: 16px; text-align: center; font-size: 12px; background: ${HEADER_BG}; color: ${MUTED};">
+          © ${new Date().getFullYear()} המצפן — מערכת ניהול עסקית
         </div>
       </div>
           </td>
