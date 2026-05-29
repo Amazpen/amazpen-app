@@ -258,6 +258,13 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // Desktop-only sidebar collapse — kept in localStorage so the choice
+  // sticks across navigations. Mobile uses the slide-in menu and ignores
+  // this state. Read inside useEffect on mount to avoid hydration mismatch.
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = usePersistedState<boolean>(
+    "sidebar:collapsed",
+    false,
+  );
   const [showBusinessRequiredPopup, setShowBusinessRequiredPopup] = useState(false);
   const [selectedBusinesses, setSelectedBusinesses] = usePersistedState<string[]>("selectedBusinesses", []);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -720,10 +727,14 @@ export default function DashboardLayout({
           />
         )}
 
-        {/* Sidebar Menu - Slide-in on mobile, permanent on desktop */}
+        {/* Sidebar Menu - Slide-in on mobile, permanent on desktop.
+            On lg+, the sidebar can also be collapsed to icons-only via
+            the chevron button below — width drops to 60px and the inner
+            labels are hidden by CSS via the data-collapsed attribute. */}
         <nav
           aria-label="תפריט ראשי"
-          className={`fixed top-0 right-0 h-full w-[50%] max-w-[250px] bg-[#111056] z-[1503] transform transition-transform duration-300 ease-in-out p-[20px] pb-[55px] ${isOcrPage ? '' : 'lg:translate-x-0'} lg:w-[220px] lg:max-w-none lg:shadow-lg ${
+          data-collapsed={isSidebarCollapsed && !isOcrPage ? "true" : "false"}
+          className={`sidebar-nav fixed top-0 right-0 h-full w-[50%] max-w-[250px] bg-[#111056] z-[1503] transform transition-all duration-300 ease-in-out p-[20px] pb-[55px] ${isOcrPage ? '' : 'lg:translate-x-0'} ${isOcrPage ? 'lg:w-[220px]' : (isSidebarCollapsed ? 'lg:w-[60px] lg:p-[10px]' : 'lg:w-[220px]')} lg:max-w-none lg:shadow-lg ${
             isMenuOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -737,6 +748,29 @@ export default function DashboardLayout({
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </Button>
+
+          {/* Desktop-only collapse/expand toggle. Hidden on /ocr (which
+              already overrides the sidebar) and on mobile (slide-in
+              already has its own close button on the top-left). */}
+          {!isOcrPage && (
+            <Button
+              type="button"
+              title={isSidebarCollapsed ? "הרחב תפריט" : "כווץ תפריט"}
+              aria-label={isSidebarCollapsed ? "הרחב תפריט" : "כווץ תפריט"}
+              onClick={() => setIsSidebarCollapsed((v) => !v)}
+              className="hidden lg:flex absolute top-3 left-2 w-7 h-7 items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-md transition-colors z-10"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                {isSidebarCollapsed ? (
+                  // chevron pointing LEFT → "expand" (sidebar grows left)
+                  <path d="m15 18-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                ) : (
+                  // chevron pointing RIGHT → "collapse"
+                  <path d="m9 18 6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                )}
+              </svg>
+            </Button>
+          )}
 
           <div className="flex flex-col h-full overflow-y-auto mt-[40px] lg:mt-[10px]">
             {/* Amazpen System Logo - Fixed/Static */}
@@ -1017,7 +1051,7 @@ export default function DashboardLayout({
         )}
 
         {/* Fixed Header - Always visible, offset by sidebar on desktop */}
-        <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 ${isOcrPage ? '' : 'lg:right-[220px]'} z-50 bg-[#0f1231] flex justify-between items-center gap-2 px-[7px] sm:px-3 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]`}>
+        <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 transition-[right] duration-300 ${isOcrPage ? '' : (isSidebarCollapsed ? 'lg:right-[60px]' : 'lg:right-[220px]')} z-50 bg-[#0f1231] flex justify-between items-center gap-2 px-[7px] sm:px-3 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]`}>
           {/* Right side - Menu and Title */}
           <div className="flex items-center gap-[8px] min-w-0 flex-1">
             <Button
@@ -1094,7 +1128,7 @@ export default function DashboardLayout({
                   {/* Dropdown - Full width */}
                   <div
                     dir="rtl"
-                    className="fixed top-[60px] sm:top-[56px] left-0 right-0 lg:right-[220px] w-full lg:w-auto max-h-[70vh] bg-[#111056] shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-b border-white/10 z-[100] overflow-hidden"
+                    className={`fixed top-[60px] sm:top-[56px] left-0 right-0 ${isSidebarCollapsed ? 'lg:right-[60px]' : 'lg:right-[220px]'} w-full lg:w-auto max-h-[70vh] bg-[#111056] shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-b border-white/10 z-[100] overflow-hidden`}
                   >
                     {/* Header */}
                     <div className="flex items-center justify-between p-[15px] border-b border-white/10">
@@ -1259,7 +1293,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Main Content - with top padding for fixed header, right margin for sidebar on desktop */}
-        <main role="main" aria-label="תוכן ראשי" className={`pt-[70px] sm:pt-[66px] ${isOcrPage ? '' : 'lg:mr-[220px]'}`}>
+        <main role="main" aria-label="תוכן ראשי" className={`pt-[70px] sm:pt-[66px] transition-[margin] duration-300 ${isOcrPage ? '' : (isSidebarCollapsed ? 'lg:mr-[60px]' : 'lg:mr-[220px]')}`}>
           <OfflineIndicator
             isOnline={offlineSync.isOnline}
             pendingCount={offlineSync.pendingCount}

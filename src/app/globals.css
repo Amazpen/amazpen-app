@@ -945,3 +945,42 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
 .amazpen-driver-popover .driver-popover-arrow-side-right.driver-popover-arrow {
   border-right-color: #6b2bd9;
 }
+
+/* ============================================================================
+   Sidebar collapse — desktop only (lg+).
+   When the sidebar's [data-collapsed="true"] is set, the inner labels, logo,
+   business name, and the entire "ניהול מערכת" admin tree are hidden so only
+   the icons remain visible in a slim 60px column. Mobile (slide-in) is
+   unaffected because we gate the rules behind `(min-width: 1024px)`.
+============================================================================ */
+@media (min-width: 1024px) {
+  /* Hide menu-item text labels (each link/button has a span.flex-1 with the
+     Hebrew label as its only text content). */
+  nav.sidebar-nav[data-collapsed="true"] a span.flex-1,
+  nav.sidebar-nav[data-collapsed="true"] > div > div button span.flex-1 {
+    display: none;
+  }
+  /* Hide the Amazpen logo, the business-name block, and the entire admin
+     menu section (everything inside .sidebar-extras OR not an icon). The
+     simplest selector: hide every direct child of the inner flex column
+     EXCEPT the first (logo container), then bring the link list back. */
+  nav.sidebar-nav[data-collapsed="true"] img[alt="Amazpen"] {
+    display: none;
+  }
+  /* Business-name row: it's an empty/flex container; hide it whole. */
+  nav.sidebar-nav[data-collapsed="true"] > div > div.flex.items-start.justify-end {
+    display: none;
+  }
+  /* Admin section (orange "ניהול מערכת" tree) — hidden in collapsed mode. */
+  nav.sidebar-nav[data-collapsed="true"] > div > div.mt-\[20px\].pt-\[15px\] {
+    display: none;
+  }
+  /* Tighten link padding so the icon centers in the 60px column. */
+  nav.sidebar-nav[data-collapsed="true"] a,
+  nav.sidebar-nav[data-collapsed="true"] > div > div.flex.flex-col.gap-\[5px\] > button {
+    justify-content: center;
+    padding: 7px 0;
+    gap: 0;
+  }
+}
+
