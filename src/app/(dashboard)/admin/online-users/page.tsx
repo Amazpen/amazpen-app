@@ -1083,6 +1083,23 @@ function AllUserCard({ user, onClick }: { user: AllUserRow; onClick: () => void 
   const seen = formatLastSeen(user.last_seen_at);
   const pageName = user.last_page_path ? (pageNames[user.last_page_path] || user.last_page_name || user.last_page_path) : null;
   const bizNames = user.businesses.map(b => b.name).join(" · ");
+  // Active = seen in last 5 minutes. Compute in an effect (not during render)
+  // because Date.now() is non-idempotent — calling it in render violates the
+  // React purity rules. We re-check every minute so a user that was "active"
+  // 4:59 ago correctly fades after the 5-minute boundary.
+  const [isActiveNow, setIsActiveNow] = useState(false);
+  useEffect(() => {
+    const compute = () => {
+      if (!user.last_seen_at) {
+        setIsActiveNow(false);
+        return;
+      }
+      setIsActiveNow(Date.now() - new Date(user.last_seen_at).getTime() < 5 * 60_000);
+    };
+    compute();
+    const id = setInterval(compute, 60_000);
+    return () => clearInterval(id);
+  }, [user.last_seen_at]);
 
   return (
     <button
@@ -1098,7 +1115,7 @@ function AllUserCard({ user, onClick }: { user: AllUserRow; onClick: () => void 
             {getInitials(user.full_name, user.email)}
           </div>
         )}
-        {user.last_seen_at && (Date.now() - new Date(user.last_seen_at).getTime() < 5 * 60_000) && (
+        {isActiveNow && (
           <div className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 bg-[#3CD856] rounded-full border-2 border-[#0F1535]" />
         )}
       </div>
@@ -1140,10 +1157,11 @@ export default function OnlineUsersPage() {
   useEffect(() => {
     if (activeTab !== "all") return;
     let cancelled = false;
-    setLoadingAll(true);
-    fetch("/api/all-users-activity")
-      .then(r => r.json())
-      .then(data => {
+    const load = async () => {
+      setLoadingAll(true);
+      try {
+        const res = await fetch("/api/all-users-activity");
+        const data = await res.json();
         if (cancelled) return;
         const list: AllUserRow[] = data.users || [];
         // Sort: users who have been seen before, newest first; never-seen at the end.
@@ -1154,9 +1172,13 @@ export default function OnlineUsersPage() {
           return b.last_seen_at.localeCompare(a.last_seen_at);
         });
         setAllUsers(list);
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoadingAll(false); });
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoadingAll(false);
+      }
+    };
+    load();
     return () => { cancelled = true; };
   }, [activeTab]);
 

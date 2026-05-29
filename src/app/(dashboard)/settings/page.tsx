@@ -751,21 +751,27 @@ export default function SettingsPage() {
 /** Install App as PWA section */
 function InstallAppSection() {
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [isIos, setIsIos] = useState(false);
+  // Lazy-initialize from window APIs so we don't have to setState inside the
+  // effect just to seed initial state. Safe under SSR — the lazy initializer
+  // only runs client-side because the component is rendered inside the
+  // dashboard (client) tree, but we guard with typeof window anyway.
+  const [isInstalled, setIsInstalled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(display-mode: standalone)").matches
+      || !!(window.navigator as unknown as { standalone?: boolean }).standalone;
+  });
+  const [isIos] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const ua = window.navigator.userAgent;
+    return /iPad|iPhone|iPod/.test(ua) || (ua.includes("Mac") && "ontouchend" in document);
+  });
   const [showIosGuide, setShowIosGuide] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
-    if (window.matchMedia("(display-mode: standalone)").matches || (window.navigator as unknown as { standalone?: boolean }).standalone) {
-      setIsInstalled(true);
+    // Already installed? Nothing further to subscribe to.
+    if (isInstalled) {
       return;
     }
-
-    // Detect iOS
-    const ua = window.navigator.userAgent;
-    const isIosDevice = /iPad|iPhone|iPod/.test(ua) || (ua.includes("Mac") && "ontouchend" in document);
-    setIsIos(isIosDevice);
 
     // Check if already captured by early script in layout
     const w = window as typeof window & { __pwaInstallPrompt?: Event };
@@ -787,6 +793,9 @@ function InstallAppSection() {
       window.removeEventListener("beforeinstallprompt", handler);
       window.removeEventListener("pwaInstallReady", readyHandler);
     };
+    // isInstalled is intentionally not a dep — it's a one-shot lazy-init value
+    // from window matchMedia and never changes during the component's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleInstall = async () => {

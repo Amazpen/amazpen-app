@@ -329,9 +329,12 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLoading, setShowLoading] = useState(true);
   const [showBurst, setShowBurst] = useState(false);
-  const loadStartRef = useRef<number>(Date.now());
+  // Elapsed ms from the start of the current loading cycle to when all steps
+  // finished. Used to render the summary line — must be state (not ref) so
+  // reading it during render is safe under React Compiler's purity rules.
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const loadStartRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const elapsedRef = useRef<number>(0);
 
   const rawAllDone = steps.every((s) => s.state === "output-available") && !isStreaming;
   const doneCount = steps.filter((s) => s.state === "output-available").length;
@@ -339,12 +342,17 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
   useEffect(() => {
     if (!rawAllDone) {
       loadStartRef.current = Date.now();
+      // Reset cycle state when streaming starts again. Linter flags these as
+      // cascading setStates, but they belong to a multi-phase animation that
+      // depends on Date.now() — pure-render derivation isn't possible here.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowLoading(true);
       setShowBurst(false);
       if (timerRef.current) clearTimeout(timerRef.current);
     } else {
-      elapsedRef.current = Date.now() - loadStartRef.current;
-      const remaining = MIN_LOADING_MS - elapsedRef.current;
+      const elapsed = Date.now() - loadStartRef.current;
+      setElapsedMs(elapsed);
+      const remaining = MIN_LOADING_MS - elapsed;
       const finalize = () => {
         setShowBurst(true);
         // Burst plays for 600ms, then settle to final state
@@ -394,7 +402,7 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
         <div className="flex-1 min-w-0">
           {allDone ? (
             <span className="text-white/55 text-[12px] font-medium">
-              {getSmartSummary(groups, elapsedRef.current)}
+              {getSmartSummary(groups, elapsedMs)}
             </span>
           ) : (
             <div className="flex items-center gap-2">

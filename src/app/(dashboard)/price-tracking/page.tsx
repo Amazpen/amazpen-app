@@ -27,7 +27,9 @@ export default function PriceTrackingPage() {
   const [priceHistory, setPriceHistory] = useState<SupplierItemPrice[]>([]);
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  // Derived from the layout's profile loading state — avoids a redundant
+  // useEffect + setState that the linter (correctly) flags as cascading.
+  const isCheckingAuth = isProfileLoading;
 
   // Per-alert price history modal
   const [historyModalAlert, setHistoryModalAlert] = useState<PriceAlert | null>(null);
@@ -168,14 +170,6 @@ export default function PriceTrackingPage() {
     }
     setHistoryModalLoading(false);
   }, []);
-
-  // Auth check — wait for the dashboard layout's profile fetch instead of a
-  // fixed 500ms timeout that races the fetch on slow networks.
-  useEffect(() => {
-    if (!isProfileLoading) {
-      setIsCheckingAuth(false);
-    }
-  }, [isProfileLoading]);
 
   useEffect(() => {
     if (!isCheckingAuth && !isAdmin) {

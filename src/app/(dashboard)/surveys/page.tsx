@@ -5,7 +5,7 @@
 // Data source: `public.external_survey_responses` — populated by the n8n
 // workflow "סנכרון סקרים - פתרונות לחיות → Supabase". Business-scoped via RLS.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -93,25 +93,28 @@ export default function SurveysPage() {
   // Tracks whether we are on md+ so Recharts doesn't try to measure charts
   // inside a `display:none` container (that path produces width:-1 / height:-1
   // warnings because ResponsiveContainer runs before the hidden class hides it).
-  // Start false on both server and client to avoid hydration mismatch.
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  // Use useSyncExternalStore — the React-recommended way to subscribe to an
+  // external store (like a media query). Server snapshot is `false` to match
+  // the initial client paint and avoid a hydration mismatch.
+  const subscribeMq = useCallback((onChange: () => void) => {
     const mq = window.matchMedia("(min-width: 768px)");
-    setIsDesktop(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
+  const isDesktop = useSyncExternalStore(
+    subscribeMq,
+    () => window.matchMedia("(min-width: 768px)").matches,
+    () => false,
+  );
 
   useEffect(() => {
-    if (!selectedBusinesses || selectedBusinesses.length === 0) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
     const fetchData = async () => {
+      if (!selectedBusinesses || selectedBusinesses.length === 0) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const supabase = createClient();
       const { data, error } = await supabase

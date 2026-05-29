@@ -31,6 +31,8 @@ const eslintConfig = defineConfig([
     // those compiled artifacts (they generate thousands of noise warnings).
     ".claude/**",
     "**/.next/**",
+    // Content-marketing assets (screenshot scripts, drafts) — not part of the app.
+    "content-marketing/**",
   ]),
 ]);
 

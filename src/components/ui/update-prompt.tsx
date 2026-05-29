@@ -54,8 +54,11 @@ export function UpdatePrompt() {
     if (typeof window === "undefined") return () => cancelAnimationFrame(id);
     if (!("serviceWorker" in navigator)) return () => cancelAnimationFrame(id);
 
-    // Always run version check regardless of SW state
-    checkSwVersion();
+    // Always run version check regardless of SW state. Its setState calls
+    // live behind an await (truly asynchronous), but the linter follows the
+    // sync call. Suppress: this is a real network fetch, not cascading render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void checkSwVersion();
 
     // Recheck on visibility change and focus
     const onVisible = () => {

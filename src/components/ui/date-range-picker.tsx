@@ -83,6 +83,10 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
     // If anchoring right would leave the dropdown's left edge < 8px from the
     // viewport's left edge, flip to anchor on the left side instead.
     const wouldClipLeft = rect.right - dropdownWidth < 8;
+    // setState in layout-effect after a DOM measurement — required to compute
+    // anchor side based on the rendered position. This is the canonical use
+    // case the linter rule allows (syncing with an external system: the DOM).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAnchorSide(wouldClipLeft ? "left" : "right");
   }, [isDropdownOpen]);
 
