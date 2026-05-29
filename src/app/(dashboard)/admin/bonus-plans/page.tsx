@@ -33,11 +33,14 @@ interface Employee {
 // ===== Helpers =====
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("he-IL", {
-    style: "currency",
-    currency: "ILS",
+  // ₪ goes BEFORE the number (₪1,000) so the LTR-isolated cells in
+  // the tier table render the symbol on the left like everywhere else
+  // in the app. The native he-IL currency formatter puts ₪ on the
+  // right ("1,000 ₪"), which conflicts with our LTR-isolated cells.
+  const num = new Intl.NumberFormat("he-IL", {
     maximumFractionDigits: 0,
   }).format(amount);
+  return `₪${num}`;
 }
 
 function formatValue(value: number | null, type: "percentage" | "currency" | "quantity"): string {
