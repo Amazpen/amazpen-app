@@ -570,24 +570,26 @@ export default function CashFlowPage() {
   return (
     <article aria-label="תזרים מזומנים" className="text-white p-[7px] pb-[80px] flex flex-col gap-[10px]">
 
-      {/* Beta banner — David #13: every customer can now see the cashflow,
-          but the projections are still being tuned. The badge at the very
-          top makes the status obvious without hiding the feature. */}
-      <div dir="rtl" className="bg-[#FFA412]/10 border border-[#FFA412]/40 rounded-[10px] px-[14px] py-[10px] flex items-center justify-between gap-[10px]">
-        <div className="flex items-center gap-[10px] flex-1 min-w-0">
-          <span className="bg-[#FFA412] text-[#0F1535] text-[12px] font-bold px-[10px] py-[3px] rounded-full whitespace-nowrap">
-            גרסת בטא
-          </span>
-        </div>
-      </div>
-
       {/* ============= HEADER ============= */}
       <section className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
         <div className="flex items-center justify-between flex-wrap gap-[10px]">
-          {/* Opening balance */}
+          {/* Opening balance + beta badge — David #13: every customer
+              can now see the cashflow but the projections are still
+              being tuned, so we tag the page as beta. Previously this
+              was a full-width banner that wasted a row at the top; the
+              badge now sits next to the opening-balance label so it
+              stays visible without consuming vertical space. */}
           <div id="onboarding-cashflow-opening" className="flex items-center gap-[10px]">
             <div className="flex flex-col items-center">
-              <span className="text-[12px] text-white/50">מצב בבנק תחילת פעילות</span>
+              <div className="flex items-center gap-[6px]">
+                <span className="text-[12px] text-white/50">מצב בבנק תחילת פעילות</span>
+                <span
+                  title="עמוד בגרסת בטא — התחזיות עדיין בכיוונון"
+                  className="bg-[#FFA412] text-[#0F1535] text-[10px] font-bold px-[6px] py-[1px] rounded-full whitespace-nowrap leading-[1.4]"
+                >
+                  בטא
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => {
