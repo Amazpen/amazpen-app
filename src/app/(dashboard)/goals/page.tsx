@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { GoalsHelpButton } from "@/components/onboarding/GoalsHelpButton";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TrophyIcon as Trophy, CookingPotIcon as CookingPot, ReceiptIcon as Receipt } from "@phosphor-icons/react";
 
 // Types
@@ -1274,12 +1275,31 @@ export default function GoalsPage() {
             </div>
           </div>
 
-          {/* Goal Items */}
+          {/* Goal Items — show skeleton rows shaped like real rows
+              while the fetch is in flight, so the user sees the table
+              structure (יעד / בפועל / מצב + category name) rather than
+              a blank container or generic spinner. */}
           <div className="flex flex-col">
             {isLoading && data.length === 0 ? (
-              <div className="flex items-center justify-center py-[40px]">
-                <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-              </div>
+              <>
+                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="flex flex-row items-center justify-between gap-[5px] border-b border-white/10 p-[7px] min-h-[50px]">
+                    <div className="flex flex-col items-center gap-[3px]">
+                      <Skeleton className="h-[14px] w-[60px] bg-white/10" />
+                      <Skeleton className="h-[13px] w-[85px] bg-white/10 rounded-full" />
+                    </div>
+                    <div className="w-[80px] flex justify-center">
+                      <Skeleton className="h-[16px] w-[60px] bg-white/10" />
+                    </div>
+                    <div className="w-[80px] flex justify-center">
+                      <Skeleton className="h-[16px] w-[60px] bg-white/10" />
+                    </div>
+                    <div className="flex-1 flex justify-end">
+                      <Skeleton className="h-[16px] w-[120px] bg-white/10" />
+                    </div>
+                  </div>
+                ))}
+              </>
             ) : data.length === 0 ? (
               <div className="flex items-center justify-center py-[40px]">
                 <span className="text-[16px] text-white/50">אין נתונים להצגה</span>
