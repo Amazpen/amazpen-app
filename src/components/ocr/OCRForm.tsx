@@ -156,6 +156,15 @@ const PAYMENT_METHODS = [
   { value: 'other', label: 'אחר' },
 ];
 
+// Suppliers (and QuickAddSupplierModal) store credit-card as the legacy value
+// "credit", but the OCR payment-methods select uses "credit_card". When we pull
+// the supplier's default method we must normalize so the Select finds a match
+// and the credit-card row + due-date logic fire.
+const normalizeSupplierDefaultMethod = (method?: string | null): string => {
+  if (!method) return '';
+  return method === 'credit' ? 'credit_card' : method;
+};
+
 const DEFAULT_businessVatRate = 0.18;
 
 // Payment method entry for multiple payment methods support
@@ -3776,7 +3785,7 @@ export default function OCRForm({
             setIsPaid(newVal);
             if (newVal) {
               const selectedSupplier = suppliers.find(s => s.id === supplierId);
-              const defaultMethod = selectedSupplier?.default_payment_method || '';
+              const defaultMethod = normalizeSupplierDefaultMethod(selectedSupplier?.default_payment_method);
               const defaultCardId = selectedSupplier?.default_credit_card_id || '';
               const supplierTerms = selectedSupplier?.payment_terms_days ?? null;
               const smartDate = defaultMethod
@@ -4282,7 +4291,7 @@ export default function OCRForm({
             if (mapped) setPaymentTabExpenseType(mapped);
           }
           if (sup?.default_payment_method && paymentMethods.length > 0 && !paymentMethods[0].method) {
-            const defaultMethod = sup.default_payment_method;
+            const defaultMethod = normalizeSupplierDefaultMethod(sup.default_payment_method);
             const defaultCardId = sup.default_credit_card_id || '';
             const smartDate = getSmartPaymentDate(defaultMethod, paymentTabDate, defaultCardId || undefined, sup.payment_terms_days ?? null);
             if (smartDate) setPaymentTabDate(smartDate);
