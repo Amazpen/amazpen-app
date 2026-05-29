@@ -572,15 +572,18 @@ export default function CashFlowPage() {
 
       {/* ============= HEADER ============= */}
       <section className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
-        <div className="flex items-center justify-between flex-wrap gap-[10px]">
+        {/* Force a single row on mobile (no flex-wrap) so the
+            opening-balance block and the date-picker block stay
+            side-by-side instead of stacking. */}
+        <div className="flex flex-row items-center justify-between gap-[10px]">
           {/* Opening balance + beta badge — David #13: every customer
               can now see the cashflow but the projections are still
               being tuned, so we tag the page as beta. Previously this
               was a full-width banner that wasted a row at the top; the
               badge now sits next to the opening-balance label so it
               stays visible without consuming vertical space. */}
-          <div id="onboarding-cashflow-opening" className="flex items-center gap-[10px]">
-            <div className="flex flex-col items-center">
+          <div id="onboarding-cashflow-opening" className="flex items-center gap-[10px] min-w-0 flex-shrink">
+            <div className="flex flex-col items-center min-w-0">
               <div className="flex items-center gap-[6px]">
                 <span className="text-[12px] text-white/50">מצב בבנק תחילת פעילות</span>
                 <span
@@ -608,7 +611,7 @@ export default function CashFlowPage() {
           </div>
 
           {/* Date range picker */}
-          <div className="flex items-center gap-[8px]">
+          <div className="flex items-center gap-[8px] flex-shrink-0">
             <span className="text-[13px] text-white/50 font-medium hidden sm:inline">צפי עד:</span>
             <div id="onboarding-cashflow-datepicker">
               <DateRangePicker
