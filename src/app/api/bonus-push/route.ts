@@ -51,7 +51,7 @@ function buildPushMessage(
   if (plan.data_source === "custom" || status.currentValue === null) {
     const tipSuffix = plan.tips ? `\n💡 טיפ: ${plan.tips.split("\n")[0]}` : "";
     // Plural / neutral phrasing — works for any gender of recipient.
-    return `תחום: ${plan.area_name} — אפשר לבדוק את המצב ולפתוח את דדי לעצות${tipSuffix}`;
+    return `תחום: ${plan.area_name}. אפשר לבדוק את המצב ולפתוח את דדי לעצות${tipSuffix}`;
   }
 
   const current = formatValue(status.currentValue, plan.measurement_type);
@@ -63,7 +63,7 @@ function buildPushMessage(
   let dailyNudge = "";
   if (plan.data_source === "revenue" && status.dailyTargetRequired != null && status.dailyTargetRequired > 0) {
     const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(status.dailyTargetRequired);
-    dailyNudge = `\n📅 כדי לעמוד ביעד החודש — היום צריך ${fmt}`;
+    dailyNudge = `\n📅 כדי לעמוד ביעד החודש, היום צריך ${fmt}`;
   } else if (plan.data_source.startsWith("avg_ticket_")) {
     if (status.neededAvgRemaining != null && status.remainingOrders != null && status.bonusTierThreshold != null) {
       const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(status.neededAvgRemaining);
@@ -79,13 +79,13 @@ function buildPushMessage(
       currency: "ILS",
       maximumFractionDigits: 0,
     }).format(status.bonusAmount);
-    return `${plan.area_name}: ${current}${goalStr} — מעולה! בדרך לבונוס ${bonus}${dailyNudge}`;
+    return `${plan.area_name}: ${current}${goalStr}. מעולה! בדרך לבונוס ${bonus}${dailyNudge}`;
   }
 
   // Not qualified — include a tip if available. Neutral wording so it
   // reads the same to everyone.
-  const tipSuffix = plan.tips ? `\n💡 ${plan.tips.split("\n")[0]}` : " — אפשר לפתוח את דדי לעצות";
-  return `${plan.area_name}: ${current}${goalStr} — אפשר לשפר${dailyNudge}${tipSuffix}`;
+  const tipSuffix = plan.tips ? `\n💡 ${plan.tips.split("\n")[0]}` : ". אפשר לפתוח את דדי לעצות";
+  return `${plan.area_name}: ${current}${goalStr}. אפשר לשפר${dailyNudge}${tipSuffix}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -113,7 +113,7 @@ function resolveDisplayName(
   if (plan.data_source.startsWith("avg_ticket_")) {
     const idx = parseInt(plan.data_source.replace("avg_ticket_", ""));
     const sourceName = incomeSourceNames[plan.data_source];
-    return sourceName ? `ממוצע ${sourceName}` : `ממוצע להזמנה — מקור ${idx}`;
+    return sourceName ? `ממוצע ${sourceName}` : `ממוצע להזמנה, מקור ${idx}`;
   }
 
   // Managed products: try to get the name from metrics row
@@ -121,7 +121,7 @@ function resolveDisplayName(
     const idx = plan.data_source.replace("managed_product_", "");
     const nameKey = `managed_product_${idx}_name`;
     const mpName = metricsRow?.[nameKey] as string | null;
-    return mpName ? `מוצר מנוהל — ${mpName}` : plan.area_name;
+    return mpName ? `מוצר מנוהל: ${mpName}` : plan.area_name;
   }
 
   // Otherwise use the plan's area_name
@@ -201,27 +201,27 @@ function buildDailyTargetLines(kpis: ResolvedKPI[]): string {
     if (k.plan.data_source === "revenue") {
       if (s.dailyTargetRequired != null && s.dailyTargetRequired > 0) {
         lines.push(
-          `📅 <strong>${k.displayName}</strong> — כדי לעמוד ביעד החודש, היום צריך להכניס <strong>${fmtNis(s.dailyTargetRequired)}</strong>.`,
+          `📅 <strong>${k.displayName}</strong>: כדי לעמוד ביעד החודש, היום צריך להכניס <strong>${fmtNis(s.dailyTargetRequired)}</strong>.`,
         );
       } else if (s.qualifiedTier != null && s.bonusAmount > 0) {
         lines.push(
-          `✅ <strong>${k.displayName}</strong> — היעד כבר הושג. ממשיכים באותו קצב.`,
+          `✅ <strong>${k.displayName}</strong>: היעד כבר הושג. ממשיכים באותו קצב.`,
         );
       }
     } else if (k.plan.data_source.startsWith("avg_ticket_")) {
       if (s.qualifiedTier != null && s.bonusAmount > 0) {
         lines.push(
-          `✅ <strong>${k.displayName}</strong> — נעלנו בונוס ${fmtNis(s.bonusAmount)}. שומרים על הקצב הזה עד סוף החודש.`,
+          `✅ <strong>${k.displayName}</strong>: נעלנו בונוס ${fmtNis(s.bonusAmount)}. שומרים על הקצב הזה עד סוף החודש.`,
         );
       } else if (s.neededAvgRemaining != null && s.remainingOrders != null && s.bonusTierThreshold != null) {
         lines.push(
-          `🎯 <strong>${k.displayName}</strong> — צופים עוד <strong>${s.remainingOrders}</strong> הזמנות עד סוף החודש. כדי להגיע ליעד ממוצע ${fmtNis(s.bonusTierThreshold)}, צריך למכור כל הזמנה בממוצע <strong>${fmtNis(s.neededAvgRemaining)}</strong>.`,
+          `🎯 <strong>${k.displayName}</strong>: צופים עוד <strong>${s.remainingOrders}</strong> הזמנות עד סוף החודש. כדי להגיע ליעד ממוצע ${fmtNis(s.bonusTierThreshold)}, צריך למכור כל הזמנה בממוצע <strong>${fmtNis(s.neededAvgRemaining)}</strong>.`,
         );
       } else if (s.dailyTargetRequired != null && s.dailyTargetRequired > 0) {
         // Fallback when we don't have full bonus tier math (no threshold
         // set yet, or zero remaining orders). Still actionable.
         lines.push(
-          `📅 <strong>${k.displayName}</strong> — קצב מומלץ להיום: <strong>${s.dailyTargetRequired}</strong> הזמנות.`,
+          `📅 <strong>${k.displayName}</strong>: קצב מומלץ להיום, <strong>${s.dailyTargetRequired}</strong> הזמנות.`,
         );
       }
     }
@@ -238,8 +238,11 @@ function buildConsolidatedEmailHtml(
 ): string {
   // Light/purple theme — matches the weekly-summary email exactly.
   // Logo black-on-white, container white, soft purple highlights.
+  // Logo served from our own Supabase storage (was a Bubble CDN URL —
+  // Gmail's image proxy intermittently stripped that src and the
+  // recipient saw a broken-image icon).
   const LOGO_URL =
-    "https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/f1743926937992x581425083519520800/logo%20black%20(1).png";
+    "https://db.amazpenbiz.co.il/storage/v1/object/public/assets/logo/amazpen-logo.jpeg";
   const GREEN = "#17DB4E";
   const RED = "#F64E60";
   const BG = "#f5f7fa"; // outer page background
@@ -316,7 +319,7 @@ function buildConsolidatedEmailHtml(
 
   const bonusStatusText = totalBonus > 0
     ? `נכון לעכשיו צפי הבונוס הינו <span style="color: ${GREEN}; font-weight: bold; font-size: 20px;">${bonusFormatted}</span>`
-    : `נכון לעכשיו אין צפי לבונוס — אפשר לשפר.`;
+    : `נכון לעכשיו אין צפי לבונוס. אפשר לשפר.`;
 
   const tipHtml = bestTip
     ? `<div style="background: ${HEADER_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid #FFA412;">
@@ -394,7 +397,7 @@ function buildConsolidatedEmailHtml(
           ${tipHtml}
 
           <div style="text-align: center; margin-top: 24px;">
-            <a href="https://app.amazpenbiz.co.il/ai" style="display: inline-block; background: ${PURPLE}; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 15px; font-weight: bold;">לפתיחת דדי — היועץ הדיגיטלי</a>
+            <a href="https://app.amazpenbiz.co.il/ai" style="display: inline-block; background: ${PURPLE}; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 15px; font-weight: bold;">לפתיחת דדי, היועץ הדיגיטלי</a>
           </div>
 
           <p style="margin: 24px 0 8px 0; text-align: right; color: ${TEXT}; font-size: 14px;">בברכה,<br/>צוות המצפן</p>
@@ -402,7 +405,7 @@ function buildConsolidatedEmailHtml(
 
         <!-- Footer -->
         <div style="padding: 16px; text-align: center; font-size: 12px; background: ${HEADER_BG}; color: ${MUTED};">
-          © ${new Date().getFullYear()} המצפן — מערכת ניהול עסקית
+          © ${new Date().getFullYear()} המצפן | מערכת ניהול עסקית
         </div>
       </div>
           </td>
@@ -507,7 +510,7 @@ export async function POST(request: NextRequest) {
 
         // Build message for push/notification
         const message = buildPushMessage(plan, status);
-        const title = `עדכון בונוס — ${plan.area_name}`;
+        const title = `עדכון בונוס | ${plan.area_name}`;
 
         // Get employee info
         const { data: profile } = await supabaseAdmin
@@ -570,7 +573,7 @@ export async function POST(request: NextRequest) {
           .neq("user_id", plan.employee_user_id);
 
         if (managers && managers.length > 0) {
-          const managerTitle = `עדכון בונוס — ${profile?.full_name || ""} — ${plan.area_name}`;
+          const managerTitle = `עדכון בונוס | ${profile?.full_name || ""} | ${plan.area_name}`;
           for (const mgr of managers) {
             // In-app notification for manager
             await supabaseAdmin.from("notifications").insert({
@@ -728,10 +731,10 @@ export async function POST(request: NextRequest) {
           businessLabel
         );
 
-        const subjectSuffix = businessLabel ? ` — ${businessLabel}` : "";
+        const subjectSuffix = businessLabel ? ` | ${businessLabel}` : "";
         const emailSubject = totalBonus > 0
-          ? `🎯 עדכון בונוס יומי${subjectSuffix} — צפי ${new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(totalBonus)}`
-          : `🎯 עדכון בונוס יומי${subjectSuffix} — אפשר לשפר`;
+          ? `סיכום בונוס יומי${subjectSuffix} | צפי ${new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(totalBonus)}`
+          : `סיכום בונוס יומי${subjectSuffix} | אפשר לשפר`;
 
         // CC the Amazpen owner (David) on every bonus email so he sees what
         // employees receive — explicit request, asked twice in the David
