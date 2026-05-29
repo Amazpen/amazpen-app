@@ -119,7 +119,6 @@ export default function RootLayout({
                 // HTML itself came from a stale cache that value never changed, so the
                 // buster never fired and clients stayed stuck on old code.
                 var KEY = "amazpen_build_version";
-                var TOURS_KEY = "amazpen:completedTours";
                 function nukeAndReload() {
                   var done = function() { window.location.reload(); };
                   var unreg = function() {
@@ -146,9 +145,10 @@ export default function RootLayout({
                       if (!stored) { localStorage.setItem(KEY, serverBuild); return; }
                       if (stored !== serverBuild) {
                         localStorage.setItem(KEY, serverBuild);
-                        // New build: re-show the onboarding tours so users see the
-                        // latest steps, and wipe stale caches so new code loads.
-                        try { localStorage.removeItem(TOURS_KEY); } catch (e) {}
+                        // New build: wipe stale caches so new code loads.
+                        // NOTE: onboarding tours (amazpen:completedTours) are
+                        // intentionally preserved across deploys — users who
+                        // dismissed the tour shouldn't see it again on every push.
                         nukeAndReload();
                       }
                     })
