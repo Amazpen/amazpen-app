@@ -463,9 +463,25 @@ export async function GET(request: NextRequest) {
     //   "יעד = revenue_target / vatDivisor × (ימי עבודה שעברו / ימי עבודה בחודש)"
     const revenueTargetFull = (Number(goal?.revenue_target) || 0) / vatDivisor;
     const revenueTarget = revenueTargetFull * periodFactor;
-    const revenueDiffNis = incomeBeforeVat - revenueTarget;
+    // הפרש מהיעד — matches the dashboard's "הפרש מהיעד" KPI:
+    //   monthlyPace = (totalIncomeWithVat / sumActualDayFactors) × expectedWorkDays
+    //   diffPct = (monthlyPace / revenue_target_gross - 1) × 100
+    //   dailyDiff = (monthlyPace - revenue_target_gross) / expectedWorkDays
+    //   diffNis  = dailyDiff × sumActualDayFactors
+    const revenueTargetGross = Number(goal?.revenue_target) || 0;
+    const monthlyPace =
+      actualWorkDaysFromEntries > 0
+        ? (totalIncomeWithVat / actualWorkDaysFromEntries) * expectedWorkDays
+        : 0;
     const revenueDiffPct =
-      revenueTarget > 0 ? (incomeBeforeVat / revenueTarget) * 100 : 0;
+      revenueTargetGross > 0
+        ? ((monthlyPace / revenueTargetGross) - 1) * 100
+        : 0;
+    const revenueDiffNis =
+      expectedWorkDays > 0 && revenueTargetGross > 0
+        ? ((monthlyPace - revenueTargetGross) / expectedWorkDays) *
+          actualWorkDaysFromEntries
+        : 0;
 
     // ===== Profit =====
     // Profit target is FULL-MONTH (matches dashboard's רווח ₪ KPI = ₪15.8K).
