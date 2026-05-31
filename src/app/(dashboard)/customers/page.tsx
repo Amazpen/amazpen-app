@@ -2681,8 +2681,115 @@ export default function CustomersPage() {
                 </button>
               </div>
 
-              {/* ── חשבוניות tab: real customer_invoices (services flow) ─────── */}
-              {activeDetailTab === "invoices" && customerInvoices.length > 0 && (() => {
+              {/* ── חשבוניות tab (services): merged view — every billing month,
+                     paid (real AUTO invoice) or open (from the retainer forecast),
+                     all gross. Mirrors the תשלומים open-list so the totals agree. ── */}
+              {activeDetailTab === "invoices" && selectedItem.business?.business_type === "services" && billingSummary && (() => {
+                const vatRate = Number(selectedItem.business?.vat_percentage) || 0.18;
+                const isForeign = !!selectedItem.customer?.is_foreign;
+                const grossMul = isForeign ? 1 : 1 + vatRate;
+                const billingDay = Math.max(1, Number(selectedItem.customer?.retainer_day_of_month) || 1);
+                // Map real invoices by month key ("YYYY-M", month 0-indexed) to
+                // enrich the matching forecast row with its invoice number.
+                const invByMonth = new Map<string, InvoiceRow>();
+                for (const inv of customerInvoices) {
+                  const d = new Date(inv.issue_date);
+                  invByMonth.set(`${d.getFullYear()}-${d.getMonth()}`, inv);
+                }
+                const totalExpected = billingSummary.totalExpected * grossMul;
+                const totalPaid = billingSummary.totalPaid * grossMul;
+                const totalOpen = Math.max(0, totalExpected - totalPaid);
+                return (
+                  <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
+                    <div className="flex items-center justify-between mb-[12px]">
+                      <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right">חשבוניות הכנסה</h3>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          const today = new Date();
+                          setInvForm({
+                            invoice_number: "",
+                            issue_date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`,
+                            subtotal: selectedItem?.customer?.retainer_amount ? String(selectedItem.customer.retainer_amount) : "",
+                            notes: "",
+                          });
+                          setCreateInvoiceOpen(true);
+                        }}
+                        className="bg-[#3CD856] text-white text-[12px] font-semibold px-[10px] py-[6px] rounded-[7px] hover:bg-[#2FB847]"
+                      >
+                        + הוסף חשבונית
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-[10px] mb-[15px]">
+                      <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
+                        <span className="text-[12px] text-white/60 text-center">סה&quot;כ צריך לשלם</span>
+                        <span dir="ltr" className="text-[18px] font-bold text-white">₪{totalExpected.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
+                        <span className="text-[12px] text-white/60 text-center">סה&quot;כ שולם</span>
+                        <span dir="ltr" className="text-[18px] font-bold text-[#0BB783]">₪{totalPaid.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
+                        <span className="text-[12px] text-white/60 text-center">פתוח לתשלום</span>
+                        <span dir="ltr" className={`text-[18px] font-bold ${totalOpen > 0 ? "text-[#F64E60]" : "text-white/50"}`}>₪{totalOpen.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                    <h4 className="text-[14px] font-semibold text-white text-right mb-[8px]">חשבוניות</h4>
+                    <div className="w-full flex flex-col">
+                      <div className="grid grid-cols-[1.4fr_1.6fr_0.9fr_0.9fr_0.9fr_1fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[12px] font-semibold text-white">
+                        <div className="text-center">תאריך</div>
+                        <div className="text-center">אסמכתא</div>
+                        <div className="text-center">לפני מע&quot;מ</div>
+                        <div className="text-center">כולל מע&quot;מ</div>
+                        <div className="text-center">שולם</div>
+                        <div className="text-center">סטטוס</div>
+                      </div>
+                      <div className="max-h-[320px] overflow-y-auto flex flex-col gap-[3px] mt-[3px]">
+                        {billingSummary.rows.map((row) => {
+                          const inv = invByMonth.get(row.key);
+                          const [yStr, mStr] = row.key.split("-");
+                          const yr = parseInt(yStr, 10);
+                          const mi = parseInt(mStr, 10);
+                          const dim = new Date(yr, mi + 1, 0).getDate();
+                          const day = Math.min(billingDay, dim);
+                          const dateLabel = `${String(day).padStart(2, "0")}.${String(mi + 1).padStart(2, "0")}.${String(yr).slice(2)}`;
+                          const grossExpected = row.expected * grossMul;
+                          const grossPaid = row.paid * grossMul;
+                          const badgeClasses = row.status === "paid" ? "bg-[#0BB783]/20 text-[#0BB783]"
+                            : row.status === "partial" ? "bg-[#F6A609]/20 text-[#F6A609]"
+                            : row.status === "overpaid" ? "bg-[#3F97FF]/20 text-[#3F97FF]"
+                            : row.status === "open" ? "bg-[#F64E60]/20 text-[#F64E60]"
+                            : "bg-white/10 text-white/50";
+                          const badgeLabel = row.status === "paid" ? "✓ שולם" : row.status === "partial" ? "חלקי"
+                            : row.status === "overpaid" ? "עודף" : row.status === "open" ? "פתוח" : "—";
+                          return (
+                            <button
+                              key={row.key}
+                              type="button"
+                              onClick={() => inv ? setSelectedInvoiceId(inv.id) : setMonthDetailKey(row.key)}
+                              title={inv ? "הצג תשלומים מקושרים לחשבונית זו" : "הצג פירוט תשלומים לחודש זה"}
+                              className="grid grid-cols-[1.4fr_1.6fr_0.9fr_0.9fr_0.9fr_1fr] w-full p-[8px_5px] bg-white/5 hover:bg-white/10 rounded-[5px] items-center text-right cursor-pointer"
+                            >
+                              <div dir="ltr" className="text-center text-[12px] text-white">{dateLabel}</div>
+                              <div className="text-center text-[11px] text-white/70 truncate" title={inv?.invoice_number || ""}>{inv?.invoice_number || "—"}</div>
+                              <div dir="ltr" className="text-center text-[12px] text-white">₪{row.expected.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
+                              <div dir="ltr" className="text-center text-[12px] text-white">₪{grossExpected.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
+                              <div dir="ltr" className="text-center text-[12px] text-[#0BB783]">₪{grossPaid.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
+                              <div className="text-center">
+                                <span className={`text-[10px] px-[6px] py-[2px] rounded-full font-bold ${badgeClasses}`}>{badgeLabel}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── חשבוניות tab: real customer_invoices (non-services flow) ─────── */}
+              {activeDetailTab === "invoices" && selectedItem.business?.business_type !== "services" && customerInvoices.length > 0 && (() => {
                 const totalExpected = customerInvoices.reduce((s, i) => s + i.total_amount, 0);
                 const totalPaid = customerInvoices.reduce((s, i) => s + i.amount_paid, 0);
                 const totalOpen = Math.max(0, totalExpected - totalPaid);
@@ -2776,8 +2883,8 @@ export default function CustomersPage() {
                 );
               })()}
 
-              {/* ── Fallback: computed monthly summary (non-services or no invoices yet) ──── */}
-              {activeDetailTab === "invoices" && customerInvoices.length === 0 && billingSummary && (
+              {/* ── Fallback: computed monthly summary (non-services, no invoices yet) ──── */}
+              {activeDetailTab === "invoices" && selectedItem.business?.business_type !== "services" && customerInvoices.length === 0 && billingSummary && (
                 <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right mb-[12px]">
                     סיכום הכנסות
