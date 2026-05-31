@@ -588,6 +588,12 @@ export async function GET(request: NextRequest) {
 
       // Revenue
       revenueTarget: Math.round(revenueTarget),
+      // FULL-MONTH revenue target (no periodFactor). The weekly summary email
+      // uses the scaled `revenueTarget` (partial actuals vs partial target),
+      // but the forward-looking goals email (28th-of-month cron) must use the
+      // full-month figure — otherwise for a future month periodFactor=0 and the
+      // revenue/labor/food rows come out ₪0.
+      revenueTargetFull: Math.round(revenueTargetFull),
       revenueActual: Math.round(incomeBeforeVat),
       revenueWithVat: Math.round(totalIncomeWithVat),
       revenueDiffNis: Math.round(revenueDiffNis),
