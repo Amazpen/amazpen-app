@@ -297,14 +297,22 @@ export default function CashFlowPage() {
             .eq("customers.business_id", businessId)
             .is("deleted_at", null);
           for (const p of (paidData || []) as Array<Record<string, unknown>>) {
-            const ym = String(p.payment_date).substring(0, 7);
+            // payment_date is a timestamptz; daily_entries.entry_date is a DATE
+            // derived server-side from payment_date::date. Key off the LOCAL
+            // calendar date (not the UTC substring) so day/month keys line up
+            // with entry_date and the day loop — otherwise a 21:00Z payment
+            // keys one day earlier than its bridged entry and double-counts
+            // (the per-date subtraction misses, leaving both the per-customer
+            // line and the generic "הכנסה יומית (קופה)" fallback).
+            const localDate = formatLocalDate(new Date(String(p.payment_date)));
+            const ym = localDate.substring(0, 7);
             paidRetainerMonths.add(`${p.customer_id as string}|${ym}`);
             if (!isServicesBiz) continue;
             const cust = p.customers as Record<string, unknown>;
             const isForeign = cust?.is_foreign as boolean;
             const gross = (Number(p.amount) || 0) * (isForeign ? 1 : 1 + bizVatRate);
             if (gross <= 0) continue;
-            const dateStr = String(p.payment_date).substring(0, 10);
+            const dateStr = localDate;
             const contactName = (cust?.contact_name as string) || "";
             const businessName = (cust?.business_name as string) || "";
             const customerLabel = contactName
