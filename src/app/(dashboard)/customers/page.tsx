@@ -701,6 +701,13 @@ export default function CustomersPage() {
   });
   const monthlyTotal = monthlyPayments.reduce((sum, p) => sum + Number(p.amount), 0);
   const totalIncome = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  // Services display: customer_payments.amount is stored NET; show GROSS (incl.
+  // VAT) in the income section to match the invoices tab / cashflow / dashboard.
+  // Foreign customers are VAT-exempt, and non-services keep the raw value.
+  const svcGrossMul =
+    selectedItem?.business?.business_type === "services" && !selectedItem?.customer?.is_foreign
+      ? 1 + (Number(selectedItem?.business?.vat_percentage) || 0.18)
+      : 1;
 
   // Per-customer monthly billing breakdown. Returns null when the section
   // should not render (no retainer + no payments). All amounts are
@@ -3527,7 +3534,7 @@ export default function CustomersPage() {
                   <div className="flex items-center justify-between border-b border-white/10 pb-[8px] mb-[10px]">
                     <span className="text-[13px] text-white/60">סה&quot;כ כל התקופה</span>
                     <span dir="ltr" className="text-[16px] text-[#0BB783] font-bold">
-                      ₪{totalIncome.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      ₪{(totalIncome * svcGrossMul).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </span>
                   </div>
 
@@ -3560,7 +3567,7 @@ export default function CustomersPage() {
                   <div className="flex items-center justify-between border-b border-white/20 pb-[10px] mb-[10px]">
                     <span className="text-[13px] text-[#3CD856] font-medium">סה&quot;כ התקבל בחודש</span>
                     <span dir="ltr" className="text-[18px] text-[#3CD856] font-bold">
-                      ₪{monthlyTotal.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      ₪{(monthlyTotal * svcGrossMul).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </span>
                   </div>
 
@@ -3577,7 +3584,7 @@ export default function CustomersPage() {
                         <div key={payment.id} className="flex flex-col gap-[4px] bg-white/5 rounded-[7px] p-[10px]">
                           <div className="flex items-center justify-between">
                             <span dir="ltr" className="text-[14px] text-white font-medium">
-                              ₪{Number(payment.amount).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                              ₪{(Number(payment.amount) * svcGrossMul).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                             </span>
                             <span dir="ltr" className="text-[12px] text-white/60">
                               {new Date(payment.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}

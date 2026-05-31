@@ -2831,26 +2831,17 @@ export default function DashboardPage() {
         // All sums GROSS (incl. VAT) via grossOf — net for foreign customers.
         const retainerIncome = activeRetainers.reduce((sum, c) => sum + grossOf(c.id, c.retainer_amount), 0);
 
+        // "סה"כ הכנסות" = ACTUAL income received in the viewed month (payments +
+        // services, gross). The retainer EXPECTATION is shown separately as
+        // "צפי חודשי" (retainerIncome) — not added here, so a month not yet paid
+        // shows 0 received while the forecast still reads the retainer.
         const paymentsIncome = (paymentsData as Array<Record<string, unknown>>).reduce((sum, p) => sum + grossOf(p.customer_id, p.amount), 0);
         const servicesIncome = (servicesData as Array<Record<string, unknown>>).reduce((sum, s) => sum + grossOf(s.customer_id, s.amount), 0);
-        // "סה"כ הכנסות" mirrors the cashflow: for each retainer customer show the
-        // ACTUAL payment if they already paid this month, otherwise the EXPECTED
-        // retainer (gross). Adding both double-counted (12,980); counting only
-        // actuals showed 0 in a month not yet paid. So: expected-retainer for
-        // unpaid customers + actual payments + actual services.
-        const paidCustomerIds = new Set((paymentsData as Array<Record<string, unknown>>).map(p => p.customer_id as string));
-        const unpaidRetainerIncome = activeRetainers
-          .filter(c => !paidCustomerIds.has(c.id))
-          .reduce((sum, c) => sum + grossOf(c.id, c.retainer_amount), 0);
-        const totalServiceIncome = unpaidRetainerIncome + paymentsIncome + servicesIncome;
+        const totalServiceIncome = paymentsIncome + servicesIncome;
 
         const prevPaymentsIncome = (prevPaymentsData as Array<Record<string, unknown>>).reduce((sum, p) => sum + grossOf(p.customer_id, p.amount), 0);
         const prevServicesIncome = (prevServicesData as Array<Record<string, unknown>>).reduce((sum, s) => sum + grossOf(s.customer_id, s.amount), 0);
-        const prevPaidCustomerIds = new Set((prevPaymentsData as Array<Record<string, unknown>>).map(p => p.customer_id as string));
-        const prevUnpaidRetainerIncome = activeRetainers
-          .filter(c => !prevPaidCustomerIds.has(c.id))
-          .reduce((sum, c) => sum + grossOf(c.id, c.retainer_amount), 0);
-        const prevMonthTotal = prevUnpaidRetainerIncome + prevPaymentsIncome + prevServicesIncome;
+        const prevMonthTotal = prevPaymentsIncome + prevServicesIncome;
 
         setServiceSummary({
           totalIncome: totalServiceIncome,
@@ -3400,7 +3391,7 @@ export default function DashboardPage() {
                       <>
                         <div className="flex flex-row-reverse justify-center items-center gap-[10px] ml-[25px] invisible">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num text-white`}>
-                            {formatCurrencyFull(Math.round(detailedSummary?.monthlyPace || 0))}
+                            {formatCurrencyFull(Math.round(selectedBusinessModel === "service" ? (serviceSummary?.retainerIncome || 0) : (detailedSummary?.monthlyPace || 0)))}
                           </span>
                           <span className="text-[20px] font-bold text-white leading-[1.4]">צפי חודשי</span>
                         </div>
@@ -3433,7 +3424,7 @@ export default function DashboardPage() {
                     <>
                       <div className="flex flex-row-reverse justify-center items-center gap-[10px] ml-[25px]">
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${(detailedSummary?.monthlyPace || 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-400' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
-                          {formatCurrencyFull(Math.round(detailedSummary?.monthlyPace || 0))}
+                          {formatCurrencyFull(Math.round(selectedBusinessModel === "service" ? (serviceSummary?.retainerIncome || 0) : (detailedSummary?.monthlyPace || 0)))}
                         </span>
                         <span className="text-[20px] font-bold text-white leading-[1.4]">צפי חודשי</span>
                       </div>
