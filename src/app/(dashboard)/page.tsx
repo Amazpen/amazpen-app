@@ -2773,12 +2773,29 @@ export default function DashboardPage() {
         // Fetch all customers for selected businesses
         const { data: customersData } = await supabase
           .from("customers")
-          .select("id, retainer_amount, retainer_status, retainer_type")
+          .select("id, business_id, is_foreign, retainer_amount, retainer_status, retainer_type")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("is_active", true);
 
         const customerIds = (customersData || []).map(c => c.id);
+
+        // Services display convention: customer amounts (payments/services/
+        // retainer) are stored NET (pre-VAT). The dashboard income cards
+        // ("סה"כ מכירות"/"קופה") must show GROSS (incl. VAT) to match the
+        // regular app and the bridged daily_entries — except foreign customers
+        // (is_foreign), who are VAT-exempt. Build a per-customer gross
+        // multiplier from the customer's business VAT rate.
+        const bizVatMap = new Map<string, number>(
+          (businessData || []).map(b => [b.id as string, Number(b.vat_percentage) || 0])
+        );
+        const customerMul = new Map<string, number>();
+        for (const c of (customersData || [])) {
+          const vat = bizVatMap.get(c.business_id as string) ?? 0;
+          customerMul.set(c.id as string, c.is_foreign ? 1 : 1 + vat);
+        }
+        const grossOf = (customerId: unknown, amount: unknown) =>
+          (Number(amount) || 0) * (customerMul.get(customerId as string) ?? 1);
 
         const [
           paymentsResult,
@@ -2788,19 +2805,19 @@ export default function DashboardPage() {
         ] = await Promise.all([
           // תשלומי לקוחות — תקופה נוכחית
           customerIds.length > 0
-            ? supabase.from("customer_payments").select("amount").in("customer_id", customerIds).gte("payment_date", startDateStr).lte("payment_date", endDateStr).is("deleted_at", null)
+            ? supabase.from("customer_payments").select("amount, customer_id").in("customer_id", customerIds).gte("payment_date", startDateStr).lte("payment_date", endDateStr).is("deleted_at", null)
             : Promise.resolve({ data: [] }),
           // שירותים — תקופה נוכחית
           customerIds.length > 0
-            ? supabase.from("customer_services").select("amount").in("customer_id", customerIds).gte("service_date", startDateStr).lte("service_date", endDateStr).is("deleted_at", null)
+            ? supabase.from("customer_services").select("amount, customer_id").in("customer_id", customerIds).gte("service_date", startDateStr).lte("service_date", endDateStr).is("deleted_at", null)
             : Promise.resolve({ data: [] }),
           // תשלומים — חודש קודם
           customerIds.length > 0
-            ? supabase.from("customer_payments").select("amount").in("customer_id", customerIds).gte("payment_date", prevMonthStartStr2).lte("payment_date", prevMonthEndStr2).is("deleted_at", null)
+            ? supabase.from("customer_payments").select("amount, customer_id").in("customer_id", customerIds).gte("payment_date", prevMonthStartStr2).lte("payment_date", prevMonthEndStr2).is("deleted_at", null)
             : Promise.resolve({ data: [] }),
           // שירותים — חודש קודם
           customerIds.length > 0
-            ? supabase.from("customer_services").select("amount").in("customer_id", customerIds).gte("service_date", prevMonthStartStr2).lte("service_date", prevMonthEndStr2).is("deleted_at", null)
+            ? supabase.from("customer_services").select("amount, customer_id").in("customer_id", customerIds).gte("service_date", prevMonthStartStr2).lte("service_date", prevMonthEndStr2).is("deleted_at", null)
             : Promise.resolve({ data: [] }),
         ]);
 
@@ -2811,14 +2828,15 @@ export default function DashboardPage() {
 
         // ריטיינרים פעילים — מחושב לפי חודש (retainer_amount per active customer)
         const activeRetainers = (customersData || []).filter(c => c.retainer_status === 'active' && Number(c.retainer_amount) > 0);
-        const retainerIncome = activeRetainers.reduce((sum, c) => sum + (Number(c.retainer_amount) || 0), 0);
+        // All sums GROSS (incl. VAT) via grossOf — net for foreign customers.
+        const retainerIncome = activeRetainers.reduce((sum, c) => sum + grossOf(c.id, c.retainer_amount), 0);
 
-        const paymentsIncome = paymentsData.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-        const servicesIncome = servicesData.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+        const paymentsIncome = (paymentsData as Array<Record<string, unknown>>).reduce((sum, p) => sum + grossOf(p.customer_id, p.amount), 0);
+        const servicesIncome = (servicesData as Array<Record<string, unknown>>).reduce((sum, s) => sum + grossOf(s.customer_id, s.amount), 0);
         const totalServiceIncome = retainerIncome + paymentsIncome + servicesIncome;
 
-        const prevPaymentsIncome = prevPaymentsData.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-        const prevServicesIncome = prevServicesData.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+        const prevPaymentsIncome = (prevPaymentsData as Array<Record<string, unknown>>).reduce((sum, p) => sum + grossOf(p.customer_id, p.amount), 0);
+        const prevServicesIncome = (prevServicesData as Array<Record<string, unknown>>).reduce((sum, s) => sum + grossOf(s.customer_id, s.amount), 0);
         const prevMonthTotal = retainerIncome + prevPaymentsIncome + prevServicesIncome; // ריטיינר קבוע
 
         setServiceSummary({
