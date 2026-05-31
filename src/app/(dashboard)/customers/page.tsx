@@ -1063,7 +1063,6 @@ export default function CustomersPage() {
               id: incomeSourceId,
               business_id: formBusinessId,
               name: `ריטיינר — ${fBusinessName.trim()}`,
-              type: "retainer",
               is_active: true,
             });
 
@@ -1286,7 +1285,6 @@ export default function CustomersPage() {
           id: incomeSourceId,
           business_id: businessId,
           name: `שירות — ${newServiceName.trim()} (${customerBusinessName})`,
-          type: "service",
           is_active: true,
         });
 
