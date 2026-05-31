@@ -2996,9 +2996,27 @@ function buildTools(
             query = query.eq("employee_user_id", employeeUserId);
           }
 
-          const { data: plans, error } = await query;
+          const { data: plansRaw, error } = await query;
           if (error) return { error: error.message };
-          if (!plans || plans.length === 0) {
+          if (!plansRaw || plansRaw.length === 0) {
+            return { plans: [], note: "אין תכניות בונוס פעילות" };
+          }
+
+          // Plans are versioned per month — keep only the version effective for
+          // the requested month (latest period at or before targetYear/Month).
+          const bpTarget = targetYear * 12 + targetMonth;
+          const bpByKey = new Map<string, (typeof plansRaw)[number]>();
+          for (const p of plansRaw) {
+            if (p.period_year == null || p.period_month == null) continue;
+            const pp = p.period_year * 12 + p.period_month;
+            if (pp > bpTarget) continue;
+            const key = `${p.employee_user_id}__${p.area_name}`;
+            const ex = bpByKey.get(key);
+            const ep = ex ? (ex.period_year ?? 0) * 12 + (ex.period_month ?? 0) : -1;
+            if (!ex || pp > ep) bpByKey.set(key, p);
+          }
+          const plans = Array.from(bpByKey.values());
+          if (plans.length === 0) {
             return { plans: [], note: "אין תכניות בונוס פעילות" };
           }
 
@@ -3427,13 +3445,28 @@ export async function POST(request: NextRequest) {
     const bonusSb = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { data: bonusPlans } = await bonusSb
+    const { data: bonusPlansRaw } = await bonusSb
       .from("bonus_plans")
-      .select("area_name, measurement_type, data_source, is_lower_better, custom_source_label, tier1_label, tier1_threshold, tier1_amount, tier2_label, tier2_threshold, tier2_amount, tier3_label, tier3_threshold, tier3_amount")
+      .select("area_name, measurement_type, data_source, is_lower_better, custom_source_label, tier1_label, tier1_threshold, tier1_amount, tier2_label, tier2_threshold, tier2_amount, tier3_label, tier3_threshold, tier3_amount, period_year, period_month")
       .eq("employee_user_id", user.id)
       .eq("business_id", businessId)
       .eq("is_active", true)
       .is("deleted_at", null);
+
+    // Keep only the version effective for the current month (employee+business
+    // are already fixed by the query, so dedup by area_name).
+    const bpNow = new Date();
+    const bpTargetCtx = bpNow.getFullYear() * 12 + (bpNow.getMonth() + 1);
+    const bpCtxByArea = new Map<string, NonNullable<typeof bonusPlansRaw>[number]>();
+    for (const p of bonusPlansRaw || []) {
+      if (p.period_year == null || p.period_month == null) continue;
+      const pp = p.period_year * 12 + p.period_month;
+      if (pp > bpTargetCtx) continue;
+      const ex = bpCtxByArea.get(p.area_name);
+      const ep = ex ? (ex.period_year ?? 0) * 12 + (ex.period_month ?? 0) : -1;
+      if (!ex || pp > ep) bpCtxByArea.set(p.area_name, p);
+    }
+    const bonusPlans = Array.from(bpCtxByArea.values());
 
     if (bonusPlans && bonusPlans.length > 0) {
       const planLines = bonusPlans.map((p, i) => {

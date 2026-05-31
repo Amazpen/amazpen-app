@@ -438,13 +438,18 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // Fetch active plans for this hour
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    // Fetch ALL active plan versions (any month). Plans are versioned per
+    // month — we resolve the version effective for the CURRENT month below,
+    // then apply that version's push settings. Filtering push_hour/enabled in
+    // SQL would risk matching an older version's settings.
     const { data: plans, error: plansError } = await supabaseAdmin
       .from("bonus_plans")
       .select("*")
       .eq("is_active", true)
-      .eq("push_enabled", true)
-      .eq("push_hour", israelHour)
       .is("deleted_at", null);
 
     if (plansError) {
@@ -453,19 +458,31 @@ export async function POST(request: NextRequest) {
     }
 
     if (!plans || plans.length === 0) {
-      return NextResponse.json({ processed: 0, message: "No plans for this hour" });
+      return NextResponse.json({ processed: 0, message: "No active plans" });
     }
 
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
+    // Reduce to one effective version per logical plan (business+employee+area):
+    // the latest version whose period is at or before the current month.
+    const target = year * 12 + month;
+    const effectiveByKey = new Map<string, BonusPlan>();
+    for (const p of plans as BonusPlan[]) {
+      if (p.period_year == null || p.period_month == null) continue;
+      const pp = p.period_year * 12 + p.period_month;
+      if (pp > target) continue;
+      const key = `${p.business_id}__${p.employee_user_id}__${p.area_name}`;
+      const existing = effectiveByKey.get(key);
+      const ep = existing ? (existing.period_year ?? 0) * 12 + (existing.period_month ?? 0) : -1;
+      if (!existing || pp > ep) effectiveByKey.set(key, p);
+    }
+    const effectivePlans = Array.from(effectiveByKey.values());
 
     // Get Israel day-of-week for push_days filter
     const israelDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jerusalem" }));
     const israelDay = israelDate.getDay(); // 0=Sunday..6=Saturday
 
-    // Filter plans: only send on days included in push_days
-    const filteredPlans = (plans as BonusPlan[]).filter((p) => {
+    // Apply the effective version's push settings: enabled, this hour, today.
+    const filteredPlans = effectivePlans.filter((p) => {
+      if (!p.push_enabled || p.push_hour !== israelHour) return false;
       const pushDays = p.push_days || [0, 1, 2, 3, 4, 5, 6]; // default: all days
       return pushDays.includes(israelDay);
     });

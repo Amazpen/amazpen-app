@@ -32,6 +32,41 @@ interface Employee {
 
 // ===== Helpers =====
 
+/**
+ * Bonus plans are versioned per month. A logical plan is keyed by
+ * (employee_user_id + area_name); each month the user edits creates/updates a
+ * row stamped with (period_year, period_month). The row that "applies" to a
+ * selected month is the latest one whose period is AT OR BEFORE it — so a
+ * month with no explicit row inherits the most recent prior version, and
+ * editing a future month never rewrites a past one.
+ *
+ * Returns one row per logical plan: the effective version for (year, month).
+ * Plans whose earliest version starts AFTER the selected month are omitted
+ * (they didn't exist yet that month).
+ */
+function resolveEffectivePlans(
+  rows: BonusPlan[],
+  year: number,
+  month: number
+): BonusPlan[] {
+  const target = year * 12 + month;
+  const byKey = new Map<string, BonusPlan>();
+  for (const r of rows) {
+    if (r.period_year == null || r.period_month == null) continue;
+    const rp = r.period_year * 12 + r.period_month;
+    if (rp > target) continue; // not yet effective for this month
+    const key = `${r.employee_user_id}__${r.area_name}`;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, r);
+      continue;
+    }
+    const ep = (existing.period_year ?? 0) * 12 + (existing.period_month ?? 0);
+    if (rp > ep) byKey.set(key, r); // later effective version wins
+  }
+  return Array.from(byKey.values());
+}
+
 function formatCurrency(amount: number): string {
   // ₪ goes BEFORE the number (₪1,000) so the LTR-isolated cells in
   // the tier table render the symbol on the left like everywhere else
@@ -243,7 +278,9 @@ export default function BonusPlansPage() {
       return;
     }
 
-    const plansList = (data || []) as BonusPlan[];
+    // Each logical plan can have several monthly versions; show only the one
+    // that applies to the selected month (latest version at or before it).
+    const plansList = resolveEffectivePlans((data || []) as BonusPlan[], selectedYear, selectedMonth);
     setPlans(plansList);
 
     // Resolve statuses for all plans using selected month/year
@@ -400,11 +437,24 @@ export default function BonusPlansPage() {
         .slice(0, 3),
       // David #11 — context Daddi will see for this plan.
       business_notes: formBusinessNotes.trim() || null,
+      // Stamp this version with the selected month so edits scope per-month.
+      period_year: selectedYear,
+      period_month: selectedMonth,
       updated_at: new Date().toISOString(),
     };
 
+    // Copy-on-write per month: only UPDATE in place when the row being edited
+    // is already stamped to the selected month. If the displayed row is an
+    // INHERITED earlier version, INSERT a NEW row for the selected month so the
+    // earlier month keeps its own values (this is the per-month fix).
+    const editingRow = editingPlanId ? plans.find((p) => p.id === editingPlanId) : null;
+    const editingThisMonth =
+      !!editingRow &&
+      editingRow.period_year === selectedYear &&
+      editingRow.period_month === selectedMonth;
+
     let error;
-    if (editingPlanId) {
+    if (editingPlanId && editingThisMonth) {
       ({ error } = await supabase
         .from("bonus_plans")
         .update(payload)
@@ -431,6 +481,7 @@ export default function BonusPlansPage() {
     formPushEnabled, formPushHour, formPushDays, formNotes, formTips,
     formDailyActions, formBusinessNotes,
     editingPlanId, resetForm, fetchPlans,
+    selectedYear, selectedMonth, plans,
   ]);
 
   // ===== Delete plan =====
@@ -439,10 +490,15 @@ export default function BonusPlansPage() {
       confirm(
         `האם למחוק את תכנית הבונוס "${plan.area_name}" של ${employeeName}?`,
         async () => {
+          // Soft-delete EVERY monthly version of this logical plan, not just
+          // the version currently shown — otherwise older months would resurface.
           const { error } = await supabase
             .from("bonus_plans")
             .update({ deleted_at: new Date().toISOString(), is_active: false })
-            .eq("id", plan.id);
+            .eq("business_id", plan.business_id)
+            .eq("employee_user_id", plan.employee_user_id)
+            .eq("area_name", plan.area_name)
+            .is("deleted_at", null);
 
           if (error) {
             showToast("שגיאה במחיקת התכנית", "error");
@@ -460,10 +516,15 @@ export default function BonusPlansPage() {
   // ===== Toggle active =====
   const toggleActive = useCallback(
     async (plan: BonusPlan) => {
+      // Toggle active state across all monthly versions so a plan is wholly
+      // on or off regardless of which month is being viewed.
       const { error } = await supabase
         .from("bonus_plans")
         .update({ is_active: !plan.is_active, updated_at: new Date().toISOString() })
-        .eq("id", plan.id);
+        .eq("business_id", plan.business_id)
+        .eq("employee_user_id", plan.employee_user_id)
+        .eq("area_name", plan.area_name)
+        .is("deleted_at", null);
 
       if (error) {
         showToast("שגיאה בעדכון סטטוס", "error");

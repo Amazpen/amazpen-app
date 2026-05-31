@@ -29,6 +29,14 @@ export interface BonusPlan {
   daily_actions: string[] | null;
   /** David #11 — per-business context Daddi consumes alongside the plan. */
   business_notes: string | null;
+  /**
+   * Effective month of this plan version. A logical plan
+   * (business+employee+area) can have one row per month; the row that applies
+   * to a given month is the latest one whose (period_year, period_month) is
+   * at or before it. Lets June targets differ from May without clobbering it.
+   */
+  period_year: number | null;
+  period_month: number | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
