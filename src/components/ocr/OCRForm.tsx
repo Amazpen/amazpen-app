@@ -254,7 +254,13 @@ export default function OCRForm({
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // Draft persistence
-  const draftKey = `ocrForm:draft:${selectedBusinessId}:${document?.id || 'none'}`;
+  // NOTE: bump the version segment (v2, v3…) whenever the VAT / amount
+  // derivation logic changes. Drafts persist partialVat / vatAmount /
+  // amountBeforeVat, so drafts saved under the OLD (buggy) VAT logic kept
+  // overriding the corrected logic on load — e.g. a full-VAT supplier showing
+  // partialVat=true + VAT=0 because a stale draft re-applied it. Versioning the
+  // key orphans those poisoned drafts so each document re-derives VAT cleanly.
+  const draftKey = `ocrForm:draft:v2:${selectedBusinessId}:${document?.id || 'none'}`;
   const { saveDraft, restoreDraft, clearDraft } = useFormDraft(draftKey);
   const draftRestored = useRef(false);
   // Keep a ref of `suppliers` so the OCR-data populate effect can read the

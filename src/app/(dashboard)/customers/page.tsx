@@ -160,9 +160,13 @@ function computeBillingSummary(
   const hasPayments = customerPayments.length > 0;
   if (!hasRetainer && !hasPayments) return null;
 
-  const vatRate = Number(businessVatPercentage) || 0.18;
-  const vatMultiplier = customer.is_foreign ? 1 : 1 + vatRate;
-  const monthlyExpectedGross = retainerAmount * vatMultiplier;
+  // Convention: customer_payments.amount and customer.retainer_amount are
+  // both stored as pre-VAT (net). The DB trigger
+  // bridge_customer_payment_to_daily_income() multiplies by (1+vat_percentage)
+  // when posting to daily_entries for services-type businesses. This keeps a
+  // single source of truth in customer_payments.
+  void businessVatPercentage; // kept in signature for callers; not needed here
+  const monthlyExpectedGross = retainerAmount;
 
   const parseDate = (s: string | null | undefined): Date | null => {
     if (!s) return null;
@@ -209,11 +213,9 @@ function computeBillingSummary(
     safety++;
   }
 
-  // Bucket payments by month. customer_payments.amount is treated as the
-  // gross (VAT-inclusive) amount the customer actually paid — that's what
-  // the "+ הוספת תשלום" form auto-fills and what the helper hint shows.
-  // We do NOT multiply by VAT here: doing so double-counts VAT for any
-  // payment that was already entered as a gross amount.
+  // Bucket payments by month. customer_payments.amount is stored pre-VAT (net)
+  // to match the retainer convention; the DB trigger handles VAT when posting
+  // into daily_entries.
   const paidByMonth = new Map<string, number>();
   for (const p of customerPayments) {
     const d = parseDate(p.payment_date);
@@ -384,6 +386,10 @@ export default function CustomersPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<CustomerDisplay | null>(null);
   const [payments, setPayments] = useState<CustomerPayment[]>([]);
+  // Month-detail modal: key is "YYYY-M" (month 0-indexed) matching billingRow.key
+  const [monthDetailKey, setMonthDetailKey] = useState<string | null>(null);
+  // Tab strip on customer detail panel — mirrors /suppliers detail layout
+  const [activeDetailTab, setActiveDetailTab] = useState<"invoices" | "payments" | "documents">("invoices");
   const [detailMonth, setDetailMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1019,12 +1025,9 @@ export default function CustomersPage() {
         retainerAmount &&
         retainerAmount > 0
       ) {
-        const vatRate = Number(
-          allBusinesses.find((b) => b.id === formBusinessId)?.vat_percentage,
-        ) || 0.18;
-        const grossAmount = fIsForeign
-          ? retainerAmount
-          : Math.round(retainerAmount * (1 + vatRate) * 100) / 100;
+        // Convention: customer_payments.amount is pre-VAT (net). DB trigger
+        // bridge_customer_payment_to_daily_income() handles the VAT math when
+        // posting to daily_entries for services-type businesses.
         const initialPaymentDate = fRetainerStartDate || fWorkStartDate || new Date().toISOString().split("T")[0];
         const { error: initialPaymentError } = await supabase
           .from("customer_payments")
@@ -1032,7 +1035,7 @@ export default function CustomersPage() {
             id: generateUUID(),
             customer_id: savedCustomerId,
             payment_date: initialPaymentDate,
-            amount: grossAmount,
+            amount: retainerAmount,
             description: "תשלום ראשוני (הקמה)",
             payment_method: fPaidOnSetupMethod || null,
             notes: null,
@@ -1656,7 +1659,7 @@ export default function CustomersPage() {
 
             {/* ── Retainer Section ── */}
             <div className="flex flex-col gap-[10px] mt-[10px] border border-[#7C3AED]/40 rounded-[10px] p-[12px] bg-[#6B21A8]/10">
-              <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right">ריטיינר</h3>
+              <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right">תנאי התשלום</h3>
 
               {/* סכום */}
               <div className="flex flex-col gap-[5px]">
@@ -2416,7 +2419,7 @@ export default function CustomersPage() {
               {selectedItem.customer?.retainer_amount && selectedItem.customer.retainer_amount > 0 && (
                 <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <div className="flex items-center gap-[8px] mb-[12px]">
-                    <h3 className="text-[15px] font-bold text-[#C4B5FD]">ריטיינר</h3>
+                    <h3 className="text-[15px] font-bold text-[#C4B5FD]">תנאי התשלום</h3>
                     {selectedItem.customer.retainer_status && (
                       <Badge className={`text-[11px] px-[8px] py-[2px] rounded-full font-bold ${
                         selectedItem.customer.retainer_status === 'active'
@@ -2537,8 +2540,39 @@ export default function CustomersPage() {
                 </div>
               )}
 
-              {/* ── Monthly Billing Summary + Table ──────────────── */}
-              {billingSummary && (
+              {/* ── Tabs strip: חשבוניות / תשלומים / מסמכים ─────────── */}
+              <div className="flex w-full h-[40px] border border-[#6B6B6B] rounded-[7px] overflow-hidden mb-[15px]">
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab("invoices")}
+                  className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
+                    activeDetailTab === "invoices" ? "bg-[#29318A] text-white" : "text-[#979797] hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-[13px] font-bold">חשבוניות</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab("payments")}
+                  className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
+                    activeDetailTab === "payments" ? "bg-[#29318A] text-white" : "text-[#979797] hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-[13px] font-bold">תשלומים</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab("documents")}
+                  className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
+                    activeDetailTab === "documents" ? "bg-[#29318A] text-white" : "text-[#979797] hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-[13px] font-bold">מסמכים</span>
+                </button>
+              </div>
+
+              {/* ── Monthly Billing Summary + Table (חשבוניות tab) ──────────────── */}
+              {activeDetailTab === "invoices" && billingSummary && (
                 <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right mb-[12px]">
                     סיכום הכנסות
@@ -2609,9 +2643,12 @@ export default function CustomersPage() {
                                 ? "עודף"
                                 : "—";
                             return (
-                              <div
+                              <button
                                 key={row.key}
-                                className="grid grid-cols-[2fr_1fr_1fr_1fr_1.2fr] w-full p-[8px_5px] bg-white/5 hover:bg-white/10 rounded-[5px] items-center"
+                                type="button"
+                                onClick={() => setMonthDetailKey(row.key)}
+                                title="הצג פירוט תשלומים לחודש זה"
+                                className="grid grid-cols-[2fr_1fr_1fr_1fr_1.2fr] w-full p-[8px_5px] bg-white/5 hover:bg-white/10 rounded-[5px] items-center text-right cursor-pointer"
                               >
                                 <div className="text-center text-[13px] text-white">{row.label}</div>
                                 <div dir="ltr" className="text-center text-[13px] text-white">
@@ -2634,7 +2671,7 @@ export default function CustomersPage() {
                                     {badgeLabel}
                                   </span>
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -2910,8 +2947,8 @@ export default function CustomersPage() {
                 </div>
               )}
 
-              {/* ── Section 2.5: Customer Documents ─────────────── */}
-              {selectedItem.customer && (
+              {/* ── Section 2.5: Customer Documents (מסמכים tab) ─────────────── */}
+              {activeDetailTab === "documents" && selectedItem.customer && (
                 <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <div className="flex items-center justify-between mb-[10px]">
                     <h3 className="text-[14px] font-bold text-white">מסמכים</h3>
@@ -3036,8 +3073,8 @@ export default function CustomersPage() {
                 </div>
               )}
 
-              {/* ── Section 4: Income / Monthly Payments ─────── */}
-              {selectedItem.customer && (
+              {/* ── Section 4: Income / Monthly Payments (תשלומים tab) ─────── */}
+              {activeDetailTab === "payments" && selectedItem.customer && (
                 <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px]">
                   <h3 className="text-[16px] font-bold text-white text-center mb-[10px]">הכנסות</h3>
 
@@ -3143,14 +3180,11 @@ export default function CustomersPage() {
                           setNewPaymentDate(ymd);
                         }
                         if (!newPaymentAmount && selectedItem.customer.retainer_amount) {
-                          // Pre-fill with VAT-inclusive amount — that's what
-                          // the customer actually paid. Foreign customers
-                          // bypass VAT (vat_percentage * 0).
-                          const vatRate = Number(selectedItem.business?.vat_percentage) || 0.18;
-                          const multiplier = selectedItem.customer.is_foreign ? 1 : 1 + vatRate;
-                          const gross = selectedItem.customer.retainer_amount * multiplier;
-                          // Round to 2 decimals to avoid 3540.0000000000005 noise
-                          setNewPaymentAmount(String(Math.round(gross * 100) / 100));
+                          // Pre-fill with pre-VAT (net) amount. The DB trigger
+                          // bridge_customer_payment_to_daily_income() multiplies
+                          // by (1+vat) when posting to daily_income_breakdown,
+                          // so storing net here keeps a single source of truth.
+                          setNewPaymentAmount(String(selectedItem.customer.retainer_amount));
                         }
                       }
                       setIsAddPaymentOpen(!isAddPaymentOpen);
@@ -3173,7 +3207,7 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">
-                          {selectedItem.customer?.is_foreign ? 'סכום (₪, ללא מע"מ)' : 'סכום (₪, כולל מע"מ)'}
+                          {selectedItem.customer?.is_foreign ? 'סכום (₪, ללא מע"מ)' : 'סכום (₪, לפני מע"מ)'}
                         </label>
                         <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
                           <Input
@@ -3186,18 +3220,17 @@ export default function CustomersPage() {
                           />
                         </div>
                         {(() => {
-                          // Helper: show VAT breakdown so the user can sanity-
-                          // check that what they typed matches the customer's
-                          // gross retainer.
+                          // Helper: input is pre-VAT — show gross so user can
+                          // sanity-check that gross matches the customer's retainer.
                           const amt = parseFloat(newPaymentAmount);
                           if (!amt || amt <= 0 || !selectedItem.customer) return null;
                           if (selectedItem.customer.is_foreign) return null;
                           const vatRate = Number(selectedItem.business?.vat_percentage) || 0.18;
-                          const net = amt / (1 + vatRate);
-                          const vatPart = amt - net;
+                          const vatPart = amt * vatRate;
+                          const gross = amt + vatPart;
                           return (
                             <span className="text-[11px] text-white/50 text-center">
-                              ₪{net.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} + מע&quot;מ ₪{vatPart.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                              ₪{amt.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} + מע&quot;מ ₪{vatPart.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} = ₪{gross.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} כולל
                             </span>
                           );
                         })()}
@@ -3320,6 +3353,90 @@ export default function CustomersPage() {
               עצור מתאריך זה
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Month-detail modal: lists individual customer_payments for the chosen
+          month from the billing table. Answers "where did the ₪5,500 paid
+          come from" without forcing a full tab redesign. */}
+      <Dialog open={!!monthDetailKey} onOpenChange={(open) => !open && setMonthDetailKey(null)}>
+        <DialogContent className="bg-[#0F1535] border-[#4C526B] text-white sm:max-w-[460px] rounded-[20px] p-[20px]" dir="rtl">
+          {(() => {
+            if (!monthDetailKey) return null;
+            const [yStr, mStr] = monthDetailKey.split("-");
+            const y = parseInt(yStr, 10);
+            const m = parseInt(mStr, 10);
+            const monthLabel = new Date(y, m, 1).toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+            const monthPayments = payments
+              .filter((p) => {
+                const d = p.payment_date ? new Date(p.payment_date) : null;
+                return d && d.getFullYear() === y && d.getMonth() === m;
+              })
+              .sort((a, b) => (a.payment_date || "").localeCompare(b.payment_date || ""));
+            const totalNet = monthPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+            return (
+              <>
+                <div className="flex items-center justify-between mb-[12px]">
+                  <h3 className="text-[16px] font-bold text-white">פירוט תשלומים — {monthLabel}</h3>
+                  <span className="text-[11px] text-white/50">{monthPayments.length} תשלום{monthPayments.length === 1 ? "" : "ים"}</span>
+                </div>
+                <div className="flex items-center justify-between bg-[#29318A]/40 rounded-[7px] p-[10px] mb-[12px]">
+                  <span className="text-[13px] text-white/70">סה&quot;כ שולם בחודש (לפני מע&quot;מ)</span>
+                  <span dir="ltr" className="text-[16px] font-bold text-[#3CD856]">
+                    ₪{totalNet.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                {monthPayments.length === 0 ? (
+                  <div className="flex items-center justify-center py-[20px]">
+                    <span className="text-[13px] text-white/50">אין תשלומים בחודש זה</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-[8px] max-h-[60vh] overflow-y-auto">
+                    {monthPayments.map((p) => (
+                      <div key={p.id} className="flex flex-col gap-[4px] bg-white/5 rounded-[7px] p-[10px]">
+                        <div className="flex items-center justify-between">
+                          <span dir="ltr" className="text-[14px] text-white font-medium">
+                            ₪{Number(p.amount).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          </span>
+                          <span dir="ltr" className="text-[12px] text-white/60">
+                            {new Date(p.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                          </span>
+                        </div>
+                        {p.description && (
+                          <span className="text-[13px] text-white/80 text-right">{p.description}</span>
+                        )}
+                        {p.payment_method && (
+                          <span className="text-[12px] text-white/50 text-right">
+                            {paymentMethodLabels[p.payment_method] || p.payment_method}
+                          </span>
+                        )}
+                        {p.notes && (
+                          <span className="text-[12px] text-white/40 text-right">{p.notes}</span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          onClick={() => handleDeletePayment(p.id)}
+                          className="self-end text-[#F64E60]/50 hover:text-[#F64E60] transition-colors text-[11px] mt-[4px]"
+                        >
+                          מחק
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setMonthDetailKey(null)}
+                  className="w-full mt-[15px] border-white/30 text-white hover:bg-white/10"
+                >
+                  סגור
+                </Button>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

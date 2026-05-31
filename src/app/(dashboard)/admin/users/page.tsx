@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 // Role labels in Hebrew
-const _roleLabels: Record<string, string> = {
+const roleLabels: Record<string, string> = {
   owner: "בעלים",
   manager: "מנהל",
   employee: "עובד",
@@ -26,6 +26,28 @@ const roleColors: Record<string, string> = {
   manager: "bg-[#3CD856] text-white",
   employee: "bg-[#4A56D4]/50 text-white",
 };
+
+// Sort weight for role-based sorting (higher = first)
+const roleSortWeight: Record<string, number> = {
+  owner: 3,
+  manager: 2,
+  employee: 1,
+};
+
+type SortOption = "recent" | "name" | "role";
+
+// Short he-IL date (e.g. "31.5.26"). Returns "" for null/invalid.
+function formatJoinDate(value: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("he-IL", { day: "numeric", month: "numeric", year: "2-digit" });
+}
+
+interface MembershipChip {
+  businessName: string;
+  role: string;
+}
 
 interface Business {
   id: string;
@@ -49,10 +71,12 @@ interface UserMember {
   role: string;
   invited_at: string | null;
   joined_at: string | null;
+  created_at: string | null;
   profiles: {
     id: string;
     email: string;
     full_name: string | null;
+    phone: string | null;
     avatar_url: string | null;
   };
   businesses: {
@@ -70,6 +94,10 @@ export default function AdminUsersPage() {
   const [selectedBusinessId, setSelectedBusinessId] = usePersistedState<string>("admin-users:businessId", "all");
   const [allUsers, setAllUsers] = useState<Profile[]>([]);
   const [businessUsers, setBusinessUsers] = useState<UserMember[]>([]);
+  const [membershipsByUser, setMembershipsByUser] = useState<Record<string, MembershipChip[]>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = usePersistedState<SortOption>("admin-users:sortBy", "recent");
+  const [isListLoading, setIsListLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,16 +240,35 @@ export default function AdminUsersPage() {
     const supabase = createClient();
 
     if (selectedBusinessId === "all") {
-      // Fetch all users from profiles
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, email, full_name, phone, avatar_url, is_admin, created_at")
-        .order("created_at", { ascending: false });
+      // Fetch all users from profiles + their business memberships (for chips)
+      const [{ data }, { data: memberRows }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, email, full_name, phone, avatar_url, is_admin, created_at")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("business_members")
+          .select("user_id, role, businesses(id, name, deleted_at)")
+          .is("deleted_at", null),
+      ]);
 
       if (data) {
         setAllUsers(data);
         setBusinessUsers([]);
       }
+
+      // Build user_id -> [{ businessName, role }], skipping soft-deleted businesses
+      const map: Record<string, MembershipChip[]> = {};
+      for (const row of (memberRows ?? []) as unknown as Array<{
+        user_id: string;
+        role: string;
+        businesses: { id: string; name: string; deleted_at: string | null } | null;
+      }>) {
+        const biz = row.businesses;
+        if (!biz || biz.deleted_at) continue;
+        (map[row.user_id] ??= []).push({ businessName: biz.name, role: row.role });
+      }
+      setMembershipsByUser(map);
     } else {
       // Fetch users for specific business
       const { data } = await supabase
@@ -233,7 +280,8 @@ export default function AdminUsersPage() {
           role,
           invited_at,
           joined_at,
-          profiles(id, email, full_name, avatar_url),
+          created_at,
+          profiles(id, email, full_name, phone, avatar_url),
           businesses(id, name)
         `)
         .eq("business_id", selectedBusinessId)
@@ -242,9 +290,24 @@ export default function AdminUsersPage() {
       if (data) {
         setBusinessUsers(data as unknown as UserMember[]);
         setAllUsers([]);
+        setMembershipsByUser({});
       }
     }
+
+    setIsListLoading(false);
   }, [selectedBusinessId]);
+
+  // Show skeleton while the active filter's data is (re)loading
+  useEffect(() => {
+    setIsListLoading(true);
+  }, [selectedBusinessId]);
+
+  // "role" sort only applies to a specific business; reset it in the "all" view
+  useEffect(() => {
+    if (selectedBusinessId === "all" && sortBy === "role") {
+      setSortBy("recent");
+    }
+  }, [selectedBusinessId, sortBy, setSortBy]);
 
   useEffect(() => {
     if (!isLoading && isAdmin) {
@@ -259,6 +322,67 @@ export default function AdminUsersPage() {
     fetchUsers,
     !isLoading && isAdmin,
   );
+
+  // Filtered + sorted "all users" list (client-side, on already-fetched data)
+  const filteredAllUsers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let list = allUsers;
+    if (q) {
+      list = list.filter(
+        (u) =>
+          (u.full_name || "").toLowerCase().includes(q) ||
+          (u.email || "").toLowerCase().includes(q) ||
+          (u.phone || "").toLowerCase().includes(q),
+      );
+    }
+    const sorted = [...list];
+    if (sortBy === "name") {
+      sorted.sort((a, b) =>
+        (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "", "he"),
+      );
+    } else {
+      // "recent" (and "role" has no meaning here → fall back to recent)
+      sorted.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+    }
+    return sorted;
+  }, [allUsers, searchQuery, sortBy]);
+
+  // Filtered + sorted business-members list
+  const filteredBusinessUsers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let list = businessUsers;
+    if (q) {
+      list = list.filter(
+        (m) =>
+          (m.profiles.full_name || "").toLowerCase().includes(q) ||
+          (m.profiles.email || "").toLowerCase().includes(q),
+      );
+    }
+    const sorted = [...list];
+    if (sortBy === "name") {
+      sorted.sort((a, b) =>
+        (a.profiles.full_name || a.profiles.email || "").localeCompare(
+          b.profiles.full_name || b.profiles.email || "",
+          "he",
+        ),
+      );
+    } else if (sortBy === "role") {
+      sorted.sort((a, b) => (roleSortWeight[b.role] || 0) - (roleSortWeight[a.role] || 0));
+    } else {
+      // "recent": pending (no joined_at) first, then most-recent joined
+      sorted.sort((a, b) => {
+        const aJoined = a.joined_at || a.created_at || "";
+        const bJoined = b.joined_at || b.created_at || "";
+        if (!a.joined_at && b.joined_at) return -1;
+        if (a.joined_at && !b.joined_at) return 1;
+        return bJoined.localeCompare(aJoined);
+      });
+    }
+    return sorted;
+  }, [businessUsers, searchQuery, sortBy]);
+
+  const visibleCount =
+    selectedBusinessId === "all" ? filteredAllUsers.length : filteredBusinessUsers.length;
 
   const handleCreateUser = async () => {
     if (!newUserEmail.trim() || !newUserPassword.trim()) return;
@@ -516,6 +640,7 @@ export default function AdminUsersPage() {
           </svg>
         </div>
         <h1 className="text-[24px] font-bold text-white">ניהול משתמשים</h1>
+        <p className="text-[14px] text-white/50 text-center">ניהול משתמשים, הרשאות ושיוך לעסקים</p>
       </div>
 
       {/* Filter Selector */}
@@ -536,6 +661,55 @@ export default function AdminUsersPage() {
         </Select>
       </div>
 
+      {/* Search + Sort Bar */}
+      <div className="flex gap-[10px] mb-[15px] flex-col sm:flex-row">
+        {/* Search (first in DOM = right side in RTL) */}
+        <div className="relative flex-1">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            className="absolute right-[14px] top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"
+          >
+            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" />
+            <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <Input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="חיפוש לפי שם, אימייל או טלפון"
+            className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] ps-[44px] pe-[40px] text-[14px] text-white text-right placeholder:text-white/30"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              title="נקה חיפוש"
+              aria-label="נקה חיפוש"
+              className="absolute left-[12px] top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Sort (second in DOM = left side in RTL) */}
+        <Select value={sortBy} onValueChange={(val) => setSortBy(val as SortOption)}>
+          <SelectTrigger className="sm:w-[170px] bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+            <SelectValue placeholder="מיון" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="recent">הצטרפו לאחרונה</SelectItem>
+            <SelectItem value="name">שם (א-ב)</SelectItem>
+            {selectedBusinessId !== "all" && <SelectItem value="role">תפקיד</SelectItem>}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Add User Button */}
       <Button
         variant="default"
@@ -549,20 +723,44 @@ export default function AdminUsersPage() {
         הוסף משתמש חדש
       </Button>
 
+      {/* Count */}
+      <div className="flex items-center mb-[10px] px-[4px]">
+        <span className="text-[13px] text-white/50">
+          {visibleCount} משתמשים
+          {searchQuery.trim() && " (תוצאות חיפוש)"}
+        </span>
+      </div>
+
       {/* Users List */}
       <div className="flex flex-col gap-[10px]">
-        {selectedBusinessId === "all" ? (
+        {isListLoading ? (
+          // Loading skeleton
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-[#0F1535] rounded-[15px] p-[15px] flex items-center gap-[12px] animate-pulse"
+            >
+              <div className="w-[50px] h-[50px] rounded-full bg-white/10 flex-shrink-0" />
+              <div className="flex-1 min-w-0 flex flex-col gap-[8px]">
+                <div className="h-[14px] w-[40%] bg-white/10 rounded-[4px]" />
+                <div className="h-[12px] w-[60%] bg-white/10 rounded-[4px]" />
+              </div>
+            </div>
+          ))
+        ) : selectedBusinessId === "all" ? (
           // Show all profiles
-          allUsers.length === 0 ? (
+          filteredAllUsers.length === 0 ? (
             <div className="text-center py-[40px]">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto mb-[15px] text-[#979797]">
                 <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
               </svg>
-              <p className="text-[14px] text-[#979797]">אין משתמשים במערכת</p>
+              <p className="text-[14px] text-[#979797]">
+                {searchQuery.trim() ? "לא נמצאו משתמשים התואמים לחיפוש" : "אין משתמשים במערכת"}
+              </p>
             </div>
           ) : (
-            allUsers.map((user) => (
+            filteredAllUsers.map((user) => (
               <div
                 key={user.id}
                 className="bg-[#0F1535] rounded-[15px] p-[15px] flex items-center gap-[12px]"
@@ -599,6 +797,29 @@ export default function AdminUsersPage() {
                     )}
                   </div>
                   <p className="text-[13px] text-white/60 truncate">{user.email}</p>
+                  {user.phone && (
+                    <div className="flex items-center gap-[4px] mt-[2px] text-[12px] text-white/50">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.94.36 1.86.7 2.73a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.87.34 1.79.57 2.73.7A2 2 0 0 1 22 16.92z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span dir="ltr">{user.phone}</span>
+                    </div>
+                  )}
+                  {(membershipsByUser[user.id]?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-[4px] mt-[6px]">
+                      {membershipsByUser[user.id].map((m, i) => (
+                        <span
+                          key={i}
+                          className="text-[10px] bg-[#4A56D4]/30 text-white/80 px-[6px] py-[2px] rounded-full"
+                        >
+                          {m.businessName} · {roleLabels[m.role] || m.role}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {user.created_at && (
+                    <p className="text-[11px] text-white/40 mt-[4px]">נוצר: {formatJoinDate(user.created_at)}</p>
+                  )}
                 </div>
 
                 {/* Actions */}
@@ -652,16 +873,18 @@ export default function AdminUsersPage() {
           )
         ) : (
           // Show business members
-          businessUsers.length === 0 ? (
+          filteredBusinessUsers.length === 0 ? (
             <div className="text-center py-[40px]">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto mb-[15px] text-[#979797]">
                 <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
               </svg>
-              <p className="text-[14px] text-[#979797]">אין משתמשים בעסק זה</p>
+              <p className="text-[14px] text-[#979797]">
+                {searchQuery.trim() ? "לא נמצאו משתמשים התואמים לחיפוש" : "אין משתמשים בעסק זה"}
+              </p>
             </div>
           ) : (
-            businessUsers.map((member) => (
+            filteredBusinessUsers.map((member) => (
               <div
                 key={member.id}
                 className="bg-[#0F1535] rounded-[15px] p-[15px] flex items-center gap-[12px]"
@@ -698,6 +921,17 @@ export default function AdminUsersPage() {
                     )}
                   </div>
                   <p className="text-[13px] text-white/60 truncate">{member.profiles.email}</p>
+                  {member.profiles.phone && (
+                    <div className="flex items-center gap-[4px] mt-[2px] text-[12px] text-white/50">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.94.36 1.86.7 2.73a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.87.34 1.79.57 2.73.7A2 2 0 0 1 22 16.92z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span dir="ltr">{member.profiles.phone}</span>
+                    </div>
+                  )}
+                  {member.joined_at && (
+                    <p className="text-[11px] text-white/40 mt-[4px]">הצטרף/ה: {formatJoinDate(member.joined_at)}</p>
+                  )}
                 </div>
 
                 {/* Role Badge & Actions */}
