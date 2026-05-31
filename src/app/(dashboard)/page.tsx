@@ -2833,15 +2833,24 @@ export default function DashboardPage() {
 
         const paymentsIncome = (paymentsData as Array<Record<string, unknown>>).reduce((sum, p) => sum + grossOf(p.customer_id, p.amount), 0);
         const servicesIncome = (servicesData as Array<Record<string, unknown>>).reduce((sum, s) => sum + grossOf(s.customer_id, s.amount), 0);
-        // "סה"כ הכנסות" = money actually received (payments + services), NOT the
-        // retainer forecast on top. retainerIncome is the expectation, shown in
-        // its own card + "צפי חודשי"; adding it here double-counted a retainer
-        // customer who already paid (forecast 6490 + actual 6490 = 12,980).
-        const totalServiceIncome = paymentsIncome + servicesIncome;
+        // "סה"כ הכנסות" mirrors the cashflow: for each retainer customer show the
+        // ACTUAL payment if they already paid this month, otherwise the EXPECTED
+        // retainer (gross). Adding both double-counted (12,980); counting only
+        // actuals showed 0 in a month not yet paid. So: expected-retainer for
+        // unpaid customers + actual payments + actual services.
+        const paidCustomerIds = new Set((paymentsData as Array<Record<string, unknown>>).map(p => p.customer_id as string));
+        const unpaidRetainerIncome = activeRetainers
+          .filter(c => !paidCustomerIds.has(c.id))
+          .reduce((sum, c) => sum + grossOf(c.id, c.retainer_amount), 0);
+        const totalServiceIncome = unpaidRetainerIncome + paymentsIncome + servicesIncome;
 
         const prevPaymentsIncome = (prevPaymentsData as Array<Record<string, unknown>>).reduce((sum, p) => sum + grossOf(p.customer_id, p.amount), 0);
         const prevServicesIncome = (prevServicesData as Array<Record<string, unknown>>).reduce((sum, s) => sum + grossOf(s.customer_id, s.amount), 0);
-        const prevMonthTotal = prevPaymentsIncome + prevServicesIncome; // actual received last month
+        const prevPaidCustomerIds = new Set((prevPaymentsData as Array<Record<string, unknown>>).map(p => p.customer_id as string));
+        const prevUnpaidRetainerIncome = activeRetainers
+          .filter(c => !prevPaidCustomerIds.has(c.id))
+          .reduce((sum, c) => sum + grossOf(c.id, c.retainer_amount), 0);
+        const prevMonthTotal = prevUnpaidRetainerIncome + prevPaymentsIncome + prevServicesIncome;
 
         setServiceSummary({
           totalIncome: totalServiceIncome,
