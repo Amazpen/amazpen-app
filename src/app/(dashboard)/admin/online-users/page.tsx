@@ -8,18 +8,23 @@ import Image from "next/image";
 import {
   Activity,
   AlertTriangle,
+  CalendarDays,
   Clock,
   FileText,
   Flame,
   Info,
   Layers,
   LogIn,
+  Moon,
   MousePointerClick,
+  Search,
   Smartphone,
   Sparkles,
   Sunrise,
   TrendingDown,
+  UserPlus,
   Wallet,
+  Wifi,
 } from "lucide-react";
 
 interface ActivityRow {
@@ -1079,7 +1084,75 @@ function formatLastSeen(iso: string | null): { label: string; color: string } {
   return { label: date.toLocaleDateString("he-IL"), color: "text-[#F64E60]" };
 }
 
-function AllUserCard({ user, onClick }: { user: AllUserRow; onClick: () => void }) {
+/* ============ Activity status (list-level, derived from last_seen) ============ */
+
+type UserStatus = "active" | "risk" | "dormant" | "never";
+
+const STATUS_META: Record<UserStatus, { label: string; color: string }> = {
+  active: { label: "פעיל", color: "#3CD856" },
+  risk: { label: "בסיכון", color: "#FFA412" },
+  dormant: { label: "רדום", color: "#F64E60" },
+  never: { label: "לא נכנס מעולם", color: "#6B7280" },
+};
+
+// active: seen in last 7 days · risk: 7-30d · dormant: >30d · never: no record
+function getUserStatus(lastSeen: string | null, now: number): UserStatus {
+  if (!lastSeen) return "never";
+  const days = (now - new Date(lastSeen).getTime()) / 86_400_000;
+  if (days < 7) return "active";
+  if (days < 30) return "risk";
+  return "dormant";
+}
+
+function StatusPill({ status }: { status: UserStatus }) {
+  const meta = STATUS_META[status];
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+      style={{ background: `${meta.color}1a`, color: meta.color }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
+      {meta.label}
+    </span>
+  );
+}
+
+function KpiTile({
+  icon,
+  label,
+  value,
+  color,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number | string;
+  color: string;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={`text-right bg-[#111056]/60 border rounded-xl p-3 transition ${
+        onClick ? "cursor-pointer hover:border-white/30" : "cursor-default"
+      } ${active ? "border-white/40" : "border-white/10"}`}
+    >
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span style={{ color }}>{icon}</span>
+        <span className="text-white/50 text-[11px] leading-tight">{label}</span>
+      </div>
+      <div className="text-white font-bold text-[20px] tabular-nums" style={{ color }}>
+        {value}
+      </div>
+    </button>
+  );
+}
+
+function AllUserCard({ user, onClick, now }: { user: AllUserRow; onClick: () => void; now: number | null }) {
   const seen = formatLastSeen(user.last_seen_at);
   const pageName = user.last_page_path ? (pageNames[user.last_page_path] || user.last_page_name || user.last_page_path) : null;
   const bizNames = user.businesses.map(b => b.name).join(" · ");
@@ -1124,6 +1197,7 @@ function AllUserCard({ user, onClick }: { user: AllUserRow; onClick: () => void 
         <div className="flex items-center gap-2">
           <span className="text-white font-semibold text-sm truncate">{user.full_name || user.email}</span>
           {user.is_admin && <span className="text-[10px] text-[#FFA412] bg-[#FFA412]/10 px-1.5 py-0.5 rounded">Admin</span>}
+          {now != null && <StatusPill status={getUserStatus(user.last_seen_at, now)} />}
         </div>
         <div className="text-white/50 text-xs truncate">{user.email}</div>
         {bizNames && <div className="text-white/40 text-[11px] truncate mt-0.5">{bizNames}</div>}
@@ -1143,8 +1217,13 @@ export default function OnlineUsersPage() {
   const [selectedUser, setSelectedUser] = useState<PresenceUser | null>(null);
   const [activeTab, setActiveTab] = useState<"online" | "all">("online");
   const [allUsers, setAllUsers] = useState<AllUserRow[]>([]);
-  const [loadingAll, setLoadingAll] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(true);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | UserStatus>("all");
+  const [sortBy, setSortBy] = useState<"recent" | "name" | "signup">("recent");
+  // Current time, refreshed every minute. Kept in state (not Date.now() in render)
+  // so SSR/first-paint stays pure and status/KPIs recompute live.
+  const [now, setNow] = useState<number | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -1153,9 +1232,9 @@ export default function OnlineUsersPage() {
     }
   }, [isAdmin, router]);
 
-  // Load the "all users" list when the tab is switched to it.
+  // Load the full roster once on mount — powers the KPI overview (always visible)
+  // and the "all users" tab.
   useEffect(() => {
-    if (activeTab !== "all") return;
     let cancelled = false;
     const load = async () => {
       setLoadingAll(true);
@@ -1163,15 +1242,7 @@ export default function OnlineUsersPage() {
         const res = await fetch("/api/all-users-activity");
         const data = await res.json();
         if (cancelled) return;
-        const list: AllUserRow[] = data.users || [];
-        // Sort: users who have been seen before, newest first; never-seen at the end.
-        list.sort((a, b) => {
-          if (!a.last_seen_at && !b.last_seen_at) return 0;
-          if (!a.last_seen_at) return 1;
-          if (!b.last_seen_at) return -1;
-          return b.last_seen_at.localeCompare(a.last_seen_at);
-        });
-        setAllUsers(list);
+        setAllUsers((data.users || []) as AllUserRow[]);
       } catch {
         // ignore
       } finally {
@@ -1180,23 +1251,103 @@ export default function OnlineUsersPage() {
     };
     load();
     return () => { cancelled = true; };
-  }, [activeTab]);
+  }, []);
+
+  // Tick "now" every minute so statuses/KPIs stay fresh without re-fetching.
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Aggregate KPIs for the overview bar.
+  const kpis = useMemo(() => {
+    if (now == null) return null;
+    let today = 0, week = 0, risk = 0, dormant = 0, never = 0, newWeek = 0;
+    for (const u of allUsers) {
+      if (u.last_seen_at) {
+        const days = (now - new Date(u.last_seen_at).getTime()) / 86_400_000;
+        if (days < 1) today++;
+        if (days < 7) week++;
+        else if (days < 30) risk++;
+        else dormant++;
+      } else {
+        never++;
+      }
+      if (u.created_at && (now - new Date(u.created_at).getTime()) / 86_400_000 < 7) newWeek++;
+    }
+    return { today, week, risk, dormant, never, newWeek, total: allUsers.length };
+  }, [allUsers, now]);
+
+  const q = search.trim().toLowerCase();
+
+  const filteredOnline = useMemo(() => {
+    if (!q) return onlineUsers;
+    return onlineUsers.filter(u =>
+      (u.full_name || "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
+    );
+  }, [onlineUsers, q]);
+
+  const filteredAll = useMemo(() => {
+    let list = allUsers;
+    if (q) {
+      list = list.filter(u =>
+        (u.full_name || "").toLowerCase().includes(q)
+        || u.email.toLowerCase().includes(q)
+        || u.businesses.some(b => b.name.toLowerCase().includes(q)),
+      );
+    }
+    if (statusFilter !== "all" && now != null) {
+      list = list.filter(u => getUserStatus(u.last_seen_at, now) === statusFilter);
+    }
+    const sorted = [...list];
+    if (sortBy === "name") {
+      sorted.sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email, "he"));
+    } else if (sortBy === "signup") {
+      sorted.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+    } else {
+      // "recent": most-recently-seen first, never-seen last
+      sorted.sort((a, b) => {
+        if (!a.last_seen_at && !b.last_seen_at) return 0;
+        if (!a.last_seen_at) return 1;
+        if (!b.last_seen_at) return -1;
+        return b.last_seen_at.localeCompare(a.last_seen_at);
+      });
+    }
+    return sorted;
+  }, [allUsers, q, statusFilter, sortBy, now]);
 
   if (!isAdmin) return null;
 
-  const filteredAll = search.trim()
-    ? allUsers.filter(u => {
-        const q = search.trim().toLowerCase();
-        return (u.full_name || "").toLowerCase().includes(q)
-          || u.email.toLowerCase().includes(q)
-          || u.businesses.some(b => b.name.toLowerCase().includes(q));
-      })
-    : allUsers;
+  const goAll = (status: "all" | UserStatus, sort?: "recent" | "name" | "signup") => {
+    setActiveTab("all");
+    setStatusFilter(status);
+    if (sort) setSortBy(sort);
+  };
 
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
+      {/* Header — admin standard */}
+      <div className="flex flex-col items-center gap-[10px] mb-6">
+        <div className="w-[60px] h-[60px] rounded-full bg-[#4A56D4] flex items-center justify-center">
+          <Activity className="w-[30px] h-[30px] text-white" />
+        </div>
+        <h1 className="text-[24px] font-bold text-white">מעקב משתמשים</h1>
+        <p className="text-[14px] text-white/50 text-center">פעילות, מעורבות וסיכוני נטישה בזמן אמת</p>
+      </div>
+
+      {/* KPI overview bar */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-6">
+        <KpiTile icon={<Wifi className="w-4 h-4" />} label="מחוברים עכשיו" value={onlineUsers.length} color="#3CD856" active={activeTab === "online"} onClick={() => setActiveTab("online")} />
+        <KpiTile icon={<Clock className="w-4 h-4" />} label="פעילים היום" value={kpis?.today ?? "—"} color="#3CD856" />
+        <KpiTile icon={<CalendarDays className="w-4 h-4" />} label="פעילים השבוע" value={kpis?.week ?? "—"} color="#5b8cff" onClick={() => goAll("active")} />
+        <KpiTile icon={<AlertTriangle className="w-4 h-4" />} label="בסיכון נטישה" value={kpis?.risk ?? "—"} color="#FFA412" active={activeTab === "all" && statusFilter === "risk"} onClick={() => goAll("risk")} />
+        <KpiTile icon={<Moon className="w-4 h-4" />} label="רדומים" value={kpis?.dormant ?? "—"} color="#F64E60" active={activeTab === "all" && statusFilter === "dormant"} onClick={() => goAll("dormant")} />
+        <KpiTile icon={<UserPlus className="w-4 h-4" />} label="חדשים השבוע" value={kpis?.newWeek ?? "—"} color="#8328f8" onClick={() => goAll("all", "signup")} />
+      </div>
+
       {/* Full-width segmented tabs — matches /expenses pattern */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-4">
         <button
           type="button"
           onClick={() => setActiveTab("online")}
@@ -1216,18 +1367,49 @@ export default function OnlineUsersPage() {
         <button
           type="button"
           onClick={() => setActiveTab("all")}
-          className={`flex-1 px-4 py-3 rounded-[10px] text-[14px] font-semibold transition-all flex items-center justify-center ${
+          className={`flex-1 px-4 py-3 rounded-[10px] text-[14px] font-semibold transition-all flex items-center justify-center gap-2 ${
             activeTab === "all"
               ? "bg-[#29318A] text-white shadow-md"
               : "bg-[#0F1535]/60 text-white/60 hover:bg-[#0F1535] border border-[#727BA0]/40"
           }`}
         >
-          כל המשתמשים
+          <span>כל המשתמשים</span>
+          {kpis && (
+            <span className={`text-[11px] min-w-[24px] h-[20px] flex items-center justify-center rounded-full ${
+              activeTab === "all" ? "bg-white/20 text-white" : "bg-[#4C526B]/40 text-white/70"
+            }`}>
+              {kpis.total}
+            </span>
+          )}
         </button>
       </div>
 
+      {/* Search — applies to the active tab */}
+      <div className="relative mb-4">
+        <Search className="absolute right-[14px] top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+        <input
+          type="text"
+          placeholder={activeTab === "online" ? "חיפוש לפי שם או אימייל…" : "חיפוש לפי שם, אימייל, או שם עסק…"}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full bg-[#111056]/60 border border-[#727BA0] rounded-xl ps-11 pe-10 py-2.5 text-white text-sm text-right placeholder:text-white/30 focus:border-white/50 outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            aria-label="נקה חיפוש"
+            className="absolute left-[12px] top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       {activeTab === "online" ? (
-        onlineUsers.length === 0 ? (
+        filteredOnline.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-white/30 text-6xl mb-4">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" className="mx-auto text-white/20">
@@ -1237,36 +1419,72 @@ export default function OnlineUsersPage() {
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <p className="text-white/40 text-lg">אין משתמשים מחוברים כרגע</p>
+            <p className="text-white/40 text-lg">
+              {search.trim() ? "לא נמצאו מחוברים התואמים לחיפוש" : "אין משתמשים מחוברים כרגע"}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {onlineUsers.map((user) => (
+            {filteredOnline.map((user) => (
               <UserCard key={user.user_id} user={user} onClick={() => setSelectedUser(user)} />
             ))}
           </div>
         )
       ) : (
         <>
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="חיפוש לפי שם, אימייל, או שם עסק…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-[#111056]/60 border border-[#727BA0] rounded-xl px-4 py-2 text-white text-sm placeholder:text-white/30 focus:border-white/50 outline-none"
-            />
+          {/* Status filter chips + sort */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="flex flex-wrap gap-1.5 flex-1">
+              {([
+                ["all", "הכל"],
+                ["active", "פעילים"],
+                ["risk", "בסיכון"],
+                ["dormant", "רדומים"],
+                ["never", "לא נכנסו"],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setStatusFilter(key)}
+                  className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition border ${
+                    statusFilter === key
+                      ? "bg-[#29318A] text-white border-white/30"
+                      : "bg-[#0F1535]/60 text-white/60 border-[#727BA0]/40 hover:text-white/90"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "signup")}
+              aria-label="מיון"
+              className="bg-[#111056]/60 border border-[#727BA0] rounded-xl px-3 py-1.5 text-white text-[12px] outline-none focus:border-white/50"
+            >
+              <option value="recent">פעילות אחרונה</option>
+              <option value="name">שם (א-ב)</option>
+              <option value="signup">תאריך הרשמה</option>
+            </select>
           </div>
+
           {loadingAll ? (
-            <div className="text-white/50 text-center py-10">טוען…</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-[#111056]/40 border border-white/5 rounded-xl h-[92px] animate-pulse" />
+              ))}
+            </div>
           ) : filteredAll.length === 0 ? (
-            <p className="text-white/40 text-center py-10">לא נמצאו משתמשים</p>
+            <p className="text-white/40 text-center py-10">
+              {search.trim() || statusFilter !== "all" ? "לא נמצאו משתמשים התואמים לסינון" : "לא נמצאו משתמשים"}
+            </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredAll.map((u) => (
                 <AllUserCard
                   key={u.user_id}
                   user={u}
+                  now={now}
                   onClick={() => setSelectedUser({
                     user_id: u.user_id,
                     email: u.email,
