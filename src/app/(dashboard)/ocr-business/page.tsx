@@ -1392,8 +1392,9 @@ export default function OCRBusinessPage() {
           total_amount: extracted.total_amount ?? null,
           discount_amount: extracted.discount_amount ?? null,
           discount_percentage: extracted.discount_percentage ?? null,
-          line_items: extracted.line_items ?? null,
-          is_credit_note: extracted.is_credit_note ?? null,
+          // NOTE: no scalar line_items / is_credit_note column exists on
+          // ocr_extracted_data — writing them returned 400 and rejected the
+          // whole row. Line items live in mistral_line_items (jsonb).
         };
         if (existing?.id) {
           await supabase.from("ocr_extracted_data").update(extractedRow).eq("id", existing.id);
@@ -1469,8 +1470,6 @@ export default function OCRBusinessPage() {
         total_amount: extracted.total_amount ?? null,
         discount_amount: extracted.discount_amount ?? null,
         discount_percentage: extracted.discount_percentage ?? null,
-        line_items: extracted.line_items ?? null,
-        is_credit_note: extracted.is_credit_note ?? null,
         mistral_supplier_name: extracted.supplier_name ?? null,
         mistral_document_number: extracted.document_number ?? null,
         mistral_document_date: extracted.document_date ?? null,
