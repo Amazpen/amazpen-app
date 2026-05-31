@@ -5,6 +5,7 @@
 --   customer_payments.amount         = pre-VAT (net) as user enters in services UI
 --   daily_income_breakdown.amount    = gross (VAT-inclusive)
 --   daily_entries.total_register     = gross (VAT-inclusive)
+--   daily_entries.manager_daily_cost = manager_monthly_salary × day_factor / month_total_factor
 --
 -- Idempotent under UPDATE (reverses OLD then applies NEW).
 -- Soft-delete (deleted_at NOT NULL) treated as DELETE.
@@ -13,6 +14,12 @@
 --   1. customer.linked_income_source_id
 --   2. First active income_source for the business
 --   3. Auto-create "תשלומי לקוחות" income_source
+--
+-- When the trigger creates a new daily_entries row (payment arrived on a day
+-- with no existing entry), it sets day_factor from business_schedule (or
+-- business_day_exceptions override) AND manager_daily_cost prorated from
+-- businesses.manager_monthly_salary by this day's factor / sum of factors
+-- in the target month. Existing rows are left alone (cron handles upkeep).
 
 CREATE OR REPLACE FUNCTION bridge_customer_payment_to_daily_income()
 RETURNS TRIGGER
@@ -25,6 +32,7 @@ DECLARE
   v_business_id     UUID;
   v_business_type   TEXT;
   v_vat             NUMERIC;
+  v_manager_salary  NUMERIC;
   v_is_foreign      BOOLEAN;
   v_source_id       UUID;
   v_daily_entry_id  UUID;
@@ -38,11 +46,14 @@ DECLARE
   v_breakdown_id    UUID;
   v_was_active_old  BOOLEAN;
   v_was_active_new  BOOLEAN;
+  v_month_total_f   NUMERIC;
+  v_mgr_daily       NUMERIC;
 BEGIN
   v_target_customer := COALESCE(NEW.customer_id, OLD.customer_id);
 
-  SELECT c.business_id, b.business_type, b.vat_percentage, c.is_foreign, c.linked_income_source_id
-    INTO v_business_id, v_business_type, v_vat, v_is_foreign, v_source_id
+  SELECT c.business_id, b.business_type, b.vat_percentage, b.manager_monthly_salary,
+         c.is_foreign, c.linked_income_source_id
+    INTO v_business_id, v_business_type, v_vat, v_manager_salary, v_is_foreign, v_source_id
   FROM customers c
   JOIN businesses b ON b.id = c.business_id
   WHERE c.id = v_target_customer;
@@ -123,10 +134,33 @@ BEGIN
         v_factor := COALESCE(v_schedule_factor, 1);
       END IF;
 
+      -- Sum day_factor across the target month (schedule + exception overrides)
+      WITH month_days AS (
+        SELECT d::date AS d FROM generate_series(
+          date_trunc('month', v_target_date)::date,
+          (date_trunc('month', v_target_date) + interval '1 month' - interval '1 day')::date,
+          interval '1 day'
+        ) AS d
+      )
+      SELECT COALESCE(SUM(
+        COALESCE(
+          (SELECT day_factor FROM business_day_exceptions
+            WHERE business_id = v_business_id AND exception_date = md.d LIMIT 1),
+          (SELECT day_factor FROM business_schedule
+            WHERE business_id = v_business_id AND day_of_week = EXTRACT(DOW FROM md.d)::int LIMIT 1),
+          1
+        )
+      ), 22)
+      INTO v_month_total_f
+      FROM month_days md;
+
+      IF v_month_total_f <= 0 THEN v_month_total_f := 22; END IF;
+      v_mgr_daily := COALESCE(v_manager_salary, 0) * v_factor / v_month_total_f;
+
       INSERT INTO daily_entries
-        (business_id, entry_date, total_register, day_factor, data_source, is_fully_approved)
+        (business_id, entry_date, total_register, day_factor, manager_daily_cost, data_source, is_fully_approved)
       VALUES
-        (v_business_id, v_target_date, 0, v_factor, 'api', true)
+        (v_business_id, v_target_date, 0, v_factor, v_mgr_daily, 'api', true)
       RETURNING id INTO v_daily_entry_id;
     END IF;
 
@@ -163,4 +197,4 @@ AFTER INSERT OR UPDATE OR DELETE ON customer_payments
 FOR EACH ROW EXECUTE FUNCTION bridge_customer_payment_to_daily_income();
 
 COMMENT ON FUNCTION bridge_customer_payment_to_daily_income() IS
-  'Mirrors customer_payments into daily_income_breakdown + daily_entries.total_register for services-type businesses only. Multiplies amount by (1+vat_percentage) unless customer.is_foreign.';
+  'Mirrors customer_payments into daily_income_breakdown + daily_entries.total_register for services-type businesses only. Multiplies amount by (1+vat_percentage) unless customer.is_foreign. Sets manager_daily_cost on new entries prorated by month-total day_factor.';
