@@ -415,6 +415,10 @@ export default function CustomersPage() {
   const [pifForm, setPifForm] = useState({ payment_date: "", payment_method: "" });
   // Tab strip on customer detail panel — mirrors /suppliers detail layout
   const [activeDetailTab, setActiveDetailTab] = useState<"invoices" | "payments" | "documents">("invoices");
+  // Bulk-pay open billing months (services): selected row keys + inline confirm form
+  const [selectedOpenMonths, setSelectedOpenMonths] = useState<Set<string>>(new Set());
+  const [bulkPayOpen, setBulkPayOpen] = useState(false);
+  const [bulkPayForm, setBulkPayForm] = useState({ payment_method: "", payment_date: "" });
   const [detailMonth, setDetailMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -735,6 +739,9 @@ export default function CustomersPage() {
 
   const handleOpenDetail = async (item: CustomerDisplay) => {
     setSelectedItem(item);
+    setSelectedOpenMonths(new Set());
+    setBulkPayOpen(false);
+    setBulkPayForm({ payment_method: "", payment_date: "" });
     setDetailMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
     setIsAddPaymentOpen(false);
     setIsAddServiceOpen(false);
@@ -779,6 +786,8 @@ export default function CustomersPage() {
   const handleCloseDetail = () => {
     setIsDetailOpen(false);
     setSelectedItem(null);
+    setSelectedOpenMonths(new Set());
+    setBulkPayOpen(false);
     setPayments([]);
     setServices([]);
     setCustomerInvoices([]);
@@ -1221,6 +1230,58 @@ export default function CustomersPage() {
       await Promise.all([
         fetchPayments(selectedItem.customer.id),
         fetchCustomerInvoices(selectedItem.customer.id),
+      ]);
+    }
+    setIsSubmitting(false);
+  };
+
+  // Pay one or more open billing months at once (services flow). Each selected
+  // month becomes its own customer_payment dated to that month's billing day
+  // (so per-month accounting stays correct), with the chosen payment method.
+  // amount is stored NET (= row.open); the DB trigger adds VAT into daily_entries.
+  const handleBulkPayMonths = async () => {
+    if (!selectedItem?.customer || !billingSummary) return;
+    if (!bulkPayForm.payment_method) {
+      showToast("יש לבחור אמצעי תשלום", "error");
+      return;
+    }
+    const customer = selectedItem.customer;
+    const billingDay = Math.max(1, Number(customer.retainer_day_of_month) || 1);
+    const rows = billingSummary.rows.filter((r) => selectedOpenMonths.has(r.key) && r.open > 0);
+    if (rows.length === 0) return;
+
+    const single = rows.length === 1;
+    const inserts = rows.map((r) => {
+      const [yStr, mStr] = r.key.split("-");
+      const year = parseInt(yStr, 10);
+      const monthIdx = parseInt(mStr, 10);
+      const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+      const day = Math.min(billingDay, daysInMonth);
+      const autoDate = `${year}-${String(monthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      return {
+        id: generateUUID(),
+        customer_id: customer.id,
+        payment_date: single && bulkPayForm.payment_date ? bulkPayForm.payment_date : autoDate,
+        amount: r.open,
+        description: `תשלום ${r.label}`,
+        payment_method: bulkPayForm.payment_method,
+      };
+    });
+
+    setIsSubmitting(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("customer_payments").insert(inserts);
+    if (error) {
+      showToast("שגיאה בתשלום החשבוניות", "error");
+      console.error(error);
+    } else {
+      showToast(rows.length > 1 ? `${rows.length} חשבוניות שולמו` : "החשבונית שולמה", "success");
+      setSelectedOpenMonths(new Set());
+      setBulkPayOpen(false);
+      setBulkPayForm({ payment_method: "", payment_date: "" });
+      await Promise.all([
+        fetchPayments(customer.id),
+        fetchCustomerInvoices(customer.id),
       ]);
     }
     setIsSubmitting(false);
@@ -3212,6 +3273,148 @@ export default function CustomersPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* ── Open invoices to pay (services flow, תשלומים tab) ─────── */}
+              {activeDetailTab === "payments" && selectedItem.customer && selectedItem.business?.business_type === "services" && billingSummary && billingSummary.rows.some((r) => r.open > 0) && (
+                <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
+                  <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right mb-[12px]">חשבוניות פתוחות לתשלום</h3>
+                  <div className="w-full flex flex-col">
+                    {/* Header */}
+                    <div className="grid grid-cols-[0.6fr_1.6fr_1.1fr_1fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[12px] font-semibold text-white">
+                      <div className="text-center">בחר</div>
+                      <div className="text-center">חודש</div>
+                      <div className="text-center">פתוח לתשלום</div>
+                      <div className="text-center">סטטוס</div>
+                    </div>
+                    {/* Rows */}
+                    <div className="max-h-[240px] overflow-y-auto flex flex-col gap-[3px] mt-[3px]">
+                      {billingSummary.rows.filter((r) => r.open > 0).map((r) => {
+                        const checked = selectedOpenMonths.has(r.key);
+                        return (
+                          <label
+                            key={r.key}
+                            className="grid grid-cols-[0.6fr_1.6fr_1.1fr_1fr] w-full p-[8px_5px] bg-white/5 hover:bg-white/10 rounded-[5px] items-center cursor-pointer"
+                          >
+                            <div className="flex items-center justify-center">
+                              <input
+                                type="checkbox"
+                                title={`בחר ${r.label}`}
+                                checked={checked}
+                                onChange={() => {
+                                  setSelectedOpenMonths((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(r.key)) next.delete(r.key);
+                                    else next.add(r.key);
+                                    return next;
+                                  });
+                                }}
+                                className="w-4 h-4 accent-[#7C3AED]"
+                              />
+                            </div>
+                            <div className="text-center text-[13px] text-white">{r.label}</div>
+                            <div dir="ltr" className="text-center text-[13px] font-medium text-[#F64E60]">
+                              ₪{r.open.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-center">
+                              <span className={`text-[11px] px-[8px] py-[2px] rounded-full font-bold ${r.status === "partial" ? "bg-[#F6A609]/20 text-[#F6A609]" : "bg-[#F64E60]/20 text-[#F64E60]"}`}>
+                                {r.status === "partial" ? "חלקי" : "פתוח"}
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Footer: selected total + pay action */}
+                  {selectedOpenMonths.size > 0 && (() => {
+                    const sel = billingSummary.rows.filter((r) => selectedOpenMonths.has(r.key) && r.open > 0);
+                    const totalNet = sel.reduce((s, r) => s + r.open, 0);
+                    const isForeign = !!selectedItem.customer?.is_foreign;
+                    const vatRate = Number(selectedItem.business?.vat_percentage) || 0.18;
+                    const totalGross = isForeign ? totalNet : totalNet * (1 + vatRate);
+                    const billingDay = Math.max(1, Number(selectedItem.customer?.retainer_day_of_month) || 1);
+                    return (
+                      <div className="mt-[12px] flex flex-col gap-[8px]">
+                        <div className="flex items-center justify-between text-[13px] border-t border-white/10 pt-[10px]">
+                          <span className="text-white/70">נבחרו {sel.length} חודשים</span>
+                          <span dir="ltr" className="text-white font-bold">
+                            ₪{totalNet.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                            {!isForeign && ` (₪${totalGross.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} כולל מע"מ)`}
+                          </span>
+                        </div>
+
+                        {!bulkPayOpen ? (
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              let defDate = "";
+                              if (sel.length === 1) {
+                                const [yStr, mStr] = sel[0].key.split("-");
+                                const year = parseInt(yStr, 10);
+                                const monthIdx = parseInt(mStr, 10);
+                                const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+                                const day = Math.min(billingDay, daysInMonth);
+                                defDate = `${year}-${String(monthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                              }
+                              setBulkPayForm({ payment_method: selectedItem.customer?.payment_method || "", payment_date: defDate });
+                              setBulkPayOpen(true);
+                            }}
+                            className="w-full bg-[#3CD856] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#2FB847] transition-colors"
+                          >
+                            ✓ שלם נבחרים
+                          </Button>
+                        ) : (
+                          <div className="flex flex-col gap-[8px] border border-[#727BA0] rounded-[10px] p-[10px]">
+                            <div className="flex flex-col gap-[3px]">
+                              <label className="text-[13px] text-white/70 text-right">אמצעי תשלום</label>
+                              <Select value={bulkPayForm.payment_method || "__none__"} onValueChange={(v) => setBulkPayForm({ ...bulkPayForm, payment_method: v === "__none__" ? "" : v })}>
+                                <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center">
+                                  <SelectValue placeholder="בחר" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__">בחר</SelectItem>
+                                  {Object.entries(paymentMethodLabels).map(([k, l]) => (<SelectItem key={k} value={k}>{l}</SelectItem>))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {sel.length === 1 ? (
+                              <div className="flex flex-col gap-[3px]">
+                                <label className="text-[13px] text-white/70 text-right">תאריך תשלום</label>
+                                <DatePickerField
+                                  value={bulkPayForm.payment_date}
+                                  onChange={(v) => setBulkPayForm({ ...bulkPayForm, payment_date: v })}
+                                  className="h-[40px] rounded-[7px] text-[13px]"
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-white/50 text-center">כל חודש יירשם בתאריך החיוב שלו ({billingDay} לחודש)</span>
+                            )}
+                            <div className="flex gap-[8px]">
+                              <Button
+                                type="button"
+                                onClick={handleBulkPayMonths}
+                                disabled={!bulkPayForm.payment_method || isSubmitting}
+                                className="flex-1 bg-[#3CD856] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#2FB847] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {isSubmitting ? "שומר..." : "אשר תשלום"}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setBulkPayOpen(false)}
+                                className="flex-1 text-[14px] border-[#727BA0] text-white/80"
+                              >
+                                ביטול
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
