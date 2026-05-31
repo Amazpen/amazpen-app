@@ -386,6 +386,18 @@ export default function CustomersPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<CustomerDisplay | null>(null);
   const [payments, setPayments] = useState<CustomerPayment[]>([]);
+  // Real customer_invoices rows for the open customer (services flow). Populated alongside payments.
+  const [customerInvoices, setCustomerInvoices] = useState<Array<{
+    id: string;
+    invoice_number: string | null;
+    issue_date: string;
+    subtotal: number;
+    vat_amount: number;
+    total_amount: number;
+    amount_paid: number;
+    status: "open" | "partial" | "paid" | "cancelled";
+    source: "manual" | "auto_retainer";
+  }>>([]);
   // Month-detail modal: key is "YYYY-M" (month 0-indexed) matching billingRow.key
   const [monthDetailKey, setMonthDetailKey] = useState<string | null>(null);
   // Tab strip on customer detail panel — mirrors /suppliers detail layout
@@ -567,6 +579,29 @@ export default function CustomersPage() {
     setPayments(data || []);
   }, []);
 
+  const fetchCustomerInvoices = useCallback(async (customerId: string) => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("customer_invoices")
+      .select("id, invoice_number, issue_date, subtotal, vat_amount, total_amount, amount_paid, status, source")
+      .eq("customer_id", customerId)
+      .is("deleted_at", null)
+      .order("issue_date", { ascending: false });
+    setCustomerInvoices(
+      (data || []).map((r) => ({
+        id: r.id as string,
+        invoice_number: (r.invoice_number as string | null) ?? null,
+        issue_date: r.issue_date as string,
+        subtotal: Number(r.subtotal) || 0,
+        vat_amount: Number(r.vat_amount) || 0,
+        total_amount: Number(r.total_amount) || 0,
+        amount_paid: Number(r.amount_paid) || 0,
+        status: r.status as "open" | "partial" | "paid" | "cancelled",
+        source: r.source as "manual" | "auto_retainer",
+      })),
+    );
+  }, []);
+
   const fetchServices = useCallback(async (customerId: string) => {
     const supabase = createClient();
     const { data } = await supabase
@@ -686,6 +721,7 @@ export default function CustomersPage() {
         fetchPayments(item.customer.id),
         fetchServices(item.customer.id),
         fetchDocuments(item.customer.id),
+        fetchCustomerInvoices(item.customer.id),
       ]);
 
       // Fetch survey if retainer completed
@@ -710,6 +746,7 @@ export default function CustomersPage() {
     } else {
       setPayments([]);
       setServices([]);
+      setCustomerInvoices([]);
     }
   };
 
@@ -718,6 +755,7 @@ export default function CustomersPage() {
     setSelectedItem(null);
     setPayments([]);
     setServices([]);
+    setCustomerInvoices([]);
     setCustomerSurvey(null);
     setSurveyResponses([]);
     setCustomerDocuments([]);
@@ -1154,7 +1192,10 @@ export default function CustomersPage() {
       setNewPaymentMethod("");
       setNewPaymentNotes("");
       setIsAddPaymentOpen(false);
-      await fetchPayments(selectedItem.customer.id);
+      await Promise.all([
+        fetchPayments(selectedItem.customer.id),
+        fetchCustomerInvoices(selectedItem.customer.id),
+      ]);
     }
     setIsSubmitting(false);
   };
@@ -1172,7 +1213,10 @@ export default function CustomersPage() {
         showToast("שגיאה במחיקת תשלום", "error");
       } else {
         showToast("התשלום נמחק", "success");
-        await fetchPayments(selectedItem!.customer!.id);
+        await Promise.all([
+          fetchPayments(selectedItem!.customer!.id),
+          fetchCustomerInvoices(selectedItem!.customer!.id),
+        ]);
       }
     });
   };
@@ -2571,8 +2615,84 @@ export default function CustomersPage() {
                 </button>
               </div>
 
-              {/* ── Monthly Billing Summary + Table (חשבוניות tab) ──────────────── */}
-              {activeDetailTab === "invoices" && billingSummary && (
+              {/* ── חשבוניות tab: real customer_invoices (services flow) ─────── */}
+              {activeDetailTab === "invoices" && customerInvoices.length > 0 && (() => {
+                const totalExpected = customerInvoices.reduce((s, i) => s + i.total_amount, 0);
+                const totalPaid = customerInvoices.reduce((s, i) => s + i.amount_paid, 0);
+                const totalOpen = Math.max(0, totalExpected - totalPaid);
+                return (
+                  <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
+                    <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right mb-[12px]">חשבוניות הכנסה</h3>
+                    <div className="grid grid-cols-3 gap-[10px] mb-[15px]">
+                      <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
+                        <span className="text-[12px] text-white/60 text-center">סה&quot;כ צריך לשלם</span>
+                        <span dir="ltr" className="text-[18px] font-bold text-white">
+                          ₪{totalExpected.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
+                        <span className="text-[12px] text-white/60 text-center">סה&quot;כ שולם</span>
+                        <span dir="ltr" className="text-[18px] font-bold text-[#0BB783]">
+                          ₪{totalPaid.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
+                        <span className="text-[12px] text-white/60 text-center">פתוח לתשלום</span>
+                        <span dir="ltr" className={`text-[18px] font-bold ${totalOpen > 0 ? "text-[#F64E60]" : "text-white/50"}`}>
+                          ₪{totalOpen.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                    <h4 className="text-[14px] font-semibold text-white text-right mb-[8px]">חשבוניות</h4>
+                    <div className="w-full flex flex-col">
+                      <div className="grid grid-cols-[1.4fr_1.6fr_0.9fr_0.9fr_0.9fr_1fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[12px] font-semibold text-white">
+                        <div className="text-center">תאריך</div>
+                        <div className="text-center">אסמכתא</div>
+                        <div className="text-center">לפני מע&quot;מ</div>
+                        <div className="text-center">כולל מע&quot;מ</div>
+                        <div className="text-center">שולם</div>
+                        <div className="text-center">סטטוס</div>
+                      </div>
+                      <div className="max-h-[320px] overflow-y-auto flex flex-col gap-[3px] mt-[3px]">
+                        {customerInvoices.map((inv) => {
+                          const issue = new Date(inv.issue_date);
+                          const dateLabel = issue.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
+                          const monthKey = `${issue.getFullYear()}-${issue.getMonth()}`;
+                          const badgeClasses = inv.status === "paid"
+                            ? "bg-[#0BB783]/20 text-[#0BB783]"
+                            : inv.status === "partial"
+                            ? "bg-[#F6A609]/20 text-[#F6A609]"
+                            : inv.status === "cancelled"
+                            ? "bg-white/10 text-white/40"
+                            : "bg-[#F64E60]/20 text-[#F64E60]";
+                          const badgeLabel = inv.status === "paid" ? "✓ שולם" : inv.status === "partial" ? "חלקי" : inv.status === "cancelled" ? "בוטל" : "פתוח";
+                          return (
+                            <button
+                              key={inv.id}
+                              type="button"
+                              onClick={() => setMonthDetailKey(monthKey)}
+                              title="הצג תשלומים מקושרים לחשבונית זו"
+                              className="grid grid-cols-[1.4fr_1.6fr_0.9fr_0.9fr_0.9fr_1fr] w-full p-[8px_5px] bg-white/5 hover:bg-white/10 rounded-[5px] items-center text-right cursor-pointer"
+                            >
+                              <div dir="ltr" className="text-center text-[12px] text-white">{dateLabel}</div>
+                              <div className="text-center text-[11px] text-white/70 truncate" title={inv.invoice_number || ""}>{inv.invoice_number || "—"}</div>
+                              <div dir="ltr" className="text-center text-[12px] text-white">₪{inv.subtotal.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
+                              <div dir="ltr" className="text-center text-[12px] text-white">₪{inv.total_amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
+                              <div dir="ltr" className="text-center text-[12px] text-[#0BB783]">₪{inv.amount_paid.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
+                              <div className="text-center">
+                                <span className={`text-[10px] px-[6px] py-[2px] rounded-full font-bold ${badgeClasses}`}>{badgeLabel}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Fallback: computed monthly summary (non-services or no invoices yet) ──── */}
+              {activeDetailTab === "invoices" && customerInvoices.length === 0 && billingSummary && (
                 <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right mb-[12px]">
                     סיכום הכנסות
