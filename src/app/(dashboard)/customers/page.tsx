@@ -1652,7 +1652,7 @@ export default function CustomersPage() {
           <div className="flex flex-col gap-[10px] px-[5px]" dir="rtl">
             {/* שם הלקוח */}
             <div className="flex flex-col gap-[5px]" data-field-error={formErrors.has("contactName") || undefined}>
-              <label className={`text-[15px] font-medium text-right ${formErrors.has("contactName") ? "text-[#F64E60]" : "text-white"}`}>שם לקוח / נותן שירות *</label>
+              <label className={`text-[15px] font-medium text-right ${formErrors.has("contactName") ? "text-[#F64E60]" : "text-white"}`}>שם לקוח / שם העסק *</label>
               <div className={`border rounded-[10px] h-[50px] transition-colors ${formErrors.has("contactName") ? "border-[#F64E60] ring-1 ring-[#F64E60]/50" : "border-[#4C526B]"}`}>
                 <Input
                   type="text"
@@ -1668,15 +1668,11 @@ export default function CustomersPage() {
               </div>
             </div>
 
-            {/* שם העסק */}
-            <div className="flex flex-col gap-[5px]" data-field-error={formErrors.has("businessName") || undefined}>
-              <label className={`text-[15px] font-medium text-right ${formErrors.has("businessName") ? "text-[#F64E60]" : "text-white"}`}>שם העסק *</label>
-              <div className={`border rounded-[10px] h-[50px] transition-colors ${formErrors.has("businessName") ? "border-[#F64E60] ring-1 ring-[#F64E60]/50" : "border-[#4C526B]"}`}>
-                {formBusinessId ? (
-                  <div className="w-full h-full flex items-center justify-center text-white text-[14px] px-[10px] opacity-70">
-                    {formBusinessName}
-                  </div>
-                ) : (
+            {/* שם העסק — מוצג רק בלקוח חדש ללא עסק מקושר; כשהעסק כבר נבחר השדה מיותר ומוסתר */}
+            {!formBusinessId && (
+              <div className="flex flex-col gap-[5px]" data-field-error={formErrors.has("businessName") || undefined}>
+                <label className={`text-[15px] font-medium text-right ${formErrors.has("businessName") ? "text-[#F64E60]" : "text-white"}`}>שם העסק *</label>
+                <div className={`border rounded-[10px] h-[50px] transition-colors ${formErrors.has("businessName") ? "border-[#F64E60] ring-1 ring-[#F64E60]/50" : "border-[#4C526B]"}`}>
                   <Input
                     type="text"
                     title="שם העסק"
@@ -1688,9 +1684,9 @@ export default function CustomersPage() {
                     placeholder='לדוגמה: פרגו נ"צ'
                     className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
                   />
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* תאריך תחילת עבודה */}
             <div className="flex flex-col gap-[5px]">
