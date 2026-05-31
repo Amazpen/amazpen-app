@@ -5137,11 +5137,11 @@ export default function OCRForm({
             <SheetTitle className="text-white text-[15px] text-right">בחר מסמכים לצירוף</SheetTitle>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 content-start" dir="rtl">
-            {pendingDocuments.filter(d => d.id !== document?.id && !mergedDocuments.some(m => m.id === d.id)).length === 0 ? (
+            {pendingDocuments.filter(d => d.id !== document?.id && !mergedDocuments.some(m => m.id === d.id) && (!document?.business_id || d.business_id === document.business_id)).length === 0 ? (
               <p className="text-white/50 text-[13px] text-center py-8">אין מסמכים ממתינים נוספים</p>
             ) : (
               pendingDocuments
-                .filter(d => d.id !== document?.id && !mergedDocuments.some(m => m.id === d.id))
+                .filter(d => d.id !== document?.id && !mergedDocuments.some(m => m.id === d.id) && (!document?.business_id || d.business_id === document.business_id))
                 .map((pd) => (
                   <label
                     key={pd.id}
