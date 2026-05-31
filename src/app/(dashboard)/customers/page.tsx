@@ -1161,12 +1161,13 @@ export default function CustomersPage() {
       const customerId = selectedItem!.customer!.id;
       const now = new Date().toISOString();
 
-      // Cascade soft-delete: payments, services, documents, then the customer
+      // Cascade soft-delete: payments, services, invoices, then the customer
       // itself. Run in parallel; ignore individual errors so a missing table
       // doesn't block the customer delete.
       await Promise.all([
         supabase.from("customer_payments").update({ deleted_at: now }).eq("customer_id", customerId).is("deleted_at", null),
         supabase.from("customer_services").update({ deleted_at: now }).eq("customer_id", customerId).is("deleted_at", null),
+        supabase.from("customer_invoices").update({ deleted_at: now }).eq("customer_id", customerId).is("deleted_at", null),
       ]);
 
       const { error } = await supabase
@@ -2286,8 +2287,10 @@ export default function CustomersPage() {
               </Button>
               <SheetTitle className="text-white text-xl font-bold">פרטי לקוח</SheetTitle>
               <div className="flex items-center gap-[8px]">
-                {/* Delete button - only if customer exists and no payments */}
-                {selectedItem?.customer && payments.length === 0 && (
+                {/* Delete button - available for any existing customer record.
+                    handleDeleteCustomer cascades payments/services/invoices and
+                    shows a stronger confirm when there's history. */}
+                {selectedItem?.customer && (
                   <Button
                     variant="ghost"
                     size="icon-sm"
