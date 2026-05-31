@@ -75,11 +75,19 @@ function buildEmailHtml(r: SummaryResponse): string {
   // match the report 1:1.
   const laborTargetNis = Math.round((laborTargetPct / 100) * revenueTarget);
   const foodTargetNis = Math.round((foodTargetPct / 100) * revenueTarget);
-  // The current_expenses target on goals isn't always populated. If we have
-  // the per-category breakdown, prefer summing those — guarantees the
-  // "סה"כ הוצאות" matches the "פירוט הוצאות" rows.
+  // Current-expenses (non-food / non-labor) target. The P&L report
+  // (reports/page.tsx line 1214) takes the LARGER of two sources:
+  //   1. the sum of per-supplier category budgets, and
+  //   2. the legacy single `current_expenses_target` aggregate field.
+  // The per-category budgets are often incomplete (only suppliers with an
+  // explicit monthly budget row), so when the aggregate field is bigger the
+  // report uses it — that's why the report's "סה"כ הוצאות" is 147.9K while
+  // the raw category sum is only ~140.7K. The email previously PREFERRED the
+  // category sum, so its total + profit drifted from the report. Mirror the
+  // report's Math.max so the email's "צפי הוצאות ללא מע"מ" / "סה"כ רווח"
+  // match the P&L screen 1:1.
   const currentExpensesFromCategories = (r.expenseCategories || []).reduce((s, c) => s + (Number(c.amount) || 0), 0);
-  const effectiveCurrentExpenses = currentExpensesFromCategories > 0 ? currentExpensesFromCategories : currentExpensesTarget;
+  const effectiveCurrentExpenses = Math.max(currentExpensesFromCategories, currentExpensesTarget);
   const totalExpensesTarget = laborTargetNis + foodTargetNis + effectiveCurrentExpenses;
   // Profit target stored on goals tends to be NULL — derive it instead so
   // the email never shows "₪0" when the user clearly has revenue and
