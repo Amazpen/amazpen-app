@@ -388,6 +388,8 @@ export default function CustomersPage() {
   const [payments, setPayments] = useState<CustomerPayment[]>([]);
   // Month-detail modal: key is "YYYY-M" (month 0-indexed) matching billingRow.key
   const [monthDetailKey, setMonthDetailKey] = useState<string | null>(null);
+  // Tab strip on customer detail panel — mirrors /suppliers detail layout
+  const [activeDetailTab, setActiveDetailTab] = useState<"invoices" | "payments" | "documents">("invoices");
   const [detailMonth, setDetailMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1023,12 +1025,9 @@ export default function CustomersPage() {
         retainerAmount &&
         retainerAmount > 0
       ) {
-        const vatRate = Number(
-          allBusinesses.find((b) => b.id === formBusinessId)?.vat_percentage,
-        ) || 0.18;
-        const grossAmount = fIsForeign
-          ? retainerAmount
-          : Math.round(retainerAmount * (1 + vatRate) * 100) / 100;
+        // Convention: customer_payments.amount is pre-VAT (net). DB trigger
+        // bridge_customer_payment_to_daily_income() handles the VAT math when
+        // posting to daily_entries for services-type businesses.
         const initialPaymentDate = fRetainerStartDate || fWorkStartDate || new Date().toISOString().split("T")[0];
         const { error: initialPaymentError } = await supabase
           .from("customer_payments")
@@ -1036,7 +1035,7 @@ export default function CustomersPage() {
             id: generateUUID(),
             customer_id: savedCustomerId,
             payment_date: initialPaymentDate,
-            amount: grossAmount,
+            amount: retainerAmount,
             description: "תשלום ראשוני (הקמה)",
             payment_method: fPaidOnSetupMethod || null,
             notes: null,
@@ -2541,8 +2540,39 @@ export default function CustomersPage() {
                 </div>
               )}
 
-              {/* ── Monthly Billing Summary + Table ──────────────── */}
-              {billingSummary && (
+              {/* ── Tabs strip: חשבוניות / תשלומים / מסמכים ─────────── */}
+              <div className="flex w-full h-[40px] border border-[#6B6B6B] rounded-[7px] overflow-hidden mb-[15px]">
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab("invoices")}
+                  className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
+                    activeDetailTab === "invoices" ? "bg-[#29318A] text-white" : "text-[#979797] hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-[13px] font-bold">חשבוניות</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab("payments")}
+                  className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
+                    activeDetailTab === "payments" ? "bg-[#29318A] text-white" : "text-[#979797] hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-[13px] font-bold">תשלומים</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab("documents")}
+                  className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
+                    activeDetailTab === "documents" ? "bg-[#29318A] text-white" : "text-[#979797] hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-[13px] font-bold">מסמכים</span>
+                </button>
+              </div>
+
+              {/* ── Monthly Billing Summary + Table (חשבוניות tab) ──────────────── */}
+              {activeDetailTab === "invoices" && billingSummary && (
                 <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right mb-[12px]">
                     סיכום הכנסות
@@ -2917,8 +2947,8 @@ export default function CustomersPage() {
                 </div>
               )}
 
-              {/* ── Section 2.5: Customer Documents ─────────────── */}
-              {selectedItem.customer && (
+              {/* ── Section 2.5: Customer Documents (מסמכים tab) ─────────────── */}
+              {activeDetailTab === "documents" && selectedItem.customer && (
                 <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <div className="flex items-center justify-between mb-[10px]">
                     <h3 className="text-[14px] font-bold text-white">מסמכים</h3>
@@ -3043,8 +3073,8 @@ export default function CustomersPage() {
                 </div>
               )}
 
-              {/* ── Section 4: Income / Monthly Payments ─────── */}
-              {selectedItem.customer && (
+              {/* ── Section 4: Income / Monthly Payments (תשלומים tab) ─────── */}
+              {activeDetailTab === "payments" && selectedItem.customer && (
                 <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px]">
                   <h3 className="text-[16px] font-bold text-white text-center mb-[10px]">הכנסות</h3>
 
