@@ -273,28 +273,48 @@ export default function CashFlowPage() {
 
         // Build retainer forecast map (#36)
         const retainers = retainersResult.data || [];
-        // Fetch business VAT rate for retainer calculation
-        const { data: bizData } = await supabase.from("businesses").select("vat_percentage").eq("id", businessId).maybeSingle();
+        // Fetch business VAT rate + type for retainer calculation
+        const { data: bizData } = await supabase.from("businesses").select("vat_percentage, business_type").eq("id", businessId).maybeSingle();
         const bizVatRate = Number(bizData?.vat_percentage) || 0.18;
+        const isServicesBiz = bizData?.business_type === "services";
 
-        // Suppress retainer forecast for months already paid (#36 dedup):
-        // once a retainer is actually paid, the payment is bridged into
-        // daily_entries and shows as real income ("הכנסה יומית (קופה)" / a
-        // payment-method line). Without this, the same money is counted twice
-        // — once as the forecast on the billing day, once as the actual entry.
-        const retainerCustomerIds = (retainers as Array<Record<string, unknown>>)
-          .map((r) => r.id as string)
-          .filter(Boolean);
+        // Customer-payment dedup + per-customer display (#36):
+        //  - paidRetainerMonths: suppress the retainer FORECAST for a month
+        //    once it's actually paid (the payment is bridged into daily_entries,
+        //    so showing the forecast too would double-count).
+        //  - customerPaymentsByDate: for services businesses, surface each paid
+        //    payment in the cashflow BY CUSTOMER NAME (gross, incl. VAT) instead
+        //    of the generic "הכנסה יומית (קופה)" total_register fallback.
+        //  - paidGrossByDate: gross paid per date, subtracted from the
+        //    total_register fallback so the bridged amount isn't counted twice.
         const paidRetainerMonths = new Set<string>(); // `${customer_id}|YYYY-MM`
-        if (retainerCustomerIds.length > 0) {
+        const customerPaymentsByDate = new Map<string, Array<{ name: string; amount: number }>>();
+        const paidGrossByDate = new Map<string, number>(); // dateStr → gross sum
+        {
           const { data: paidData } = await supabase
             .from("customer_payments")
-            .select("customer_id, payment_date")
-            .in("customer_id", retainerCustomerIds)
+            .select("customer_id, payment_date, amount, customers!inner(business_id, contact_name, business_name, is_foreign)")
+            .eq("customers.business_id", businessId)
             .is("deleted_at", null);
           for (const p of (paidData || []) as Array<Record<string, unknown>>) {
             const ym = String(p.payment_date).substring(0, 7);
             paidRetainerMonths.add(`${p.customer_id as string}|${ym}`);
+            if (!isServicesBiz) continue;
+            const cust = p.customers as Record<string, unknown>;
+            const isForeign = cust?.is_foreign as boolean;
+            const gross = (Number(p.amount) || 0) * (isForeign ? 1 : 1 + bizVatRate);
+            if (gross <= 0) continue;
+            const dateStr = String(p.payment_date).substring(0, 10);
+            const contactName = (cust?.contact_name as string) || "";
+            const businessName = (cust?.business_name as string) || "";
+            const customerLabel = contactName
+              ? (businessName && businessName !== contactName ? `${contactName} / ${businessName}` : contactName)
+              : (businessName || "לקוח");
+            const vatNote = isForeign ? "" : ' (כולל מע"מ)';
+            const existing = customerPaymentsByDate.get(dateStr) || [];
+            existing.push({ name: `תקבול — ${customerLabel}${vatNote}`, amount: gross });
+            customerPaymentsByDate.set(dateStr, existing);
+            paidGrossByDate.set(dateStr, (paidGrossByDate.get(dateStr) || 0) + gross);
           }
         }
 
@@ -368,8 +388,12 @@ export default function CashFlowPage() {
         const dailyEntries = (dailyEntriesResult.data || []) as Array<{ entry_date: string; total_register: string | number | null }>;
         for (const de of dailyEntries) {
           const entryDate = String(de.entry_date).substring(0, 10);
-          const totalRegister = Number(de.total_register) || 0;
-          if (totalRegister <= 0 || datesWithBreakdown.has(entryDate)) continue;
+          let totalRegister = Number(de.total_register) || 0;
+          // Services: customer payments are surfaced per-customer (below), so
+          // subtract their bridged gross from total_register to avoid double-
+          // counting. Any remainder (manual income) still shows generically.
+          if (isServicesBiz) totalRegister -= paidGrossByDate.get(entryDate) || 0;
+          if (totalRegister <= 0.01 || datesWithBreakdown.has(entryDate)) continue;
           // No breakdown for this date — add total_register as same-day income
           const fallbackItem: SettledIncome = {
             settlement_date: entryDate,
@@ -442,6 +466,21 @@ export default function CashFlowPage() {
               gross_amount: ri.amount,
               fee_amount: 0,
               net_amount: ri.amount,
+            }];
+          }
+
+          // Add actual customer payments by customer name (services, #36):
+          // replaces the generic "הכנסה יומית (קופה)" fallback for paid months.
+          const customerPayItems = customerPaymentsByDate.get(dateStr) || [];
+          for (const cp of customerPayItems) {
+            incomeItems = [...incomeItems, {
+              settlement_date: dateStr,
+              payment_method_id: "customer_payment",
+              payment_method_name: cp.name,
+              original_entry_date: dateStr,
+              gross_amount: cp.amount,
+              fee_amount: 0,
+              net_amount: cp.amount,
             }];
           }
 
