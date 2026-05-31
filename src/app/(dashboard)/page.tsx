@@ -2833,11 +2833,15 @@ export default function DashboardPage() {
 
         const paymentsIncome = (paymentsData as Array<Record<string, unknown>>).reduce((sum, p) => sum + grossOf(p.customer_id, p.amount), 0);
         const servicesIncome = (servicesData as Array<Record<string, unknown>>).reduce((sum, s) => sum + grossOf(s.customer_id, s.amount), 0);
-        const totalServiceIncome = retainerIncome + paymentsIncome + servicesIncome;
+        // "סה"כ הכנסות" = money actually received (payments + services), NOT the
+        // retainer forecast on top. retainerIncome is the expectation, shown in
+        // its own card + "צפי חודשי"; adding it here double-counted a retainer
+        // customer who already paid (forecast 6490 + actual 6490 = 12,980).
+        const totalServiceIncome = paymentsIncome + servicesIncome;
 
         const prevPaymentsIncome = (prevPaymentsData as Array<Record<string, unknown>>).reduce((sum, p) => sum + grossOf(p.customer_id, p.amount), 0);
         const prevServicesIncome = (prevServicesData as Array<Record<string, unknown>>).reduce((sum, s) => sum + grossOf(s.customer_id, s.amount), 0);
-        const prevMonthTotal = retainerIncome + prevPaymentsIncome + prevServicesIncome; // ריטיינר קבוע
+        const prevMonthTotal = prevPaymentsIncome + prevServicesIncome; // actual received last month
 
         setServiceSummary({
           totalIncome: totalServiceIncome,

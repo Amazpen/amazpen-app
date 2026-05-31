@@ -1250,18 +1250,20 @@ export default function CustomersPage() {
     const rows = billingSummary.rows.filter((r) => selectedOpenMonths.has(r.key) && r.open > 0);
     if (rows.length === 0) return;
 
-    const single = rows.length === 1;
+    // Year + month are ALWAYS pinned from the row key so the payment lands in
+    // the month being paid (the day is that month's billing day). Never trust a
+    // free-form date here — letting it drift to another month buckets the
+    // payment into the wrong period (paying November would mark May paid).
     const inserts = rows.map((r) => {
       const [yStr, mStr] = r.key.split("-");
       const year = parseInt(yStr, 10);
       const monthIdx = parseInt(mStr, 10);
       const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
       const day = Math.min(billingDay, daysInMonth);
-      const autoDate = `${year}-${String(monthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       return {
         id: generateUUID(),
         customer_id: customer.id,
-        payment_date: single && bulkPayForm.payment_date ? bulkPayForm.payment_date : autoDate,
+        payment_date: `${year}-${String(monthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
         amount: r.open,
         description: `תשלום ${r.label}`,
         payment_method: bulkPayForm.payment_method,
@@ -3350,16 +3352,7 @@ export default function CustomersPage() {
                           <Button
                             type="button"
                             onClick={() => {
-                              let defDate = "";
-                              if (sel.length === 1) {
-                                const [yStr, mStr] = sel[0].key.split("-");
-                                const year = parseInt(yStr, 10);
-                                const monthIdx = parseInt(mStr, 10);
-                                const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-                                const day = Math.min(billingDay, daysInMonth);
-                                defDate = `${year}-${String(monthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                              }
-                              setBulkPayForm({ payment_method: selectedItem.customer?.payment_method || "", payment_date: defDate });
+                              setBulkPayForm({ payment_method: selectedItem.customer?.payment_method || "", payment_date: "" });
                               setBulkPayOpen(true);
                             }}
                             className="w-full bg-[#3CD856] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#2FB847] transition-colors"
@@ -3380,18 +3373,18 @@ export default function CustomersPage() {
                                 </SelectContent>
                               </Select>
                             </div>
-                            {sel.length === 1 ? (
-                              <div className="flex flex-col gap-[3px]">
-                                <label className="text-[13px] text-white/70 text-right">תאריך תשלום</label>
-                                <DatePickerField
-                                  value={bulkPayForm.payment_date}
-                                  onChange={(v) => setBulkPayForm({ ...bulkPayForm, payment_date: v })}
-                                  className="h-[40px] rounded-[7px] text-[13px]"
-                                />
-                              </div>
-                            ) : (
-                              <span className="text-[11px] text-white/50 text-center">כל חודש יירשם בתאריך החיוב שלו ({billingDay} לחודש)</span>
-                            )}
+                            <span className="text-[11px] text-white/50 text-center">
+                              {sel.length === 1
+                                ? (() => {
+                                    const [yStr, mStr] = sel[0].key.split("-");
+                                    const yr = parseInt(yStr, 10);
+                                    const mi = parseInt(mStr, 10);
+                                    const dim = new Date(yr, mi + 1, 0).getDate();
+                                    const d = Math.min(billingDay, dim);
+                                    return `התשלום יירשם בתאריך ${String(d).padStart(2, "0")}/${String(mi + 1).padStart(2, "0")}/${yr}`;
+                                  })()
+                                : `כל חודש יירשם ביום החיוב שלו (${billingDay} לחודש)`}
+                            </span>
                             <div className="flex gap-[8px]">
                               <Button
                                 type="button"
