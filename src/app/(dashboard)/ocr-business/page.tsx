@@ -1216,6 +1216,76 @@ export default function OCRBusinessPage() {
     [handleSelectDocument]
   );
 
+  // Attach the current scan's image to an EXISTING payment and finish the doc
+  // (mark approved, leave the pending queue) — no new payment is created. The
+  // image is appended to payments.receipt_url without dropping an existing
+  // receipt (single URL or JSON array, same convention as invoices).
+  const handleAttachToExistingPayment = useCallback(
+    async (paymentId: string) => {
+      if (!currentDocument) return;
+      setIsLoading(true);
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const imageUrl = currentDocument.image_url;
+
+        const { data: payRow, error: payFetchErr } = await supabase
+          .from('payments')
+          .select('receipt_url')
+          .eq('id', paymentId)
+          .maybeSingle();
+        if (payFetchErr) throw payFetchErr;
+
+        const existingRaw = (payRow as { receipt_url: string | null } | null)?.receipt_url ?? null;
+        let existingUrls: string[] = [];
+        if (existingRaw) {
+          try {
+            const parsed = JSON.parse(existingRaw);
+            existingUrls = Array.isArray(parsed) ? parsed : [existingRaw];
+          } catch {
+            existingUrls = [existingRaw];
+          }
+        }
+        const combined = Array.from(new Set([...existingUrls, imageUrl].filter(Boolean))) as string[];
+        const combinedReceipt = combined.length === 0 ? null : combined.length === 1 ? combined[0] : JSON.stringify(combined);
+
+        const { error: payUpdateErr } = await supabase
+          .from('payments')
+          .update({ receipt_url: combinedReceipt })
+          .eq('id', paymentId);
+        if (payUpdateErr) throw payUpdateErr;
+
+        const { error: ocrErr } = await supabase
+          .from('ocr_documents')
+          .update({
+            status: 'approved',
+            reviewed_by: user?.id || null,
+            reviewed_at: new Date().toISOString(),
+            created_payment_id: paymentId,
+          })
+          .eq('id', currentDocument.id);
+        if (ocrErr) throw ocrErr;
+
+        alert('המסמך צורף לתשלום ✓');
+
+        const fresh = documentsRef.current.filter((d) => d.id !== currentDocument.id);
+        setDocuments(fresh);
+        const nextPending = fresh.find((d) => d.status === 'pending' && d.id !== currentDocument.id);
+        if (nextPending) {
+          handleSelectDocument(nextPending);
+        } else {
+          setCurrentDocument(null);
+        }
+      } catch (error) {
+        console.error('Error attaching document to payment:', error);
+        alert('שגיאה בצירוף המסמך לתשלום');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [currentDocument, handleSelectDocument]
+  );
+
   const handleSkip = useCallback(() => {
     if (!currentDocument) return;
 
@@ -1652,6 +1722,7 @@ export default function OCRBusinessPage() {
                 return !d.business_id || !targetBiz || d.business_id === targetBiz;
               })}
               onMergeDocuments={setMergedDocuments}
+              onAttachToExistingPayment={handleAttachToExistingPayment}
               onRequestAddSupplier={
                 selectedBusinessId
                   ? () => {

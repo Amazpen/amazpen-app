@@ -62,6 +62,16 @@ interface DeliveryNoteEntry {
   notes: string;
 }
 
+// One existing payment shown in the "צרף לתשלום קיים" picker.
+interface ExistingPaymentOption {
+  id: string;
+  payment_date: string;
+  total_amount: number;
+  notes: string | null;
+  receipt_url: string | null;
+  supplier_name: string | null;
+}
+
 interface OCRFormProps {
   document: OCRDocument | null;
   suppliers: Supplier[];
@@ -79,6 +89,15 @@ interface OCRFormProps {
   mergedDocuments?: OCRDocument[];
   pendingDocuments?: OCRDocument[];
   onMergeDocuments?: (docs: OCRDocument[]) => void;
+  /**
+   * Attach the current OCR document's image to an ALREADY-EXISTING payment
+   * (payments.receipt_url) and finish the doc — no new payment is created.
+   * For the common case where a scan just needs to land on a payment that's
+   * already in the system. The page owns the DB writes + advancing to the
+   * next pending doc. When provided, a "צרף לתשלום קיים" button appears in
+   * the payment tab.
+   */
+  onAttachToExistingPayment?: (paymentId: string) => Promise<void> | void;
   /**
    * Open the "quick add supplier" sheet from the supplier select. The page
    * owns the sheet state + the post-create refresh, so the form just
@@ -207,6 +226,7 @@ export default function OCRForm({
   mergedDocuments = [],
   pendingDocuments = [],
   onMergeDocuments,
+  onAttachToExistingPayment,
   onRequestAddSupplier,
   pendingSupplierToSelect,
   onSupplierAutoSelected,
@@ -299,6 +319,15 @@ export default function OCRForm({
   const [mergeSelectedIds, setMergeSelectedIds] = useState<Set<string>>(new Set());
   // Preview a single doc full-screen from inside the merge picker.
   const [mergePreviewUrl, setMergePreviewUrl] = useState<string | null>(null);
+
+  // "צרף לתשלום קיים" picker state (payment tab). Lists existing payments so
+  // the user can attach this scan's image to one and finish — no new payment.
+  // (The fetch effect lives after paymentTabSupplierId is declared, below.)
+  const [showPaymentAttachPicker, setShowPaymentAttachPicker] = useState(false);
+  const [attachPayments, setAttachPayments] = useState<ExistingPaymentOption[]>([]);
+  const [attachPaymentsLoading, setAttachPaymentsLoading] = useState(false);
+  const [attachPaymentSearch, setAttachPaymentSearch] = useState('');
+  const [attachingPaymentId, setAttachingPaymentId] = useState<string | null>(null);
 
   // Close the full-screen preview on Escape — the X / click-to-close are the
   // primary affordances but keyboard close is expected for an overlay.
@@ -470,6 +499,39 @@ export default function OCRForm({
   const [paymentTabSupplierId, setPaymentTabSupplierId] = useState('');
   const [paymentTabReference, setPaymentTabReference] = useState('');
   const [paymentTabNotes, setPaymentTabNotes] = useState('');
+
+  // Load existing payments when the "צרף לתשלום קיים" picker opens. Scoped to
+  // the selected business and (when chosen) the payment-tab supplier; recent
+  // first. Declared here so paymentTabSupplierId is already in scope.
+  useEffect(() => {
+    if (!showPaymentAttachPicker || !selectedBusinessId) return;
+    let cancelled = false;
+    (async () => {
+      setAttachPaymentsLoading(true);
+      const supabase = createClient();
+      let query = supabase
+        .from('payments')
+        .select('id, payment_date, total_amount, notes, receipt_url, suppliers(name)')
+        .eq('business_id', selectedBusinessId)
+        .is('deleted_at', null)
+        .order('payment_date', { ascending: false })
+        .limit(100);
+      if (paymentTabSupplierId) query = query.eq('supplier_id', paymentTabSupplierId);
+      const { data } = await query;
+      if (cancelled) return;
+      const mapped: ExistingPaymentOption[] = (data || []).map((p) => ({
+        id: p.id as string,
+        payment_date: p.payment_date as string,
+        total_amount: Number(p.total_amount),
+        notes: (p.notes as string) || null,
+        receipt_url: (p.receipt_url as string) || null,
+        supplier_name: ((p.suppliers as { name?: string } | null)?.name) || null,
+      }));
+      setAttachPayments(mapped);
+      setAttachPaymentsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [showPaymentAttachPicker, selectedBusinessId, paymentTabSupplierId]);
 
   // Payment tab — open invoices for linking (mirrors payments/page.tsx)
   type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string; clarification_reason: string | null; notes: string | null };
@@ -4238,6 +4300,20 @@ export default function OCRForm({
   // Render Payment tab form (aligned with payments page new payment form)
   const renderPaymentForm = () => (
     <div className="flex flex-col gap-[15px]">
+      {/* Attach this scan to an EXISTING payment (no new payment created).
+          For documents that just need their image filed onto a payment that's
+          already in the system. */}
+      {onAttachToExistingPayment && (
+        <button
+          type="button"
+          onClick={() => { setAttachPaymentSearch(''); setShowPaymentAttachPicker(true); }}
+          className="flex flex-row-reverse items-center justify-center gap-[8px] w-full h-[44px] rounded-[8px] border border-dashed border-[#727BA0] bg-[#29318A]/15 text-white text-[14px] font-medium hover:bg-[#29318A]/30 hover:border-[#9aa3c8] transition-colors"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          צרף מסמך זה לתשלום קיים
+        </button>
+      )}
+
       {/* Payment Date */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[16px] font-medium text-white text-right">תאריך קבלה</label>
@@ -5235,6 +5311,83 @@ export default function OCRForm({
             </Button>
           </div>
 
+        </SheetContent>
+      </Sheet>
+
+      {/* "צרף לתשלום קיים" picker Sheet */}
+      <Sheet open={showPaymentAttachPicker} onOpenChange={setShowPaymentAttachPicker}>
+        <SheetContent side="right" className="w-full sm:max-w-[480px] bg-[#0F1535] border-l border-[#4C526B] p-0 flex flex-col">
+          <SheetHeader className="px-4 py-3 border-b border-[#4C526B]">
+            <SheetTitle className="text-white text-[15px] text-right">צרף לתשלום קיים</SheetTitle>
+          </SheetHeader>
+          <div className="px-4 py-3 border-b border-[#4C526B]">
+            <input
+              type="text"
+              value={attachPaymentSearch}
+              onChange={(e) => setAttachPaymentSearch(e.target.value)}
+              placeholder="חיפוש לפי ספק / סכום / הערה"
+              dir="rtl"
+              className="w-full h-[38px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-right px-[10px] focus:outline-none focus:border-white/50 placeholder:text-white/30"
+            />
+            {!paymentTabSupplierId && (
+              <p className="text-white/40 text-[11px] mt-2 text-right">מוצגים תשלומים אחרונים של העסק. בחר ספק בטופס כדי לצמצם לרשימת התשלומים שלו.</p>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2" dir="rtl">
+            {attachPaymentsLoading ? (
+              <p className="text-white/50 text-[13px] text-center py-8">טוען תשלומים…</p>
+            ) : (() => {
+              const q = attachPaymentSearch.trim().toLowerCase();
+              const filtered = attachPayments.filter((p) => {
+                if (!q) return true;
+                const hay = [
+                  p.supplier_name || '',
+                  p.notes || '',
+                  String(p.total_amount),
+                  p.payment_date,
+                ].join(' ').toLowerCase();
+                return hay.includes(q);
+              });
+              if (filtered.length === 0) {
+                return <p className="text-white/50 text-[13px] text-center py-8">לא נמצאו תשלומים</p>;
+              }
+              return filtered.map((p) => {
+                const busy = attachingPaymentId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={attachingPaymentId !== null}
+                    onClick={async () => {
+                      setAttachingPaymentId(p.id);
+                      try {
+                        await onAttachToExistingPayment?.(p.id);
+                        setShowPaymentAttachPicker(false);
+                      } finally {
+                        setAttachingPaymentId(null);
+                      }
+                    }}
+                    className={`w-full text-right p-3 rounded-[8px] border transition-colors ${
+                      busy ? 'bg-[#29318A]/40 border-[#29318A]' : 'bg-[#1A1F3D] border-[#727BA0]/50 hover:border-[#9aa3c8]'
+                    } disabled:opacity-50`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-white text-[14px] font-medium truncate">{p.supplier_name || 'ללא ספק'}</span>
+                      <span className="text-[#17DB4E] text-[14px] font-semibold ltr-num shrink-0" dir="ltr">₪{p.total_amount.toLocaleString('he-IL')}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <span className="text-white/50 text-[12px]">{new Date(p.payment_date).toLocaleDateString('he-IL')}</span>
+                      {p.receipt_url && (
+                        <span className="text-[#F2C94C] text-[11px]">כבר יש מסמך מצורף — יתווסף</span>
+                      )}
+                    </div>
+                    {p.notes && <p className="text-white/40 text-[12px] mt-1 truncate">{p.notes}</p>}
+                    {busy && <p className="text-white/70 text-[12px] mt-1">מצרף…</p>}
+                  </button>
+                );
+              });
+            })()}
+          </div>
         </SheetContent>
       </Sheet>
 
