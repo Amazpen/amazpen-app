@@ -1262,7 +1262,6 @@ export default function CustomersPage() {
     const supabase = createClient();
     const serviceId = generateUUID();
     const customerId = selectedItem.customer.id;
-    const customerBusinessName = selectedItem.business.name;
 
     const { error } = await supabase.from("customer_services").insert({
       id: serviceId,
@@ -1277,28 +1276,9 @@ export default function CustomersPage() {
       showToast("שגיאה בשמירת שירות", "error");
       console.error(error);
     } else {
-      // Also create income_source and daily_income_breakdown entry
-      const incomeSourceId = generateUUID();
-      const businessId = selectedItem.business.id;
-      if (businessId) {
-        const { error: incomeError } = await supabase.from("income_sources").insert({
-          id: incomeSourceId,
-          business_id: businessId,
-          name: `שירות — ${newServiceName.trim()} (${customerBusinessName})`,
-          is_active: true,
-        });
-
-        if (!incomeError) {
-          await supabase.from("daily_income_breakdown").insert({
-            id: generateUUID(),
-            business_id: businessId,
-            income_source_id: incomeSourceId,
-            date: newServiceDate || new Date().toISOString().split('T')[0],
-            amount,
-          });
-        }
-      }
-
+      // Income recording into daily_entries/daily_income_breakdown (gross incl.
+      // VAT) is handled server-side by the trg_bridge_customer_service trigger,
+      // mirroring the customer_payments bridge. No client-side insert needed.
       showToast("השירות נשמר", "success");
       setNewServiceName("");
       setNewServiceAmount("");

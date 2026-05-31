@@ -276,6 +276,28 @@ export default function CashFlowPage() {
         // Fetch business VAT rate for retainer calculation
         const { data: bizData } = await supabase.from("businesses").select("vat_percentage").eq("id", businessId).maybeSingle();
         const bizVatRate = Number(bizData?.vat_percentage) || 0.18;
+
+        // Suppress retainer forecast for months already paid (#36 dedup):
+        // once a retainer is actually paid, the payment is bridged into
+        // daily_entries and shows as real income ("הכנסה יומית (קופה)" / a
+        // payment-method line). Without this, the same money is counted twice
+        // — once as the forecast on the billing day, once as the actual entry.
+        const retainerCustomerIds = (retainers as Array<Record<string, unknown>>)
+          .map((r) => r.id as string)
+          .filter(Boolean);
+        const paidRetainerMonths = new Set<string>(); // `${customer_id}|YYYY-MM`
+        if (retainerCustomerIds.length > 0) {
+          const { data: paidData } = await supabase
+            .from("customer_payments")
+            .select("customer_id, payment_date")
+            .in("customer_id", retainerCustomerIds)
+            .is("deleted_at", null);
+          for (const p of (paidData || []) as Array<Record<string, unknown>>) {
+            const ym = String(p.payment_date).substring(0, 7);
+            paidRetainerMonths.add(`${p.customer_id as string}|${ym}`);
+          }
+        }
+
         const retainerByDate = new Map<string, Array<{ name: string; amount: number }>>();
         for (const ret of retainers as Array<Record<string, unknown>>) {
           const dayOfMonth = Number(ret.retainer_day_of_month) || 1;
@@ -299,7 +321,10 @@ export default function CashFlowPage() {
           for (let m = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1); m <= rangeEnd; m.setMonth(m.getMonth() + 1)) {
             const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
             const day = Math.min(dayOfMonth, daysInMonth);
-            const dateStr = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const monthKey = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`;
+            const dateStr = `${monthKey}-${String(day).padStart(2, "0")}`;
+            // Already paid this month → real bridged income covers it, skip forecast
+            if (paidRetainerMonths.has(`${ret.id as string}|${monthKey}`)) continue;
             if (dateStr < openingDate || dateStr > endDateStr) continue;
             if (startDate && dateStr < startDate) continue;
             if (endRetDate && dateStr > endRetDate) continue;
