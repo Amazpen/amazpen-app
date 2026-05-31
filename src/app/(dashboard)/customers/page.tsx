@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePickerField } from "@/components/ui/date-picker-field";
+import { CustomersHelpButton } from "@/components/onboarding/CustomersHelpButton";
 
 // Business from businesses table
 interface Business {
@@ -1376,7 +1377,7 @@ export default function CustomersPage() {
           // Show header if there's any KPI worth showing — including total debt
           const shouldShow = activeRetainerTotal > 0 || totalDebtAllCustomers > 0;
           return shouldShow ? (
-            <div className="bg-[#6B21A8]/30 rounded-[10px] p-[12px] flex flex-row-reverse items-center justify-between gap-[10px]">
+            <div id="onboarding-customers-summary" className="bg-[#6B21A8]/30 rounded-[10px] p-[12px] flex flex-row-reverse items-center justify-between gap-[10px]">
               <div className="flex flex-col items-center">
                 <span className="text-[12px] text-white/60">הכנסה חודשית מריטיינרים</span>
                 <span className="text-[20px] font-bold text-white ltr-num">₪{activeRetainerTotal.toLocaleString("he-IL")}</span>
@@ -1396,6 +1397,7 @@ export default function CustomersPage() {
         })()}
         {/* Add Standalone Customer Button */}
         <Button
+          id="onboarding-customers-add"
           variant="default"
           type="button"
           onClick={handleAddStandaloneCustomer}
@@ -1408,7 +1410,7 @@ export default function CustomersPage() {
       {/* Main Content Container */}
       <div className="flex-1 flex flex-col bg-[#0F1535] rounded-[10px] p-[5px_7px]">
         {/* Count and Search */}
-        <div className="flex items-center gap-[10px] mb-[10px]">
+        <div id="onboarding-customers-search" className="flex items-center gap-[10px] mb-[10px]">
           <Button
             variant="ghost"
             size="icon-sm"
@@ -1437,10 +1439,13 @@ export default function CustomersPage() {
           ) : (
             <span className="text-[18px] font-bold text-white">{totalCount} לקוחות</span>
           )}
+          <div className="ms-auto">
+            <CustomersHelpButton />
+          </div>
         </div>
 
         {/* Grid */}
-        <div className="flex-1 overflow-auto mt-[15px] mx-0">
+        <div id="onboarding-customers-grid" className="flex-1 overflow-auto mt-[15px] mx-0">
           {isLoading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-[26px]">
               {[...Array(6)].map((_, i) => (
