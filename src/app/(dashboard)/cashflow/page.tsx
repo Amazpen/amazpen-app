@@ -253,7 +253,7 @@ export default function CashFlowPage() {
           // Fetch active retainers for income forecast (#36)
           supabase
             .from("customers")
-            .select("id, business_name, retainer_amount, retainer_day_of_month, retainer_type, retainer_start_date, retainer_end_date, retainer_status, is_foreign")
+            .select("id, contact_name, business_name, retainer_amount, retainer_day_of_month, retainer_type, retainer_start_date, retainer_end_date, retainer_status, is_foreign")
             .eq("business_id", businessId)
             .eq("retainer_status", "active")
             .is("deleted_at", null),
@@ -285,7 +285,13 @@ export default function CashFlowPage() {
           const netAmount = isForeign ? amount : amount * (1 + bizVatRate);
           const startDate = ret.retainer_start_date ? String(ret.retainer_start_date).substring(0, 10) : null;
           const endRetDate = ret.retainer_end_date ? String(ret.retainer_end_date).substring(0, 10) : null;
-          const name = `ריטיינר — ${ret.business_name || "לקוח"}`;
+          const contactName = (ret.contact_name as string) || "";
+          const businessName = (ret.business_name as string) || "";
+          const customerLabel = contactName
+            ? (businessName && businessName !== contactName ? `${contactName} / ${businessName}` : contactName)
+            : (businessName || "לקוח");
+          const vatNote = isForeign ? "" : ' (כולל מע"מ)';
+          const name = `ריטיינר — ${customerLabel}${vatNote}`;
 
           // Generate entries for each month in range
           const rangeStart = new Date(openingDate + "T00:00:00");
