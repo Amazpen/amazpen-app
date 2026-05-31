@@ -121,11 +121,12 @@ export async function POST(request: NextRequest) {
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
+  // Note: gpt-5.4-mini is a reasoning model (OpenAI Responses API) — it does NOT
+  // support `temperature`, so we omit it (passing it only logs a warning).
   const result = streamText({
     model: openai("gpt-5.4-mini"),
     system,
     messages,
-    temperature: 0.4,
   });
 
   return result.toTextStreamResponse();

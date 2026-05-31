@@ -9,6 +9,7 @@ import {
   Activity,
   AlertTriangle,
   CalendarDays,
+  ChevronDown,
   Clock,
   FileText,
   Flame,
@@ -18,6 +19,7 @@ import {
   Moon,
   MousePointerClick,
   Search,
+  Send,
   Smartphone,
   Sparkles,
   Sunrise,
@@ -26,6 +28,7 @@ import {
   Wallet,
   Wifi,
 } from "lucide-react";
+import { AiMarkdownRenderer } from "@/components/ai/AiMarkdownRenderer";
 
 interface ActivityRow {
   id: string;
@@ -84,6 +87,173 @@ function formatDuration(seconds: number | null): string {
 function formatFullDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+/* ============ AI analyst (per-user, data-grounded) ============ */
+
+const AI_QUICK_PROMPTS = [
+  "למה הוא בסיכון נטישה?",
+  "איך מחזירים אותו לשימוש?",
+  "סכם את דפוס השימוש שלו",
+  "מתי הכי כדאי לפנות אליו?",
+];
+
+interface ChatMsg {
+  role: "user" | "assistant";
+  content: string;
+}
+
+function UserAiAnalyst({ userId, days, ready }: { userId: string; days: number; ready: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // New user or time range => fresh analysis context.
+  useEffect(() => {
+    setMessages([]);
+    setError(null);
+    setInput("");
+  }, [userId, days]);
+
+  const send = async (text: string) => {
+    const q = text.trim();
+    if (!q || streaming) return;
+    setError(null);
+    setInput("");
+    const next: ChatMsg[] = [...messages, { role: "user", content: q }];
+    setMessages([...next, { role: "assistant", content: "" }]);
+    setStreaming(true);
+    try {
+      const res = await fetch("/api/user-activity/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, days, messages: next }),
+      });
+      if (!res.ok || !res.body) {
+        let msg = "שגיאה בניתוח";
+        try {
+          const j = await res.json();
+          msg = j.error || msg;
+        } catch {
+          // non-JSON error body
+        }
+        setError(msg);
+        setMessages((m) => m.slice(0, -1)); // drop the empty assistant bubble
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = { role: "assistant", content: acc };
+          return copy;
+        });
+      }
+    } catch {
+      setError("שגיאת רשת בניתוח");
+      setMessages((m) => (m[m.length - 1]?.role === "assistant" && !m[m.length - 1].content ? m.slice(0, -1) : m));
+    } finally {
+      setStreaming(false);
+    }
+  };
+
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between bg-gradient-to-l from-[#8328f8]/20 to-[#111056]/60 border border-[#8328f8]/30 rounded-xl px-4 py-3 hover:border-[#8328f8]/50 transition"
+      >
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-[#a855f7]" />
+          <span className="text-white font-semibold text-[14px]">ניתוח AI</span>
+          <span className="text-white/40 text-[11px]">— שאל על המשתמש הזה</span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="mt-3 bg-[#111056]/60 border border-white/10 rounded-xl p-4 space-y-3">
+          {/* Quick prompts */}
+          <div className="flex flex-wrap gap-1.5">
+            {AI_QUICK_PROMPTS.map((q) => (
+              <button
+                key={q}
+                type="button"
+                disabled={streaming || !ready}
+                onClick={() => send(q)}
+                className="text-[12px] text-white/80 bg-[#0F1535] border border-[#727BA0]/40 rounded-full px-3 py-1.5 hover:border-[#8328f8]/50 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+
+          {/* Messages */}
+          {messages.length > 0 && (
+            <div className="space-y-2 max-h-[340px] overflow-y-auto pe-1">
+              {messages.map((m, i) =>
+                m.role === "user" ? (
+                  <div key={i} className="text-right">
+                    <span className="inline-block bg-[#29318A] text-white text-[13px] rounded-xl rounded-tr-sm px-3 py-2 max-w-[85%] text-right">
+                      {m.content}
+                    </span>
+                  </div>
+                ) : (
+                  <div key={i} className="bg-[#0F1535] border border-white/10 rounded-xl p-3 text-[13px] text-white/90 text-right">
+                    {m.content ? (
+                      <AiMarkdownRenderer content={m.content} />
+                    ) : (
+                      <span className="inline-flex gap-1 text-white/40">
+                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </span>
+                    )}
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+
+          {error && <p className="text-[#F64E60] text-[12px] text-right">{error}</p>}
+
+          {/* Input */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(input);
+            }}
+            className="flex gap-2"
+          >
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="שאל שאלה על המשתמש הזה…"
+              disabled={streaming || !ready}
+              className="flex-1 bg-[#0F1535] border border-[#727BA0] rounded-xl px-3 py-2 text-white text-[13px] text-right placeholder:text-white/30 focus:border-white/50 outline-none disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={streaming || !ready || !input.trim()}
+              aria-label="שלח"
+              className="w-10 shrink-0 flex items-center justify-center bg-[#8328f8] hover:bg-[#6f1fd4] rounded-xl text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function UserHistoryModal({ user, onClose }: { user: PresenceUser; onClose: () => void }) {
@@ -183,6 +353,9 @@ function UserHistoryModal({ user, onClose }: { user: PresenceUser; onClose: () =
                   <StreakCard streak={stats.streak} activeDays={stats.activeDays} totalDays={days} />
                 </div>
               </section>
+
+              {/* AI analyst — collapsible, grounded in this user's stats */}
+              <UserAiAnalyst userId={user.user_id} days={days} ready={!!stats} />
 
               {/* Section: usage stats */}
               <Section
