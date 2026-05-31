@@ -2844,6 +2844,7 @@ export default function DashboardPage() {
     };
 
     fetchDetailedSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinesses, dateRange, refreshTrigger]);
 
   // Fetch tasks when businesses are selected

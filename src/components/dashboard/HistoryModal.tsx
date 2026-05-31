@@ -890,6 +890,7 @@ export function HistoryModal({
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, businessIds, cardType, sourceId, year]);
 
   useEffect(() => {

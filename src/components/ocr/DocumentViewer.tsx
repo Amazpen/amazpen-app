@@ -148,6 +148,7 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
     ctx.drawImage(img, -naturalW / 2, -naturalH / 2);
     onRotate(canvas.toDataURL('image/jpeg', 0.92));
     setRotation(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onRotate, rotation]);
 
   // Pan/Drag functionality (image only — PDF uses its own drag-to-scroll handlers)
@@ -783,6 +784,7 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
               </div>
             )}
             {pdfPages.map((dataUrl, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={i}
                 src={dataUrl}

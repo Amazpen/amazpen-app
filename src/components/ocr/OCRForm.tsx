@@ -1224,6 +1224,7 @@ export default function OCRForm({
 
   const calculatedVat = useMemo(() => {
     return amountAfterDiscount * businessVatRate;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amountAfterDiscount]);
 
   const totalWithVat = useMemo(() => {

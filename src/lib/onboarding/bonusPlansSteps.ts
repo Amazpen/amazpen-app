@@ -36,7 +36,6 @@ function nextFrames(cb: () => void) {
   requestAnimationFrame(() => requestAnimationFrame(cb));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DriverLike = { moveNext: () => void; movePrevious: () => void };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getDriver(options: any): DriverLike | undefined {

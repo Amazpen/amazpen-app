@@ -1047,6 +1047,7 @@ export default function AccountingReviewPage() {
               onClick={() => setSelectedBusinessId(biz.id)}
             >
               {biz.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={biz.logo_url}
                   alt=""

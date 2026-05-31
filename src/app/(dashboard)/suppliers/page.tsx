@@ -4509,6 +4509,7 @@ export default function SuppliersPage() {
           <div className="flex-1 w-full h-[calc(100%-60px)] overflow-auto">
             {viewDocumentUrl && (
               /\.(jpg|jpeg|png|webp|gif)$/i.test(viewDocumentUrl) ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={viewDocumentUrl}
                   alt="מסמך"
