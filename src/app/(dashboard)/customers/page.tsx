@@ -400,6 +400,19 @@ export default function CustomersPage() {
   }>>([]);
   // Month-detail modal: key is "YYYY-M" (month 0-indexed) matching billingRow.key
   const [monthDetailKey, setMonthDetailKey] = useState<string | null>(null);
+  // Invoice-detail modal: when set, filter payments to those linked to this invoice
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  // Map payment_id → { invoice_id, invoice_number } for the linkage badge under each payment
+  const [paymentInvoiceLinks, setPaymentInvoiceLinks] = useState<Map<string, { invoice_id: string; invoice_number: string | null }>>(new Map());
+  // Inline modal targets for invoice CRUD + paid-in-full flows
+  type InvoiceRow = { id: string; invoice_number: string | null; issue_date: string; subtotal: number; vat_amount: number; total_amount: number; amount_paid: number; status: "open" | "partial" | "paid" | "cancelled"; source: "manual" | "auto_retainer" };
+  const [editInvoice, setEditInvoice] = useState<InvoiceRow | null>(null);
+  const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
+  const [paidInFullInvoice, setPaidInFullInvoice] = useState<InvoiceRow | null>(null);
+  // Invoice form draft
+  const [invForm, setInvForm] = useState({ invoice_number: "", issue_date: "", subtotal: "", notes: "" });
+  // Paid-in-full form draft
+  const [pifForm, setPifForm] = useState({ payment_date: "", payment_method: "" });
   // Tab strip on customer detail panel — mirrors /suppliers detail layout
   const [activeDetailTab, setActiveDetailTab] = useState<"invoices" | "payments" | "documents">("invoices");
   const [detailMonth, setDetailMonth] = useState(() => {
@@ -581,14 +594,21 @@ export default function CustomersPage() {
 
   const fetchCustomerInvoices = useCallback(async (customerId: string) => {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("customer_invoices")
-      .select("id, invoice_number, issue_date, subtotal, vat_amount, total_amount, amount_paid, status, source")
-      .eq("customer_id", customerId)
-      .is("deleted_at", null)
-      .order("issue_date", { ascending: false });
+    const [{ data: invData }, { data: linkData }] = await Promise.all([
+      supabase
+        .from("customer_invoices")
+        .select("id, invoice_number, issue_date, subtotal, vat_amount, total_amount, amount_paid, status, source")
+        .eq("customer_id", customerId)
+        .is("deleted_at", null)
+        .order("issue_date", { ascending: false }),
+      // Fetch all links for invoices of this customer (small set, scoped via inner join via FK + RLS)
+      supabase
+        .from("customer_payment_invoice_links")
+        .select("payment_id, invoice_id, customer_invoices!inner(invoice_number, customer_id)")
+        .eq("customer_invoices.customer_id", customerId),
+    ]);
     setCustomerInvoices(
-      (data || []).map((r) => ({
+      (invData || []).map((r) => ({
         id: r.id as string,
         invoice_number: (r.invoice_number as string | null) ?? null,
         issue_date: r.issue_date as string,
@@ -600,6 +620,12 @@ export default function CustomersPage() {
         source: r.source as "manual" | "auto_retainer",
       })),
     );
+    const linkMap = new Map<string, { invoice_id: string; invoice_number: string | null }>();
+    for (const row of (linkData || []) as Array<{ payment_id: string; invoice_id: string; customer_invoices?: { invoice_number: string | null } | { invoice_number: string | null }[] | null }>) {
+      const inv = Array.isArray(row.customer_invoices) ? row.customer_invoices[0] : row.customer_invoices;
+      linkMap.set(row.payment_id, { invoice_id: row.invoice_id, invoice_number: inv?.invoice_number ?? null });
+    }
+    setPaymentInvoiceLinks(linkMap);
   }, []);
 
   const fetchServices = useCallback(async (customerId: string) => {
@@ -1883,7 +1909,7 @@ export default function CustomersPage() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-[3px]">
-                      <label className="text-[12px] text-white/70 text-right">סכום (כולל מע&quot;מ)</label>
+                      <label className="text-[12px] text-white/70 text-right">סכום (לפני מע&quot;מ)</label>
                       <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
                         <Input
                           type="tel"
@@ -2622,7 +2648,26 @@ export default function CustomersPage() {
                 const totalOpen = Math.max(0, totalExpected - totalPaid);
                 return (
                   <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
-                    <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right mb-[12px]">חשבוניות הכנסה</h3>
+                    <div className="flex items-center justify-between mb-[12px]">
+                      <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right">חשבוניות הכנסה</h3>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          const today = new Date();
+                          setInvForm({
+                            invoice_number: "",
+                            issue_date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`,
+                            subtotal: selectedItem?.customer?.retainer_amount ? String(selectedItem.customer.retainer_amount) : "",
+                            notes: "",
+                          });
+                          setCreateInvoiceOpen(true);
+                        }}
+                        className="bg-[#3CD856] text-white text-[12px] font-semibold px-[10px] py-[6px] rounded-[7px] hover:bg-[#2FB847]"
+                      >
+                        + הוסף חשבונית
+                      </Button>
+                    </div>
                     <div className="grid grid-cols-3 gap-[10px] mb-[15px]">
                       <div className="bg-white/5 rounded-[7px] p-[10px] flex flex-col items-center">
                         <span className="text-[12px] text-white/60 text-center">סה&quot;כ צריך לשלם</span>
@@ -2670,7 +2715,7 @@ export default function CustomersPage() {
                             <button
                               key={inv.id}
                               type="button"
-                              onClick={() => setMonthDetailKey(monthKey)}
+                              onClick={() => { void monthKey; setSelectedInvoiceId(inv.id); }}
                               title="הצג תשלומים מקושרים לחשבונית זו"
                               className="grid grid-cols-[1.4fr_1.6fr_0.9fr_0.9fr_0.9fr_1fr] w-full p-[8px_5px] bg-white/5 hover:bg-white/10 rounded-[5px] items-center text-right cursor-pointer"
                             >
@@ -3246,7 +3291,9 @@ export default function CustomersPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col gap-[8px]">
-                      {monthlyPayments.map((payment) => (
+                      {monthlyPayments.map((payment) => {
+                        const link = paymentInvoiceLinks.get(payment.id);
+                        return (
                         <div key={payment.id} className="flex flex-col gap-[4px] bg-white/5 rounded-[7px] p-[10px]">
                           <div className="flex items-center justify-between">
                             <span dir="ltr" className="text-[14px] text-white font-medium">
@@ -3264,6 +3311,16 @@ export default function CustomersPage() {
                               {paymentMethodLabels[payment.payment_method] || payment.payment_method}
                             </span>
                           )}
+                          {link && (
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedInvoiceId(link.invoice_id); setActiveDetailTab("invoices"); }}
+                              className="text-[11px] text-[#3F97FF] hover:text-[#3F97FF]/80 text-right self-end"
+                              title="פתח חשבונית מקושרת"
+                            >
+                              → חשבונית {link.invoice_number || "—"}
+                            </button>
+                          )}
                           {payment.notes && (
                             <span className="text-[12px] text-white/40 text-right">{payment.notes}</span>
                           )}
@@ -3277,7 +3334,8 @@ export default function CustomersPage() {
                             מחק
                           </Button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -3554,6 +3612,292 @@ export default function CustomersPage() {
                 >
                   סגור
                 </Button>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice-detail modal: header + linked payments + "שולם במלואו" + edit + delete */}
+      <Dialog open={!!selectedInvoiceId} onOpenChange={(open) => !open && setSelectedInvoiceId(null)}>
+        <DialogContent className="bg-[#0F1535] border-[#4C526B] text-white sm:max-w-[520px] rounded-[20px] p-[20px]" dir="rtl">
+          {(() => {
+            const inv = customerInvoices.find((i) => i.id === selectedInvoiceId);
+            if (!inv) return null;
+            const linkedPayments = payments.filter((p) => paymentInvoiceLinks.get(p.id)?.invoice_id === inv.id);
+            const issueLabel = new Date(inv.issue_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
+            const open = Math.max(0, inv.total_amount - inv.amount_paid);
+            const badge = inv.status === "paid"
+              ? { c: "bg-[#0BB783]/20 text-[#0BB783]", t: "✓ שולם" }
+              : inv.status === "partial"
+              ? { c: "bg-[#F6A609]/20 text-[#F6A609]", t: "חלקי" }
+              : inv.status === "cancelled"
+              ? { c: "bg-white/10 text-white/40", t: "בוטל" }
+              : { c: "bg-[#F64E60]/20 text-[#F64E60]", t: "פתוח" };
+            return (
+              <>
+                <div className="flex items-center justify-between mb-[12px]">
+                  <h3 className="text-[16px] font-bold text-white">חשבונית הכנסה</h3>
+                  <span className={`text-[11px] px-[8px] py-[2px] rounded-full font-bold ${badge.c}`}>{badge.t}</span>
+                </div>
+                <div className="flex flex-col gap-[4px] bg-white/5 rounded-[7px] p-[10px] mb-[12px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-white/60">אסמכתא</span>
+                    <span className="text-[13px] text-white font-medium">{inv.invoice_number || "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-white/60">תאריך</span>
+                    <span dir="ltr" className="text-[13px] text-white">{issueLabel}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-white/60">לפני מע&quot;מ</span>
+                    <span dir="ltr" className="text-[13px] text-white">₪{inv.subtotal.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-white/60">מע&quot;מ</span>
+                    <span dir="ltr" className="text-[13px] text-white">₪{inv.vat_amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-white/10 pt-[6px] mt-[2px]">
+                    <span className="text-[13px] text-white">סה&quot;כ כולל מע&quot;מ</span>
+                    <span dir="ltr" className="text-[14px] text-white font-bold">₪{inv.total_amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-white/60">שולם</span>
+                    <span dir="ltr" className="text-[13px] text-[#0BB783] font-medium">₪{inv.amount_paid.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-white/60">פתוח</span>
+                    <span dir="ltr" className={`text-[13px] font-medium ${open > 0 ? "text-[#F64E60]" : "text-white/40"}`}>₪{open.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+
+                {/* Paid-in-full + edit + delete actions */}
+                <div className="flex flex-wrap gap-[8px] mb-[12px]">
+                  {(inv.status === "open" || inv.status === "partial") && (
+                    <Button
+                      type="button"
+                      onClick={() => { setPaidInFullInvoice(inv); setSelectedInvoiceId(null); }}
+                      className="flex-1 bg-[#0BB783] text-white text-[13px] font-semibold py-[8px] rounded-[10px] hover:bg-[#0BB783]/90"
+                    >
+                      שולם במלואו
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { setEditInvoice(inv); setSelectedInvoiceId(null); }}
+                    className="flex-1 border-white/30 text-white text-[13px] hover:bg-white/10"
+                  >
+                    ערוך
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      confirm("האם למחוק את החשבונית?", async () => {
+                        const supabase = createClient();
+                        const { error } = await supabase.from("customer_invoices").update({ deleted_at: new Date().toISOString() }).eq("id", inv.id);
+                        if (error) { showToast("שגיאה במחיקה", "error"); return; }
+                        showToast("החשבונית נמחקה", "success");
+                        setSelectedInvoiceId(null);
+                        if (selectedItem?.customer) {
+                          await Promise.all([fetchCustomerInvoices(selectedItem.customer.id), fetchPayments(selectedItem.customer.id)]);
+                        }
+                      });
+                    }}
+                    className="border-[#F64E60]/50 text-[#F64E60] text-[13px] hover:bg-[#F64E60]/10"
+                  >
+                    מחק
+                  </Button>
+                </div>
+
+                <h4 className="text-[13px] font-semibold text-white/80 text-right mb-[6px]">תשלומים מקושרים ({linkedPayments.length})</h4>
+                {linkedPayments.length === 0 ? (
+                  <div className="flex items-center justify-center py-[15px]">
+                    <span className="text-[12px] text-white/50">אין תשלומים מקושרים</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-[6px] max-h-[40vh] overflow-y-auto">
+                    {linkedPayments.map((p) => (
+                      <div key={p.id} className="flex flex-col gap-[3px] bg-white/5 rounded-[7px] p-[8px]">
+                        <div className="flex items-center justify-between">
+                          <span dir="ltr" className="text-[13px] text-white font-medium">₪{Number(p.amount).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                          <span dir="ltr" className="text-[11px] text-white/60">{new Date(p.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>
+                        </div>
+                        {p.payment_method && (
+                          <span className="text-[11px] text-white/50 text-right">{paymentMethodLabels[p.payment_method] || p.payment_method}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button variant="outline" type="button" onClick={() => setSelectedInvoiceId(null)}
+                  className="w-full mt-[12px] border-white/30 text-white hover:bg-white/10">
+                  סגור
+                </Button>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create/edit invoice modal */}
+      <Dialog open={createInvoiceOpen || !!editInvoice} onOpenChange={(open) => { if (!open) { setCreateInvoiceOpen(false); setEditInvoice(null); } }}>
+        <DialogContent className="bg-[#0F1535] border-[#4C526B] text-white sm:max-w-[440px] rounded-[20px] p-[20px]" dir="rtl">
+          {(() => {
+            const isEdit = !!editInvoice;
+            const vatRate = Number(selectedItem?.business?.vat_percentage) || 0.18;
+            const isForeign = selectedItem?.customer?.is_foreign || false;
+            // Prefill form when editInvoice changes
+            if (isEdit && invForm.subtotal === "" && editInvoice) {
+              setTimeout(() => setInvForm({
+                invoice_number: editInvoice.invoice_number || "",
+                issue_date: String(editInvoice.issue_date).substring(0, 10),
+                subtotal: String(editInvoice.subtotal),
+                notes: "",
+              }), 0);
+            }
+            const subtotal = parseFloat(invForm.subtotal) || 0;
+            const vat = isForeign ? 0 : subtotal * vatRate;
+            const total = subtotal + vat;
+            const onSubmit = async () => {
+              if (!selectedItem?.customer || !invForm.issue_date || subtotal <= 0) {
+                showToast("יש למלא תאריך וסכום", "error");
+                return;
+              }
+              const supabase = createClient();
+              const payload = {
+                business_id: selectedItem.customer.business_id,
+                customer_id: selectedItem.customer.id,
+                invoice_number: invForm.invoice_number.trim() || null,
+                issue_date: invForm.issue_date,
+                subtotal,
+                vat_amount: vat,
+                total_amount: total,
+                notes: invForm.notes.trim() || null,
+                source: "manual",
+              };
+              const { error } = isEdit
+                ? await supabase.from("customer_invoices").update(payload).eq("id", editInvoice!.id)
+                : await supabase.from("customer_invoices").insert(payload);
+              if (error) { showToast("שגיאה בשמירה: " + error.message, "error"); return; }
+              showToast(isEdit ? "החשבונית עודכנה" : "חשבונית נוצרה", "success");
+              setCreateInvoiceOpen(false);
+              setEditInvoice(null);
+              setInvForm({ invoice_number: "", issue_date: "", subtotal: "", notes: "" });
+              await fetchCustomerInvoices(selectedItem.customer.id);
+            };
+            return (
+              <>
+                <h3 className="text-[16px] font-bold mb-[12px]">{isEdit ? "עריכת חשבונית" : "חשבונית חדשה"}</h3>
+                <div className="flex flex-col gap-[10px]">
+                  <div className="flex flex-col gap-[3px]">
+                    <label className="text-[13px] text-white/70 text-right">אסמכתא / מספר חשבונית</label>
+                    <Input value={invForm.invoice_number} onChange={(e) => setInvForm({ ...invForm, invoice_number: e.target.value })}
+                      placeholder="לדוגמה: 2026-001"
+                      className="bg-[#0F1535] border border-[#727BA0] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center" />
+                  </div>
+                  <div className="flex flex-col gap-[3px]">
+                    <label className="text-[13px] text-white/70 text-right">תאריך הוצאה</label>
+                    <DatePickerField value={invForm.issue_date} onChange={(v) => setInvForm({ ...invForm, issue_date: v })} />
+                  </div>
+                  <div className="flex flex-col gap-[3px]">
+                    <label className="text-[13px] text-white/70 text-right">סכום (₪, לפני מע&quot;מ)</label>
+                    <Input type="tel" value={invForm.subtotal} onChange={(e) => setInvForm({ ...invForm, subtotal: e.target.value })}
+                      placeholder="0"
+                      className="bg-[#0F1535] border border-[#727BA0] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center" />
+                    {subtotal > 0 && (
+                      <span className="text-[11px] text-white/50 text-center">
+                        ₪{subtotal.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} + מע&quot;מ ₪{vat.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} = ₪{total.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} כולל
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-[3px]">
+                    <label className="text-[13px] text-white/70 text-right">הערות</label>
+                    <Textarea value={invForm.notes} onChange={(e) => setInvForm({ ...invForm, notes: e.target.value })}
+                      placeholder="הערות..."
+                      className="bg-[#0F1535] border border-[#727BA0] rounded-[7px] min-h-[60px] px-[8px] py-[6px] text-[13px] text-white text-right" />
+                  </div>
+                  <div className="flex gap-[8px] mt-[5px]">
+                    <Button variant="outline" type="button" onClick={() => { setCreateInvoiceOpen(false); setEditInvoice(null); setInvForm({ invoice_number: "", issue_date: "", subtotal: "", notes: "" }); }}
+                      className="flex-1 border-white/30 text-white hover:bg-white/10">ביטול</Button>
+                    <Button type="button" onClick={onSubmit}
+                      className="flex-1 bg-[#3CD856] text-white font-semibold hover:bg-[#2FB847]">שמור</Button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* "שולם במלואו" modal: creates a customer_payment for the invoice subtotal (net), bridge auto-links */}
+      <Dialog open={!!paidInFullInvoice} onOpenChange={(open) => { if (!open) { setPaidInFullInvoice(null); setPifForm({ payment_date: "", payment_method: "" }); } }}>
+        <DialogContent className="bg-[#0F1535] border-[#4C526B] text-white sm:max-w-[400px] rounded-[20px] p-[20px]" dir="rtl">
+          {paidInFullInvoice && (() => {
+            const inv = paidInFullInvoice;
+            const remaining = Math.max(0, inv.total_amount - inv.amount_paid);
+            const remainingNet = remaining / (1 + (Number(selectedItem?.business?.vat_percentage) || 0.18));
+            // Initialize defaults on open
+            if (!pifForm.payment_date) {
+              const today = new Date();
+              const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+              setTimeout(() => setPifForm({
+                payment_date: ymd,
+                payment_method: selectedItem?.customer?.payment_method || "",
+              }), 0);
+            }
+            const onSubmit = async () => {
+              if (!selectedItem?.customer || !pifForm.payment_date) {
+                showToast("בחר תאריך תשלום", "error");
+                return;
+              }
+              const supabase = createClient();
+              // Insert customer_payment with NET amount = remaining/1.18. Bridge will gross it back up.
+              const netAmount = Math.round(remainingNet * 100) / 100;
+              const { error } = await supabase.from("customer_payments").insert({
+                id: generateUUID(),
+                customer_id: selectedItem.customer.id,
+                payment_date: pifForm.payment_date,
+                amount: netAmount,
+                description: `תשלום מלא לחשבונית ${inv.invoice_number || ""}`.trim(),
+                payment_method: pifForm.payment_method || null,
+                notes: null,
+              });
+              if (error) { showToast("שגיאה בשמירה: " + error.message, "error"); return; }
+              showToast("התשלום נרשם והחשבונית סומנה כשולמה", "success");
+              setPaidInFullInvoice(null);
+              setPifForm({ payment_date: "", payment_method: "" });
+              await Promise.all([fetchPayments(selectedItem.customer.id), fetchCustomerInvoices(selectedItem.customer.id)]);
+            };
+            return (
+              <>
+                <h3 className="text-[16px] font-bold mb-[10px]">שולם במלואו</h3>
+                <p className="text-[12px] text-white/70 mb-[12px]">חשבונית {inv.invoice_number || "—"} · יתרה לתשלום: <span dir="ltr" className="text-[#F64E60] font-bold">₪{remaining.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span> (כולל מע&quot;מ)</p>
+                <div className="flex flex-col gap-[10px]">
+                  <div className="flex flex-col gap-[3px]">
+                    <label className="text-[13px] text-white/70 text-right">תאריך תשלום</label>
+                    <DatePickerField value={pifForm.payment_date} onChange={(v) => setPifForm({ ...pifForm, payment_date: v })} />
+                  </div>
+                  <div className="flex flex-col gap-[3px]">
+                    <label className="text-[13px] text-white/70 text-right">אמצעי תשלום</label>
+                    <Select value={pifForm.payment_method || "__none__"} onValueChange={(v) => setPifForm({ ...pifForm, payment_method: v === "__none__" ? "" : v })}>
+                      <SelectTrigger className="bg-[#0F1535] border border-[#727BA0] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center">
+                        <SelectValue placeholder="בחר" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">בחר</SelectItem>
+                        {Object.entries(paymentMethodLabels).map(([k, l]) => (<SelectItem key={k} value={k}>{l}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-[8px] mt-[5px]">
+                    <Button variant="outline" type="button" onClick={() => { setPaidInFullInvoice(null); setPifForm({ payment_date: "", payment_method: "" }); }}
+                      className="flex-1 border-white/30 text-white hover:bg-white/10">ביטול</Button>
+                    <Button type="button" onClick={onSubmit}
+                      className="flex-1 bg-[#0BB783] text-white font-semibold hover:bg-[#0BB783]/90">סמן כשולם</Button>
+                  </div>
+                </div>
               </>
             );
           })()}
