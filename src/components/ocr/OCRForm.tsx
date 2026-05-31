@@ -27,6 +27,10 @@ interface Supplier {
   waiting_for_coordinator?: boolean;
   is_fixed_expense?: boolean;
   vat_type?: string | null;
+  // "נדרש מע"מ" toggle. When false the supplier is no-VAT regardless of
+  // vat_type — legacy imports left some no-VAT suppliers with vat_type='full',
+  // so this flag is the source of truth the user sees/sets.
+  requires_vat?: boolean | null;
   // DB values: 'current_expenses' | 'goods_purchases' | 'employee_costs'
   expense_type?: string | null;
   // When false, hide the OCR items table for this supplier AND skip
@@ -912,6 +916,13 @@ export default function OCRForm({
   const selectedBusinessName = selectedBusiness?.name;
   const isPearla = selectedBusinessName?.includes("פרלה") || false;
   const businessVatRate = Number(selectedBusiness?.vat_percentage) || DEFAULT_businessVatRate;
+
+  // The effective VAT policy for a supplier. A supplier explicitly flagged
+  // "נדרש מע"מ: לא" (requires_vat === false) is no-VAT even if a legacy import
+  // left vat_type === 'full'. The "נדרש מע"מ" toggle wins over vat_type.
+  const effectiveVatType = (
+    s: { vat_type?: string | null; requires_vat?: boolean | null } | undefined | null
+  ): string | null | undefined => (s?.requires_vat === false ? 'none' : s?.vat_type);
 
   // Resolve how a supplier's vat_type should drive the form's VAT fields.
   // Returns null when the supplier is regular ('full' / unset) → form falls
@@ -1834,7 +1845,7 @@ export default function OCRForm({
         // anything OCR extracted (e.g. a פטור supplier whose document still
         // lists a theoretical VAT line, or a vehicle vendor that should be
         // capped at 2/3 VAT regardless of what's printed).
-        if (matched?.vat_type === 'none') {
+        if (effectiveVatType(matched) === 'none') {
           // Use the invoice's total as the before-VAT amount (OCR may have
           // split a gross price into subtotal+vat even though the document has
           // no VAT line) and force the VAT override to 0.
@@ -1854,7 +1865,7 @@ export default function OCRForm({
           const subtotalNum = data.subtotal !== undefined && data.subtotal !== null
             ? Number(data.subtotal)
             : 0;
-          const override = resolveSupplierVatOverride(matched?.vat_type, subtotalNum);
+          const override = resolveSupplierVatOverride(effectiveVatType(matched), subtotalNum);
           if (override) {
             setPartialVat(override.partialVat);
             setVatAmount(override.vatAmount);
@@ -2851,7 +2862,7 @@ export default function OCRForm({
               }
               {
                 const subtotalNum = parseFloat(amountBeforeVat) || 0;
-                const override = resolveSupplierVatOverride(sel?.vat_type, subtotalNum);
+                const override = resolveSupplierVatOverride(effectiveVatType(sel), subtotalNum);
                 if (override) {
                   setPartialVat(override.partialVat);
                   setVatAmount(override.vatAmount);
@@ -2891,7 +2902,7 @@ export default function OCRForm({
           // 0), 'full' / unset → standard auto-calculated VAT.
           {
             const subtotalNum = parseFloat(amountBeforeVat) || 0;
-            const override = resolveSupplierVatOverride(sel?.vat_type, subtotalNum);
+            const override = resolveSupplierVatOverride(effectiveVatType(sel), subtotalNum);
             if (override) {
               setPartialVat(override.partialVat);
               setVatAmount(override.vatAmount);
@@ -3008,7 +3019,7 @@ export default function OCRForm({
                 setAmountBeforeVat(String(inv.subtotal));
                 setTotalWithVatInput('');
                 const override = resolveSupplierVatOverride(
-                  selectedSupplier.vat_type,
+                  effectiveVatType(selectedSupplier),
                   Number(inv.subtotal) || 0
                 );
                 if (override) {

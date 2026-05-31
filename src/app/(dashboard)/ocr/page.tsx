@@ -40,6 +40,7 @@ interface Supplier {
   waiting_for_coordinator?: boolean;
   is_fixed_expense?: boolean;
   vat_type?: string | null;
+  requires_vat?: boolean | null;
   expense_type?: string | null;
   // false = opt out of line-item price tracking; null/undefined treated as true
   track_prices?: boolean;
@@ -401,7 +402,7 @@ export default function OCRPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from('suppliers')
-      .select('id, name, waiting_for_coordinator, notes, default_payment_method, default_credit_card_id, default_discount_percentage, is_fixed_expense, vat_type, expense_type, track_prices, payment_terms_days')
+      .select('id, name, waiting_for_coordinator, notes, default_payment_method, default_credit_card_id, default_discount_percentage, is_fixed_expense, vat_type, requires_vat, expense_type, track_prices, payment_terms_days')
       .eq('business_id', selectedBusinessId)
       .is('deleted_at', null)
       .eq('is_active', true)
