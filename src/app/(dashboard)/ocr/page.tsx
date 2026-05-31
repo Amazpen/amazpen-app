@@ -1527,6 +1527,74 @@ export default function OCRPage() {
     [currentDocument, handleSelectDocument, pickNextPendingInFilter]
   );
 
+  // Same as handleAttachToExistingPayment but for invoices — appends the scan
+  // to invoices.attachment_url and finishes the doc. No new invoice created.
+  const handleAttachToExistingInvoice = useCallback(
+    async (invoiceId: string) => {
+      if (!currentDocument) return;
+      setIsLoading(true);
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const imageUrl = currentDocument.image_url;
+
+        const { data: invRow, error: invFetchErr } = await supabase
+          .from('invoices')
+          .select('attachment_url')
+          .eq('id', invoiceId)
+          .maybeSingle();
+        if (invFetchErr) throw invFetchErr;
+
+        const existingRaw = (invRow as { attachment_url: string | null } | null)?.attachment_url ?? null;
+        let existingUrls: string[] = [];
+        if (existingRaw) {
+          try {
+            const parsed = JSON.parse(existingRaw);
+            existingUrls = Array.isArray(parsed) ? parsed : [existingRaw];
+          } catch {
+            existingUrls = [existingRaw];
+          }
+        }
+        const combined = Array.from(new Set([...existingUrls, imageUrl].filter(Boolean))) as string[];
+        const combinedAttachment = combined.length === 0 ? null : combined.length === 1 ? combined[0] : JSON.stringify(combined);
+
+        const { error: invUpdateErr } = await supabase
+          .from('invoices')
+          .update({ attachment_url: combinedAttachment })
+          .eq('id', invoiceId);
+        if (invUpdateErr) throw invUpdateErr;
+
+        const { error: ocrErr } = await supabase
+          .from('ocr_documents')
+          .update({
+            status: 'approved',
+            reviewed_by: user?.id || null,
+            reviewed_at: new Date().toISOString(),
+            created_invoice_id: invoiceId,
+          })
+          .eq('id', currentDocument.id);
+        if (ocrErr) throw ocrErr;
+
+        alert('המסמך צורף לחשבונית ✓');
+
+        const fresh = documentsRef.current.filter((d) => d.id !== currentDocument.id);
+        setDocuments(fresh);
+        const nextPending = pickNextPendingInFilter(fresh, new Set([currentDocument.id]));
+        if (nextPending) {
+          handleSelectDocument(nextPending);
+        } else {
+          setCurrentDocument(null);
+        }
+      } catch (error) {
+        console.error('Error attaching document to invoice:', error);
+        alert('שגיאה בצירוף המסמך לחשבונית');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [currentDocument, handleSelectDocument, pickNextPendingInFilter]
+  );
+
   const handleSkip = useCallback(() => {
     if (!currentDocument) return;
 
@@ -1950,6 +2018,7 @@ export default function OCRPage() {
               })}
               onMergeDocuments={setMergedDocuments}
               onAttachToExistingPayment={handleAttachToExistingPayment}
+              onAttachToExistingInvoice={handleAttachToExistingInvoice}
               onRequestAddSupplier={
                 selectedBusinessId
                   ? () => {
