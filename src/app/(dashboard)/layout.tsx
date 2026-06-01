@@ -734,7 +734,7 @@ export default function DashboardLayout({
         <nav
           aria-label="תפריט ראשי"
           data-collapsed={isSidebarCollapsed && !isOcrPage ? "true" : "false"}
-          className={`sidebar-nav fixed top-0 right-0 h-full w-[50%] max-w-[250px] bg-[#111056] z-[1503] transform transition-all duration-300 ease-in-out p-[20px] pb-[55px] ${isOcrPage ? '' : 'lg:translate-x-0'} ${isOcrPage ? 'lg:w-[220px]' : (isSidebarCollapsed ? 'lg:w-[60px] lg:p-[10px]' : 'lg:w-[220px]')} lg:max-w-none lg:shadow-lg ${
+          className={`sidebar-nav fixed top-0 right-0 h-full w-[50%] max-w-[250px] bg-[#111056] z-[1503] transform transition-all duration-300 ease-in-out px-[20px] pt-[calc(20px+env(safe-area-inset-top,0px))] pb-[55px] ${isOcrPage ? '' : 'lg:translate-x-0'} ${isOcrPage ? 'lg:w-[220px]' : (isSidebarCollapsed ? 'lg:w-[60px] lg:p-[10px]' : 'lg:w-[220px]')} lg:max-w-none lg:shadow-lg ${
             isMenuOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -1051,7 +1051,7 @@ export default function DashboardLayout({
         )}
 
         {/* Fixed Header - Always visible, offset by sidebar on desktop */}
-        <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 transition-[right] duration-300 ${isOcrPage ? '' : (isSidebarCollapsed ? 'lg:right-[60px]' : 'lg:right-[220px]')} z-50 bg-[#0f1231] flex justify-between items-center gap-2 px-[7px] sm:px-3 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]`}>
+        <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 transition-[right] duration-300 ${isOcrPage ? '' : (isSidebarCollapsed ? 'lg:right-[60px]' : 'lg:right-[220px]')} z-50 bg-[#0f1231] flex justify-between items-center gap-2 px-[7px] sm:px-3 pb-3 sm:pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] min-h-[60px] sm:min-h-[56px]`}>
           {/* Right side - Menu and Title */}
           <div className="flex items-center gap-[8px] min-w-0 flex-1">
             <Button
@@ -1128,7 +1128,7 @@ export default function DashboardLayout({
                   {/* Dropdown - Full width */}
                   <div
                     dir="rtl"
-                    className={`fixed top-[60px] sm:top-[56px] left-0 right-0 ${isSidebarCollapsed ? 'lg:right-[60px]' : 'lg:right-[220px]'} w-full lg:w-auto max-h-[70vh] bg-[#111056] shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-b border-white/10 z-[100] overflow-hidden`}
+                    className={`fixed top-[calc(60px+env(safe-area-inset-top,0px))] sm:top-[calc(56px+env(safe-area-inset-top,0px))] left-0 right-0 ${isSidebarCollapsed ? 'lg:right-[60px]' : 'lg:right-[220px]'} w-full lg:w-auto max-h-[70vh] bg-[#111056] shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-b border-white/10 z-[100] overflow-hidden`}
                   >
                     {/* Header */}
                     <div className="flex items-center justify-between p-[15px] border-b border-white/10">
@@ -1293,7 +1293,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Main Content - with top padding for fixed header, right margin for sidebar on desktop */}
-        <main role="main" aria-label="תוכן ראשי" className={`pt-[70px] sm:pt-[66px] transition-[margin] duration-300 ${isOcrPage ? '' : (isSidebarCollapsed ? 'lg:mr-[60px]' : 'lg:mr-[220px]')}`}>
+        <main role="main" aria-label="תוכן ראשי" className={`pt-[calc(70px+env(safe-area-inset-top,0px))] sm:pt-[calc(66px+env(safe-area-inset-top,0px))] transition-[margin] duration-300 ${isOcrPage ? '' : (isSidebarCollapsed ? 'lg:mr-[60px]' : 'lg:mr-[220px]')}`}>
           <OfflineIndicator
             isOnline={offlineSync.isOnline}
             pendingCount={offlineSync.pendingCount}
