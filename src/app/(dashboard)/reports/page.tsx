@@ -853,9 +853,6 @@ export default function ReportsPage() {
         // (DB column is unreliable — empty for most days).
         const computedManagerCost = managerDailyCost * actualWorkDays;
         const totalLaborCost = (rawLaborCost + computedManagerCost) * avgMarkup;
-        // When the month is closed, the actual employee-cost invoices are the
-        // source of truth — drop the daily estimate to avoid double-counting.
-        const effectiveLaborDaily = laborMonthClosed ? 0 : totalLaborCost;
         setLaborMonthClosedState(laborMonthClosed);
         setSalaryEstimateState(rawLaborCost + computedManagerCost);
         setEmployerEstimateState((rawLaborCost + computedManagerCost) * (avgMarkup - 1));
@@ -877,6 +874,10 @@ export default function ReportsPage() {
         const supplierCategoryMap = new Map<string, string>();
         let totalGoodsExpenses = 0;
         let totalCurrentExpenses = 0;
+        // Sum of actual employee-cost invoices this month. When the labor month is
+        // closed this is the source of truth for the labor line — robust to supplier
+        // categorization (e.g. the system salary supplier has no expense_category_id).
+        let laborEmployeeCostsActual = 0;
         let totalCredits = 0; // Track credits/cancellations (#30)
         if (invoicesData) {
           for (const inv of invoicesData) {
@@ -917,6 +918,8 @@ export default function ReportsPage() {
               totalGoodsExpenses += amount;
             } else if (expType === "current_expenses") {
               totalCurrentExpenses += amount;
+            } else if (expType === "employee_costs") {
+              laborEmployeeCostsActual += amount;
             }
           }
         }
@@ -1216,7 +1219,9 @@ export default function ReportsPage() {
           }
           // For labor: totalLaborCost (daily labor+manager with markup) + invoice-based subcategories (pension, extra costs, etc.)
           const laborInvoiceActual = isLaborCost ? children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) : 0;
-          const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? effectiveLaborDaily + laborInvoiceActual : childrenActual;
+          // Labor: when the month is closed, use the actual employee-cost invoices
+          // directly (source of truth); otherwise the daily estimate + any invoice subs.
+          const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? (laborMonthClosed ? laborEmployeeCostsActual : totalLaborCost + laborInvoiceActual) : childrenActual;
           const parentTarget = isGoodsCost ? foodCostTarget : isLaborCost ? laborCostTarget : childrenBudget;
           const parentDiff = parentTarget - parentActual;
           const parentRemaining = parentTarget > 0 ? ((parentTarget - parentActual) / parentTarget) * 100 : 0;
@@ -1252,7 +1257,7 @@ export default function ReportsPage() {
         // Total expenses: goods + current + labor. Note: invoice-based labor subcategories
         // (pension, delivery co, etc.) are already counted in totalCurrentExpenses because
         // their suppliers have expense_type="current_expenses" — they are NOT double-counted.
-        const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + effectiveLaborDaily;
+        const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + (laborMonthClosed ? laborEmployeeCostsActual : totalLaborCost);
         // Total expenses target = sum of all displayed category targets. Previously
         // only goal.current_expenses_target (a single aggregate field) was used for
         // the non-food/non-labor bucket, which was often NULL — leaving the
