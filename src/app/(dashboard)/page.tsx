@@ -1993,7 +1993,8 @@ export default function DashboardPage() {
         prevMonthGoodsInvoicesResult,
         prevYearGoodsInvoicesResult,
         prevMonthCurrentExpensesInvoicesResult,
-        prevYearCurrentExpensesInvoicesResult
+        prevYearCurrentExpensesInvoicesResult,
+        prevMonthFullIncomeResult
       ] = await Promise.all([
         // Previous month entries — capped at fair-compare cutoff so the
         // partial-current-month is compared to the same partial-prev-month
@@ -2066,7 +2067,19 @@ export default function DashboardPage() {
               .gte("reference_date", prevYearStartStr)
               .lte("reference_date", prevYearEndStr)
               .is("deleted_at", null)
-          : Promise.resolve({ data: [] })
+          : Promise.resolve({ data: [] }),
+
+        // Previous month income — FULL calendar month (NOT capped at the fair cutoff).
+        // The income card compares the full-month forecast (monthlyPace) against the
+        // full previous month, mirroring the "change vs prev year" line. Using the
+        // capped 1-day prevMonth base here produced an explosive % (e.g. 5568%).
+        supabase
+          .from("daily_entries")
+          .select("total_register")
+          .in("business_id", selectedBusinesses)
+          .gte("entry_date", prevMonthStartStr)
+          .lte("entry_date", formatLocalDate(prevMonthEnd))
+          .is("deleted_at", null)
       ]);
 
       const { data: prevMonthEntries } = prevMonthEntriesResult;
@@ -2083,10 +2096,16 @@ export default function DashboardPage() {
         .filter(row => currentExpensesSupplierIdSetForFilter.has(row.supplier_id));
 
       // Calculate previous month metrics
-      // Use monthlyPace (forecast) instead of raw totalIncome for fair comparison
+      // prevMonthIncome (capped at the fair cutoff) is used by the labor/food % lines below,
+      // which compare a partial current month to the same partial prev month.
       const prevMonthIncome = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
-      const prevMonthChange = prevMonthIncome > 0 ? monthlyPace - prevMonthIncome : 0;
-      const prevMonthChangePct = prevMonthIncome > 0 ? ((monthlyPace / prevMonthIncome) - 1) * 100 : 0;
+      // Income card "change vs prev month": compare the full-month forecast (monthlyPace)
+      // against the FULL previous month — symmetric with the "change vs prev year" line.
+      // Dividing monthlyPace by the 1-day capped base produced an explosive % (e.g. 5568%).
+      const prevMonthIncomeFull = ((prevMonthFullIncomeResult.data as Array<{ total_register: number }>) || [])
+        .reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
+      const prevMonthChange = prevMonthIncomeFull > 0 ? monthlyPace - prevMonthIncomeFull : 0;
+      const prevMonthChangePct = prevMonthIncomeFull > 0 ? ((monthlyPace / prevMonthIncomeFull) - 1) * 100 : 0;
 
       const prevMonthRawLaborCost = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
       // Manager cost computed from monthly_salary (same approach as current month)
