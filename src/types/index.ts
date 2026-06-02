@@ -284,3 +284,19 @@ export interface DailyProductUsage {
   created_at: string;
   updated_at: string;
 }
+
+// Labor Month Close (סגירת חודש — עלות עובדים)
+export interface LaborMonthClose {
+  id: string;
+  business_id: string;
+  period_year: number;
+  period_month: number;
+  status: 'closed' | 'reopened';
+  estimate_total: number | null;
+  actual_total: number | null;
+  closed_at: string | null;
+  closed_by: string | null;
+  reopened_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
