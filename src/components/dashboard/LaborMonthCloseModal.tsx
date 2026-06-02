@@ -48,6 +48,10 @@ export function LaborMonthCloseModal({
       });
       const json = await res.json();
       const salaryId = json?.supplier?.id || "";
+      if (!salaryId) {
+        setError("שגיאה בטעינת ספק המשכורות. נסה שוב.");
+        return;
+      }
 
       const initial: CloseLineState[] = [
         { key: "salary", supplier_id: salaryId, label: "שכר עובדים", estimate: Math.round(salaryEstimate), amount: String(Math.round(salaryEstimate)) },

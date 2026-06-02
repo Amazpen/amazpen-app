@@ -15,6 +15,23 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
+    // Authorize: caller must be a member (or admin) of this business — this route
+    // writes via the service-role key, so RLS does not protect it.
+    const { data: profile } = await ssr
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+    const isAdmin = profile?.is_admin === true;
+    const { data: membership } = await ssr
+      .from("business_members")
+      .select("business_id")
+      .eq("business_id", business_id)
+      .eq("user_id", user.id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!membership && !isAdmin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: existing } = await supabase
