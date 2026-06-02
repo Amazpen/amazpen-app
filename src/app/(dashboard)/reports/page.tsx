@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LaborMonthCloseModal } from "@/components/dashboard/LaborMonthCloseModal";
 
 // Lazy loaded Recharts components
 const LazyBarChart = dynamic(() => import("recharts").then((mod) => ({ default: mod.BarChart })), { ssr: false });
@@ -64,6 +65,7 @@ interface ExpenseCategoryDisplay {
   actualRaw: number;
   targetRaw: number;
   subcategories: SubcategoryDisplay[];
+  isClosedLabor?: boolean;
 }
 
 // Summary data
@@ -163,6 +165,13 @@ export default function ReportsPage() {
   const [priorLiabilitiesItems, setPriorLiabilitiesItems] = useState<PriorLiabilityItem[]>([]);
   const [showPriorLiabilitiesBreakdown, setShowPriorLiabilitiesBreakdown] = useState(false);
   const [cashFlowForecast, setCashFlowForecast] = useState({ target: 0, actual: 0 });
+
+  // Employee-cost month-close UI state
+  const [laborCloseOpen, setLaborCloseOpen] = useState(false);
+  const [laborMonthClosedState, setLaborMonthClosedState] = useState(false);
+  const [salaryEstimateState, setSalaryEstimateState] = useState(0);
+  const [employerEstimateState, setEmployerEstimateState] = useState(0);
+  const [employeeSuppliersState, setEmployeeSuppliersState] = useState<{ id: string; name: string }[]>([]);
 
   // 6-month trends chart data
   const [trendsData, setTrendsData] = useState<{ month: string; income: number; expenses: number }[]>([]);
@@ -719,7 +728,7 @@ export default function ReportsPage() {
             .is("deleted_at", null),
           supabase
             .from("daily_entries")
-            .select("total_register, labor_cost, manager_daily_cost, day_factor")
+            .select("total_register, labor_cost, manager_daily_cost, day_factor, business_id")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .gte("entry_date", startDate)
@@ -756,6 +765,30 @@ export default function ReportsPage() {
             .gte("exception_date", startDate)
             .lte("exception_date", endDate),
         ]);
+
+        // Employee-cost month-close state for the displayed month.
+        const { data: laborCloseData } = await supabase
+          .from("labor_month_close")
+          .select("business_id")
+          .in("business_id", selectedBusinesses)
+          .eq("period_year", year)
+          .eq("period_month", month)
+          .eq("status", "closed");
+        const closedBusinessIds = new Set((laborCloseData || []).map((r) => r.business_id));
+        // V1: treat labor as closed only when EVERY selected business is closed.
+        // Exact for single-business view; conservative (keeps estimate) for partial multi-select.
+        const laborMonthClosed =
+          selectedBusinesses.length > 0 && selectedBusinesses.every((id) => closedBusinessIds.has(id));
+
+        // Employee-cost suppliers for the single selected business (for the close modal).
+        const { data: empSuppliers } = await supabase
+          .from("suppliers")
+          .select("id, name")
+          .eq("business_id", selectedBusinesses[0])
+          .eq("expense_type", "employee_costs")
+          .eq("is_active", true)
+          .is("deleted_at", null);
+        setEmployeeSuppliersState((empSuppliers || []).filter((s) => s.name !== "משכורות עובדים"));
 
         // Goal for this month
         const goal = goalsData?.[0];
@@ -820,6 +853,9 @@ export default function ReportsPage() {
         // (DB column is unreliable — empty for most days).
         const computedManagerCost = managerDailyCost * actualWorkDays;
         const totalLaborCost = (rawLaborCost + computedManagerCost) * avgMarkup;
+        setLaborMonthClosedState(laborMonthClosed);
+        setSalaryEstimateState(rawLaborCost + computedManagerCost);
+        setEmployerEstimateState((rawLaborCost + computedManagerCost) * (avgMarkup - 1));
         const laborOnlyCost = rawLaborCost * avgMarkup;
         const managerOnlyCost = computedManagerCost * avgMarkup;
         void rawManagerCost;
@@ -838,6 +874,10 @@ export default function ReportsPage() {
         const supplierCategoryMap = new Map<string, string>();
         let totalGoodsExpenses = 0;
         let totalCurrentExpenses = 0;
+        // Sum of actual employee-cost invoices this month. When the labor month is
+        // closed this is the source of truth for the labor line — robust to supplier
+        // categorization (e.g. the system salary supplier has no expense_category_id).
+        let laborEmployeeCostsActual = 0;
         let totalCredits = 0; // Track credits/cancellations (#30)
         if (invoicesData) {
           for (const inv of invoicesData) {
@@ -878,6 +918,8 @@ export default function ReportsPage() {
               totalGoodsExpenses += amount;
             } else if (expType === "current_expenses") {
               totalCurrentExpenses += amount;
+            } else if (expType === "employee_costs") {
+              laborEmployeeCostsActual += amount;
             }
           }
         }
@@ -1153,6 +1195,22 @@ export default function ReportsPage() {
                 suppliers: [],
               });
             }
+            const employerEstimate = (rawLaborCost + computedManagerCost) * (avgMarkup - 1);
+            if (!laborMonthClosed && employerEstimate > 0) {
+              virtualSubs.push({
+                id: "__labor_employer__",
+                name: "עלויות מעביד (הערכה)",
+                target: "—",
+                actual: formatCurrency(employerEstimate),
+                difference: "—",
+                remaining: "—",
+                remainingRaw: 0,
+                diffRaw: 0,
+                actualRaw: employerEstimate,
+                targetRaw: 0,
+                suppliers: [],
+              });
+            }
             // Keep non-labor subcategories (e.g. employee-type suppliers) and add virtual ones
             subcategoriesData = [
               ...virtualSubs,
@@ -1161,7 +1219,9 @@ export default function ReportsPage() {
           }
           // For labor: totalLaborCost (daily labor+manager with markup) + invoice-based subcategories (pension, extra costs, etc.)
           const laborInvoiceActual = isLaborCost ? children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) : 0;
-          const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? totalLaborCost + laborInvoiceActual : childrenActual;
+          // Labor: when the month is closed, use the actual employee-cost invoices
+          // directly (source of truth); otherwise the daily estimate + any invoice subs.
+          const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? (laborMonthClosed ? laborEmployeeCostsActual : totalLaborCost + laborInvoiceActual) : childrenActual;
           const parentTarget = isGoodsCost ? foodCostTarget : isLaborCost ? laborCostTarget : childrenBudget;
           const parentDiff = parentTarget - parentActual;
           const parentRemaining = parentTarget > 0 ? ((parentTarget - parentActual) / parentTarget) * 100 : 0;
@@ -1178,6 +1238,7 @@ export default function ReportsPage() {
             actualRaw: parentActual,
             targetRaw: parentTarget,
             subcategories: subcategoriesData,
+            isClosedLabor: isLaborCost && laborMonthClosed,
           };
         }).filter(cat => parseFloat(cat.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(cat.target.replace(/[₪K,]/g, "")) > 0 || cat.subcategories.length > 0);
 
@@ -1196,7 +1257,7 @@ export default function ReportsPage() {
         // Total expenses: goods + current + labor. Note: invoice-based labor subcategories
         // (pension, delivery co, etc.) are already counted in totalCurrentExpenses because
         // their suppliers have expense_type="current_expenses" — they are NOT double-counted.
-        const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + totalLaborCost;
+        const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + (laborMonthClosed ? laborEmployeeCostsActual : totalLaborCost);
         // Total expenses target = sum of all displayed category targets. Previously
         // only goal.current_expenses_target (a single aggregate field) was used for
         // the non-food/non-labor bucket, which was often NULL — leaving the
@@ -1255,6 +1316,17 @@ export default function ReportsPage() {
     setExpandedSubcategories((prev) =>
       prev.includes(id) ? prev.filter((catId) => catId !== id) : [...prev, id]
     );
+  };
+
+  const handleReopenMonth = async () => {
+    if (!confirm("פתיחה מחדש תמחק את חשבוניות הסגירה שטרם שולמו ותחזיר את ההערכה. להמשיך?")) return;
+    const res = await fetch(
+      `/api/labor-close?business_id=${selectedBusinesses[0]}&year=${parseInt(selectedYear)}&month=${parseInt(selectedMonth)}`,
+      { method: "DELETE" }
+    );
+    const json = await res.json();
+    if (!res.ok) { alert(json?.error || "פתיחה מחדש נכשלה"); return; }
+    window.location.reload();
   };
 
   const months = [
@@ -1543,7 +1615,7 @@ export default function ReportsPage() {
                   <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                     {category.difference}
                   </span>
-                  <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
+                  <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.isClosedLabor ? 'text-[#17DB4E]' : ''}`}>
                     {category.actual}
                   </span>
                   <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
@@ -1552,6 +1624,23 @@ export default function ReportsPage() {
                 </div>
                 <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0 w-[90px] sm:w-[140px]">
                   <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4] break-words">{category.name}</span>
+                  {category.name === "עלות עובדים" && selectedBusinesses.length === 1 && (
+                    laborMonthClosedState ? (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); handleReopenMonth(); }}
+                        className="text-[11px] text-[#F64E60] hover:underline ms-2 cursor-pointer"
+                      >פתח מחדש</span>
+                    ) : (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setLaborCloseOpen(true); }}
+                        className="text-[11px] text-[#7c84d8] hover:underline ms-2 cursor-pointer"
+                      >סגירת חודש</span>
+                    )
+                  )}
                   <svg
                     width="16"
                     height="16"
@@ -2084,6 +2173,20 @@ export default function ReportsPage() {
         )}
       </section>
       </>
+      )}
+
+      {selectedBusinesses.length === 1 && (
+        <LaborMonthCloseModal
+          open={laborCloseOpen}
+          onClose={() => setLaborCloseOpen(false)}
+          businessId={selectedBusinesses[0]}
+          year={parseInt(selectedYear)}
+          month={parseInt(selectedMonth)}
+          salaryEstimate={salaryEstimateState}
+          employerEstimate={employerEstimateState}
+          employeeSuppliers={employeeSuppliersState}
+          onClosed={() => window.location.reload()}
+        />
       )}
     </article>
   );

@@ -174,6 +174,7 @@ interface DetailedSummary {
   laborCostDiffAmount: number; // הפרש מהיעד בש"ח: (laborCostDiffPct × incomeBeforeVat) ÷ 100
   laborCostPrevMonthChange: number; // שינוי מחודש קודם באחוזים
   laborCostPrevYearChange: number; // שינוי משנה שעברה באחוזים
+  laborMonthClosed?: boolean; // עלות עובדים נסגרה לחודש זה — הערך מגיע מחשבוניות בפועל
   foodCost: number;
   foodCostPct: number;
   foodCostTargetPct: number; // יעד עלות מכר באחוזים
@@ -1583,7 +1584,37 @@ export default function DashboardPage() {
 
       // Labor cost: (labor + manager_daily_cost × actual_work_days) × markup — same as metrics/refresh
       const computedManagerCost = managerDailyCost * actualWorkDays;
-      const laborCost = (rawLaborCost + computedManagerCost) * totalMarkup;
+
+      // Employee-cost month-close: when closed, labor comes from actual invoices.
+      const { data: lmcRows } = await supabase
+        .from("labor_month_close")
+        .select("business_id")
+        .in("business_id", selectedBusinesses)
+        .eq("period_year", targetYear)
+        .eq("period_month", targetMonth)
+        .eq("status", "closed");
+      const lmcClosedIds = new Set((lmcRows || []).map((r) => r.business_id));
+      const laborMonthClosed =
+        selectedBusinesses.length > 0 && selectedBusinesses.every((id) => lmcClosedIds.has(id));
+
+      let laborActualFromInvoices = 0;
+      if (laborMonthClosed) {
+        const lmcLastDay = new Date(targetYear, targetMonth, 0).getDate();
+        const lmcMonthStart = `${targetYear}-${String(targetMonth).padStart(2, "0")}-01`;
+        const lmcMonthEnd = `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(lmcLastDay).padStart(2, "0")}`;
+        const { data: lmcInvoices } = await supabase
+          .from("invoices")
+          .select("subtotal, supplier:suppliers!inner(expense_type)")
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .gte("reference_date", lmcMonthStart)
+          .lte("reference_date", lmcMonthEnd)
+          .eq("supplier.expense_type", "employee_costs");
+        laborActualFromInvoices = (lmcInvoices || []).reduce((s, r) => s + Number(r.subtotal || 0), 0);
+      }
+
+      const laborCostEstimate = (rawLaborCost + computedManagerCost) * totalMarkup;
+      const laborCost = laborMonthClosed ? laborActualFromInvoices : laborCostEstimate;
 
       // Get average VAT percentage - use monthly goal values with business defaults as fallback
       // Normalize: if stored as multiplier (>1), convert to fraction
@@ -2743,6 +2774,7 @@ export default function DashboardPage() {
         laborCostDiffAmount,
         laborCostPrevMonthChange,
         laborCostPrevYearChange,
+        laborMonthClosed,
         foodCost,
         foodCostPct,
         foodCostTargetPct,
@@ -3808,10 +3840,10 @@ export default function DashboardPage() {
                       )}
                       <div className="flex flex-row-reverse justify-between items-center w-full gap-[15px]">
                         <div className="flex flex-row items-center gap-[10px]">
-                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
+                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor} ${detailedSummary?.laborMonthClosed ? 'text-green-500' : ''}`}>
                             {formatPercent(detailedSummary?.laborCostPct || 0)}
                           </span>
-                          <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${laborDiffColor}`}>
+                          <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${laborDiffColor} ${detailedSummary?.laborMonthClosed ? 'text-green-500' : ''}`}>
                             {formatCurrencyFull(detailedSummary?.laborCost || 0)}
                           </span>
                         </div>
@@ -3885,10 +3917,10 @@ export default function DashboardPage() {
                     )}
                     <div className="flex flex-row-reverse justify-between items-center w-full">
                       <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
-                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
+                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor} ${detailedSummary?.laborMonthClosed ? 'text-green-500' : ''}`}>
                           {formatPercent(detailedSummary?.laborCostPct || 0)}
                         </span>
-                        <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${laborDiffColor}`}>
+                        <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${laborDiffColor} ${detailedSummary?.laborMonthClosed ? 'text-green-500' : ''}`}>
                           {formatCurrencyFull(detailedSummary?.laborCost || 0)}
                         </span>
                       </div>
