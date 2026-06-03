@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
 
-interface EmployeeSupplier { id: string; name: string; }
+interface EmployeeSupplier { id: string; name: string; amount?: number; }
 
 interface CloseLineState {
   key: string;
@@ -55,9 +55,13 @@ export function LaborMonthCloseModal({
 
       const initial: CloseLineState[] = [
         { key: "salary", supplier_id: salaryId, label: "שכר עובדים", estimate: Math.round(salaryEstimate), amount: String(Math.round(salaryEstimate)) },
-        ...employeeSuppliers.map((s, i) => ({
-          key: `sup-${s.id}-${i}`, supplier_id: s.id, label: s.name, estimate: 0, amount: "",
-        })),
+        ...employeeSuppliers.map((s, i) => {
+          const existing = Math.round(s.amount || 0);
+          return {
+            key: `sup-${s.id}-${i}`, supplier_id: s.id, label: s.name,
+            estimate: existing, amount: String(existing),
+          };
+        }),
       ];
       setLines(initial);
     })();

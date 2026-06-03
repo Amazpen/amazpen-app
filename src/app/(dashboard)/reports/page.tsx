@@ -172,7 +172,7 @@ export default function ReportsPage() {
   const [laborMonthClosedState, setLaborMonthClosedState] = useState(false);
   const [salaryEstimateState, setSalaryEstimateState] = useState(0);
   const [employerEstimateState, setEmployerEstimateState] = useState(0);
-  const [employeeSuppliersState, setEmployeeSuppliersState] = useState<{ id: string; name: string }[]>([]);
+  const [employeeSuppliersState, setEmployeeSuppliersState] = useState<{ id: string; name: string; amount?: number }[]>([]);
 
   // 6-month trends chart data
   const [trendsData, setTrendsData] = useState<{ month: string; income: number; expenses: number }[]>([]);
@@ -789,7 +789,6 @@ export default function ReportsPage() {
           .eq("expense_type", "employee_costs")
           .eq("is_active", true)
           .is("deleted_at", null);
-        setEmployeeSuppliersState((empSuppliers || []).filter((s) => s.name !== "משכורות עובדים"));
 
         // Goal for this month
         const goal = goalsData?.[0];
@@ -979,6 +978,15 @@ export default function ReportsPage() {
             }
           }
         }
+
+        // Employee-cost suppliers for the close modal, each pre-filled with the
+        // amount already recorded for it this month (so the user just corrects;
+        // 0 when nothing was recorded yet).
+        setEmployeeSuppliersState(
+          (empSuppliers || [])
+            .filter((s) => s.name !== "משכורות עובדים")
+            .map((s) => ({ id: s.id, name: s.name, amount: supplierActuals.get(s.id) || 0 }))
+        );
 
         // Build expense categories display.
         // goals.current_expenses_target is stored INCLUDING VAT (same convention
@@ -1625,24 +1633,33 @@ export default function ReportsPage() {
                   </span>
                 </div>
                 <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0 w-[90px] sm:w-[140px]">
-                  <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4] break-words">{category.name}</span>
-                  {category.isLaborParent && selectedBusinesses.length === 1 && (
-                    laborMonthClosedState ? (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); handleReopenMonth(); }}
-                        className="text-[11px] text-[#F64E60] hover:underline ms-2 cursor-pointer"
-                      >פתח מחדש</span>
-                    ) : (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); setLaborCloseOpen(true); }}
-                        className="text-[11px] text-[#7c84d8] hover:underline ms-2 cursor-pointer"
-                      >סגירת חודש</span>
-                    )
-                  )}
+                  <div className="flex flex-col items-end gap-[4px] min-w-0">
+                    <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4] break-words">{category.name}</span>
+                    {category.isLaborParent && selectedBusinesses.length === 1 && (
+                      laborMonthClosedState ? (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); handleReopenMonth(); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); handleReopenMonth(); } }}
+                          className="flex items-center gap-[3px] text-[10px] sm:text-[11px] font-bold bg-[#17DB4E]/15 text-[#17DB4E] border border-[#17DB4E]/40 rounded-full px-[8px] py-[3px] hover:bg-[#17DB4E]/25 transition-colors cursor-pointer whitespace-nowrap"
+                        >פתח מחדש</span>
+                      ) : (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setLaborCloseOpen(true); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setLaborCloseOpen(true); } }}
+                          className="flex items-center gap-[3px] text-[10px] sm:text-[11px] font-bold bg-[#29318A] text-white border border-[#5a63c4] rounded-full px-[8px] py-[3px] hover:bg-[#343da3] transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                          </svg>
+                          סגור חודש
+                        </span>
+                      )
+                    )}
+                  </div>
                   <svg
                     width="16"
                     height="16"
@@ -1771,6 +1788,33 @@ export default function ReportsPage() {
                       )}
                     </div>
                   ))}
+                  {category.isLaborParent && selectedBusinesses.length === 1 && (
+                    laborMonthClosedState ? (
+                      <div className="m-[5px] p-[10px] rounded-[8px] bg-[#17DB4E]/10 border border-[#17DB4E]/30 flex flex-row-reverse items-center justify-between gap-[8px]">
+                        <div className="flex flex-col gap-[2px] text-right min-w-0">
+                          <span className="text-[12px] sm:text-[13px] font-bold text-[#17DB4E]">החודש סגור — מוצגת עלות בפועל</span>
+                          <span className="text-[10px] sm:text-[11px] text-white/60 leading-[1.4]">החשבוניות נכנסו לתזרים. אפשר לפתוח מחדש כדי לתקן.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleReopenMonth()}
+                          className="shrink-0 bg-transparent border border-[#F64E60]/50 text-[#F64E60] hover:bg-[#F64E60]/10 text-[12px] sm:text-[13px] font-bold rounded-[7px] px-[14px] py-[8px] whitespace-nowrap transition-colors cursor-pointer"
+                        >פתח מחדש</button>
+                      </div>
+                    ) : (
+                      <div className="m-[5px] p-[10px] rounded-[8px] bg-[#29318A]/40 border border-[#5a63c4]/40 flex flex-row-reverse items-center justify-between gap-[8px]">
+                        <div className="flex flex-col gap-[2px] text-right min-w-0">
+                          <span className="text-[12px] sm:text-[13px] font-bold">סגירת חודש עלות עובדים</span>
+                          <span className="text-[10px] sm:text-[11px] text-white/60 leading-[1.4]">הזן את הסכומים שיצאו בפועל מהנהלת החשבונות (שכר, פנסיה, ביטוח לאומי, פיצויים).</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLaborCloseOpen(true)}
+                          className="shrink-0 bg-[#29318A] hover:bg-[#343da3] text-white text-[12px] sm:text-[13px] font-bold rounded-[7px] px-[14px] py-[8px] whitespace-nowrap transition-colors cursor-pointer"
+                        >סגור חודש</button>
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </div>
