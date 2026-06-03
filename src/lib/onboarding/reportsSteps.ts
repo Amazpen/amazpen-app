@@ -108,6 +108,20 @@ const YEARLY_STEPS: DriveStep[] = [
   },
 ];
 
+// שלב ייחודי לסגירת חודש עלות עובדים (מוצג רק בתצוגה חודשית, כשבוחרים עסק אחד
+// והכפתור קיים ב-DOM). מסביר את כל מהות הפיצ'ר: הערכה במהלך החודש, סגירה עם
+// סכומים בפועל, וכניסה לתזרים.
+const LABOR_CLOSE_STEP: DriveStep = {
+  element: "#onboarding-labor-close",
+  popover: {
+    title: "סגירת חודש עלות עובדים",
+    description:
+      "במהלך החודש עלות העובדים בדוח היא הערכה, המחושבת מהמילוי היומי ומאחוז ההעמסה. בסוף החודש, כשמגיע הדוח מהנהלת החשבונות, לוחצים כאן על 'סגור חודש' ומזינים את הסכומים שיצאו בפועל: שכר, פנסיה, ביטוח לאומי ופיצויים, כל אחד בנפרד. מרגע הסגירה כל סכום הופך לחשבונית אמיתית שנכנסת לתזרים כמו כל הוצאה, והדוח מציג את הסכום בפועל במקום ההערכה ובצבע ירוק. אם נפלה טעות לוחצים 'פתח מחדש', מתקנים, וסוגרים שוב. הפעולה זמינה כשבוחרים עסק אחד.",
+    side: "bottom",
+    align: "center",
+  },
+};
+
 const BOTTOM_STEP: DriveStep = {
   element: "#onboarding-reports-bottom",
   popover: {
@@ -129,7 +143,12 @@ export function getReportsSteps(): DriveStep[] {
     !!document.getElementById("onboarding-reports-yearly-breakdown");
 
   const middle = isYearly ? YEARLY_STEPS : MONTHLY_STEPS;
-  return [INTRO_STEP, SUMMARY_TOP_STEP, VIEW_TOGGLE_STEP, ...middle, BOTTOM_STEP];
+  // הצג את שלב סגירת החודש רק בתצוגה החודשית וכשהכפתור קיים בפועל (עסק בודד).
+  const laborClosePresent =
+    typeof document !== "undefined" &&
+    !!document.getElementById("onboarding-labor-close");
+  const laborStep = !isYearly && laborClosePresent ? [LABOR_CLOSE_STEP] : [];
+  return [INTRO_STEP, SUMMARY_TOP_STEP, VIEW_TOGGLE_STEP, ...middle, ...laborStep, BOTTOM_STEP];
 }
 
 /** ברירת מחדל (תצוגה חודשית) לשימושים סטטיים. */

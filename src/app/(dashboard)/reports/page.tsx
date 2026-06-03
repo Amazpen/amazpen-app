@@ -1638,6 +1638,7 @@ export default function ReportsPage() {
                     {category.isLaborParent && selectedBusinesses.length === 1 && (
                       laborMonthClosedState ? (
                         <span
+                          id="onboarding-labor-close"
                           role="button"
                           tabIndex={0}
                           onClick={(e) => { e.stopPropagation(); handleReopenMonth(); }}
@@ -1646,6 +1647,7 @@ export default function ReportsPage() {
                         >פתח מחדש</span>
                       ) : (
                         <span
+                          id="onboarding-labor-close"
                           role="button"
                           tabIndex={0}
                           onClick={(e) => { e.stopPropagation(); setLaborCloseOpen(true); }}
