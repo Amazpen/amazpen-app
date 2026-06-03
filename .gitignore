@@ -57,3 +57,4 @@ security/
 
 # Marketing content (local only - strategy, templates, posts)
 content-marketing/
+.gstack/
