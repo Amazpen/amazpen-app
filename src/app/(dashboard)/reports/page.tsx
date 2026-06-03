@@ -66,6 +66,7 @@ interface ExpenseCategoryDisplay {
   targetRaw: number;
   subcategories: SubcategoryDisplay[];
   isClosedLabor?: boolean;
+  isLaborParent?: boolean;
 }
 
 // Summary data
@@ -1239,6 +1240,7 @@ export default function ReportsPage() {
             targetRaw: parentTarget,
             subcategories: subcategoriesData,
             isClosedLabor: isLaborCost && laborMonthClosed,
+            isLaborParent: isLaborCost,
           };
         }).filter(cat => parseFloat(cat.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(cat.target.replace(/[₪K,]/g, "")) > 0 || cat.subcategories.length > 0);
 
@@ -1624,7 +1626,7 @@ export default function ReportsPage() {
                 </div>
                 <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0 w-[90px] sm:w-[140px]">
                   <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4] break-words">{category.name}</span>
-                  {category.name === "עלות עובדים" && selectedBusinesses.length === 1 && (
+                  {category.isLaborParent && selectedBusinesses.length === 1 && (
                     laborMonthClosedState ? (
                       <span
                         role="button"
