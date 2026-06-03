@@ -160,9 +160,9 @@ export function LaborMonthCloseModal({
           </button>
 
           <div className="mt-4 border-t border-white/10 pt-3 flex flex-col gap-1 text-[14px]">
-            <div className="flex justify-between"><span className="text-white/60">סה&quot;כ הערכה</span><span className="ltr-num">{estimateTotal.toLocaleString("he-IL")} ₪</span></div>
-            <div className="flex justify-between"><span className="text-white/60">סה&quot;כ בפועל</span><span className="ltr-num font-bold">{actualTotal.toLocaleString("he-IL")} ₪</span></div>
-            <div className="flex justify-between"><span className="text-white/60">הפרש</span><span className="ltr-num">{(actualTotal - estimateTotal).toLocaleString("he-IL")} ₪</span></div>
+            <div className="flex justify-between"><span className="text-white/60">סה&quot;כ הערכה</span><span className="ltr-num">₪ {estimateTotal.toLocaleString("he-IL")}</span></div>
+            <div className="flex justify-between"><span className="text-white/60">סה&quot;כ בפועל</span><span className="ltr-num font-bold">₪ {actualTotal.toLocaleString("he-IL")}</span></div>
+            <div className="flex justify-between"><span className="text-white/60">הפרש</span><span className="ltr-num">₪ {(actualTotal - estimateTotal).toLocaleString("he-IL")}</span></div>
           </div>
 
           {error && <p className="mt-3 text-[13px] text-[#F64E60]">{error}</p>}
