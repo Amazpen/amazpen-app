@@ -4,16 +4,31 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * Open Expenses API — returns, per business, the expenses (invoices) that have
  * NOT been closed yet (status pending / clarification — i.e. not paid),
- * grouped by supplier.
+ * grouped BY MONTH. Each month holds the list of its open invoices.
  *
- * Used by the n8n workflow to email David + owners a per-business summary of
- * still-open expenses.
+ * Used by the n8n workflow to email David + owners a per-business, per-month
+ * list of still-open invoices.
  *
  * Query params: business_id
- * Returns: { business_name, emails, suppliers: [{ name, open_count, open_amount }],
- *            total_open_count, total_open_amount, count }
+ * Returns: {
+ *   business_name, emails,
+ *   months: [{ ym, label, count, amount, invoices: [{supplier, invoice_number, date, amount}] }],
+ *   total_open_count, total_open_amount, count
+ * }
  */
 const OPEN_STATUSES = ["pending", "clarification"];
+
+const HEBREW_MONTHS = [
+  "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+  "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
+];
+
+function formatDate(d: string | null): string {
+  if (!d) return "";
+  const [y, m, day] = String(d).slice(0, 10).split("-");
+  if (!y || !m || !day) return String(d);
+  return `${day}/${m}/${y}`;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,10 +46,9 @@ export async function GET(request: NextRequest) {
 
     const [businessRes, invoicesRes, membersRes] = await Promise.all([
       supabase.from("businesses").select("name").eq("id", businessId).single(),
-      // Open (un-closed) invoices with their supplier name.
       supabase
         .from("invoices")
-        .select("total_amount, supplier_id, suppliers(name)")
+        .select("invoice_number, invoice_date, total_amount, supplier_id, suppliers(name)")
         .eq("business_id", businessId)
         .is("deleted_at", null)
         .in("status", OPEN_STATUSES)
@@ -52,34 +66,57 @@ export async function GET(request: NextRequest) {
 
     const invoices = invoicesRes.data || [];
 
-    // Group by supplier.
-    const bySupplier = new Map<string, { name: string; open_count: number; open_amount: number }>();
+    // Group by month (YYYY-MM of invoice_date). No date -> "ללא תאריך" bucket.
+    type Inv = { supplier: string; invoice_number: string; date: string; amount: number };
+    const byMonth = new Map<string, { ym: string; label: string; amount: number; invoices: Inv[] }>();
+
     for (const inv of invoices) {
-      const supplierName =
-        (inv.suppliers as unknown as { name: string } | null)?.name || "ללא ספק";
-      const key = inv.supplier_id || `__none__:${supplierName}`;
+      const dateStr = inv.invoice_date ? String(inv.invoice_date).slice(0, 10) : "";
+      const ym = dateStr ? dateStr.slice(0, 7) : "0000-00";
+      let label: string;
+      if (dateStr) {
+        const m = parseInt(dateStr.slice(5, 7), 10);
+        label = `${HEBREW_MONTHS[m - 1]} ${dateStr.slice(0, 4)}`;
+      } else {
+        label = "ללא תאריך";
+      }
       const amount = Number(inv.total_amount) || 0;
-      const entry = bySupplier.get(key) || { name: supplierName, open_count: 0, open_amount: 0 };
-      entry.open_count += 1;
-      entry.open_amount += amount;
-      bySupplier.set(key, entry);
+      const supplier =
+        (inv.suppliers as unknown as { name: string } | null)?.name || "ללא ספק";
+
+      const entry = byMonth.get(ym) || { ym, label, amount: 0, invoices: [] };
+      entry.amount += amount;
+      entry.invoices.push({
+        supplier,
+        invoice_number: inv.invoice_number || "—",
+        date: formatDate(dateStr || null),
+        amount: Math.round(amount * 100) / 100,
+      });
+      byMonth.set(ym, entry);
     }
 
-    const suppliers = Array.from(bySupplier.values())
-      .map((s) => ({ ...s, open_amount: Math.round(s.open_amount * 100) / 100 }))
-      .sort((a, b) => b.open_amount - a.open_amount);
+    // Newest month first; within a month, biggest amount first.
+    const months = Array.from(byMonth.values())
+      .sort((a, b) => (a.ym < b.ym ? 1 : a.ym > b.ym ? -1 : 0))
+      .map((mo) => ({
+        ym: mo.ym,
+        label: mo.label,
+        count: mo.invoices.length,
+        amount: Math.round(mo.amount * 100) / 100,
+        invoices: mo.invoices.sort((a, b) => b.amount - a.amount),
+      }));
 
     const totalOpenCount = invoices.length;
     const totalOpenAmount =
-      Math.round(suppliers.reduce((s, x) => s + x.open_amount, 0) * 100) / 100;
+      Math.round(months.reduce((s, m) => s + m.amount, 0) * 100) / 100;
 
     return Response.json({
       business_name: businessName,
       emails,
-      suppliers,
+      months,
       total_open_count: totalOpenCount,
       total_open_amount: totalOpenAmount,
-      count: suppliers.length,
+      count: months.length,
     });
   } catch (error) {
     console.error("[Open Expenses API] Error:", error);
