@@ -18,6 +18,12 @@ import { createClient } from "@supabase/supabase-js";
  */
 const OPEN_STATUSES = ["pending", "clarification"];
 
+const TYPE_LABELS: Record<string, string> = {
+  goods: "רכישות סחורה",
+  current: "הוצאות שוטפות",
+  employees: "עלות עובדים",
+};
+
 const HEBREW_MONTHS = [
   "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
   "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
@@ -48,7 +54,7 @@ export async function GET(request: NextRequest) {
       supabase.from("businesses").select("name").eq("id", businessId).single(),
       supabase
         .from("invoices")
-        .select("invoice_number, invoice_date, total_amount, supplier_id, suppliers(name)")
+        .select("invoice_number, invoice_date, total_amount, invoice_type, supplier_id, suppliers(name)")
         .eq("business_id", businessId)
         .is("deleted_at", null)
         .in("status", OPEN_STATUSES)
@@ -67,7 +73,7 @@ export async function GET(request: NextRequest) {
     const invoices = invoicesRes.data || [];
 
     // Group by month (YYYY-MM of invoice_date). No date -> "ללא תאריך" bucket.
-    type Inv = { supplier: string; invoice_number: string; date: string; amount: number };
+    type Inv = { supplier: string; expense_type: string; invoice_number: string; date: string; amount: number };
     const byMonth = new Map<string, { ym: string; label: string; amount: number; invoices: Inv[] }>();
 
     for (const inv of invoices) {
@@ -88,6 +94,7 @@ export async function GET(request: NextRequest) {
       entry.amount += amount;
       entry.invoices.push({
         supplier,
+        expense_type: TYPE_LABELS[inv.invoice_type as string] || "אחר",
         invoice_number: inv.invoice_number || "—",
         date: formatDate(dateStr || null),
         amount: Math.round(amount * 100) / 100,
