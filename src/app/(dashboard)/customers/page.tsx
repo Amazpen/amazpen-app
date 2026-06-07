@@ -439,6 +439,13 @@ export default function CustomersPage() {
   const [newServiceAmount, setNewServiceAmount] = useState("");
   const [newServiceDate, setNewServiceDate] = useState("");
   const [newServiceNotes, setNewServiceNotes] = useState("");
+  // Add-product/service form now mirrors the main customer form: a type picker
+  // (one-time vs retainer) drives whether we create a customer_services row or
+  // set the customer's retainer (same single-retainer model as the main form).
+  const [newServiceType, setNewServiceType] = useState<'one_time' | 'monthly' | 'fixed_term'>('one_time');
+  const [newServiceMonths, setNewServiceMonths] = useState("");
+  const [newServiceDayOfMonth, setNewServiceDayOfMonth] = useState("1");
+  const [newServiceStartDate, setNewServiceStartDate] = useState("");
 
   // Labor cost form state
   const [fLaborType, setFLaborType] = useState<string>("");
@@ -1319,6 +1326,50 @@ export default function CustomersPage() {
 
   // ─── Service Handlers ────────────────────────────────────
 
+  const resetServiceForm = () => {
+    setNewServiceName("");
+    setNewServiceAmount("");
+    setNewServiceDate("");
+    setNewServiceNotes("");
+    setNewServiceType('one_time');
+    setNewServiceMonths("");
+    setNewServiceDayOfMonth("1");
+    setNewServiceStartDate("");
+    setIsAddServiceOpen(false);
+  };
+
+  // Find-or-revive an income source by (business_id, name). income_sources has a
+  // partial UNIQUE(business_id, name) WHERE deleted_at IS NULL, so a plain INSERT
+  // 409s when an active OR soft-deleted row with that name exists. Returns id|null.
+  const ensureIncomeSource = async (
+    supabase: ReturnType<typeof createClient>,
+    businessId: string,
+    name: string
+  ): Promise<string | null> => {
+    const { data: existing } = await supabase
+      .from("income_sources")
+      .select("id, deleted_at")
+      .eq("business_id", businessId)
+      .eq("name", name)
+      .order("deleted_at", { ascending: true, nullsFirst: true }) // prefer active row
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      if (existing.deleted_at) {
+        await supabase.from("income_sources")
+          .update({ deleted_at: null, is_active: true })
+          .eq("id", existing.id);
+      }
+      return existing.id;
+    }
+    const id = generateUUID();
+    const { error } = await supabase
+      .from("income_sources")
+      .insert({ id, business_id: businessId, name, is_active: true });
+    if (error) { console.error("ensureIncomeSource insert error:", error); return null; }
+    return id;
+  };
+
   const handleAddService = async () => {
     if (!selectedItem?.customer || !newServiceName.trim() || !newServiceAmount) return;
 
@@ -1328,11 +1379,80 @@ export default function CustomersPage() {
       return;
     }
 
-    setIsSubmitting(true);
     const supabase = createClient();
-    const serviceId = generateUUID();
-    const customerId = selectedItem.customer.id;
+    const customer = selectedItem.customer;
+    const customerId = customer.id;
 
+    // ── Retainer (recurring) — mirrors the main customer form. Sets the
+    // customer's single retainer rather than creating a one-off service row. ──
+    if (newServiceType === 'monthly' || newServiceType === 'fixed_term') {
+      const dayOfMonth = parseInt(newServiceDayOfMonth, 10) || 1;
+      const months = newServiceType === 'fixed_term' ? (parseInt(newServiceMonths, 10) || null) : null;
+      if (newServiceType === 'fixed_term' && (!months || months <= 0)) {
+        showToast("יש להזין כמות חודשים", "error");
+        return;
+      }
+      const startDate = newServiceStartDate || new Date().toISOString().split('T')[0];
+      let endDate: string | null = null;
+      if (months) {
+        const d = new Date(startDate);
+        d.setMonth(d.getMonth() + months);
+        endDate = d.toISOString().split('T')[0];
+      }
+
+      setIsSubmitting(true);
+      const { error } = await supabase.from("customers").update({
+        retainer_amount: amount,
+        retainer_type: newServiceType,
+        retainer_months: months,
+        retainer_day_of_month: dayOfMonth,
+        retainer_start_date: startDate,
+        retainer_end_date: endDate,
+        retainer_status: 'active',
+      }).eq("id", customerId);
+
+      if (error) {
+        showToast("שגיאה בשמירת ריטיינר", "error");
+        console.error(error);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Link an income source (robust against the partial-unique 409).
+      let linkedId = customer.linked_income_source_id || null;
+      if (!linkedId && customer.business_id) {
+        linkedId = await ensureIncomeSource(supabase, customer.business_id, `ריטיינר — ${(customer.business_name || '').trim()}`);
+        if (linkedId) {
+          await supabase.from("customers").update({ linked_income_source_id: linkedId }).eq("id", customerId);
+        }
+      }
+
+      // Optimistically reflect the new retainer in the open detail panel.
+      setSelectedItem((prev) => prev && prev.customer ? {
+        ...prev,
+        customer: {
+          ...prev.customer,
+          retainer_amount: amount,
+          retainer_type: newServiceType,
+          retainer_months: months,
+          retainer_day_of_month: dayOfMonth,
+          retainer_start_date: startDate,
+          retainer_end_date: endDate,
+          retainer_status: 'active',
+          linked_income_source_id: linkedId,
+        },
+      } : prev);
+
+      showToast("הריטיינר נשמר", "success");
+      resetServiceForm();
+      setRefreshTrigger((prev) => prev + 1);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // ── One-time product/service (creates a customer_services row) ──
+    setIsSubmitting(true);
+    const serviceId = generateUUID();
     const { error } = await supabase.from("customer_services").insert({
       id: serviceId,
       customer_id: customerId,
@@ -1350,11 +1470,7 @@ export default function CustomersPage() {
       // VAT) is handled server-side by the trg_bridge_customer_service trigger,
       // mirroring the customer_payments bridge. No client-side insert needed.
       showToast("השירות נשמר", "success");
-      setNewServiceName("");
-      setNewServiceAmount("");
-      setNewServiceDate("");
-      setNewServiceNotes("");
-      setIsAddServiceOpen(false);
+      resetServiceForm();
       await fetchServices(customerId);
     }
     setIsSubmitting(false);
@@ -3064,6 +3180,20 @@ export default function CustomersPage() {
                   {/* Add Service Sub-form */}
                   {isAddServiceOpen && (
                     <div className="flex flex-col gap-[8px] mt-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
+                      {/* סוג — חד פעמי / ריטיינר (כמו הטופס הרגיל) */}
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">סוג</label>
+                        <Select value={newServiceType} onValueChange={(val) => setNewServiceType(val as 'one_time' | 'monthly' | 'fixed_term')}>
+                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center">
+                            <SelectValue placeholder="בחר סוג" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="one_time">חד פעמי</SelectItem>
+                            <SelectItem value="monthly">ריטיינר חודשי</SelectItem>
+                            <SelectItem value="fixed_term">מתמשך ל-X חודשים</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">שם השירות/מוצר</label>
                         <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
@@ -3095,26 +3225,69 @@ export default function CustomersPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-col gap-[3px]">
-                        <label className="text-[13px] text-white/70 text-right">תאריך</label>
-                        <DatePickerField
-                          value={newServiceDate}
-                          onChange={(val) => setNewServiceDate(val)}
-                          className="h-[40px] rounded-[7px] text-[13px]"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-[3px]">
-                        <label className="text-[13px] text-white/70 text-right">הערות</label>
-                        <div className="border border-[#727BA0] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
-                          <Textarea
-                            title="הערות"
-                            value={newServiceNotes}
-                            onChange={(e) => setNewServiceNotes(e.target.value)}
-                            placeholder="הערות..."
-                            className="w-full bg-transparent text-white text-[13px] text-right rounded-[7px] border-none outline-none resize-none min-h-[28px] placeholder:text-white/30"
-                          />
-                        </div>
-                      </div>
+                      {newServiceType === 'one_time' ? (
+                        <>
+                          <div className="flex flex-col gap-[3px]">
+                            <label className="text-[13px] text-white/70 text-right">תאריך</label>
+                            <DatePickerField
+                              value={newServiceDate}
+                              onChange={(val) => setNewServiceDate(val)}
+                              className="h-[40px] rounded-[7px] text-[13px]"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-[3px]">
+                            <label className="text-[13px] text-white/70 text-right">הערות</label>
+                            <div className="border border-[#727BA0] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
+                              <Textarea
+                                title="הערות"
+                                value={newServiceNotes}
+                                onChange={(e) => setNewServiceNotes(e.target.value)}
+                                placeholder="הערות..."
+                                className="w-full bg-transparent text-white text-[13px] text-right rounded-[7px] border-none outline-none resize-none min-h-[28px] placeholder:text-white/30"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {newServiceType === 'fixed_term' && (
+                            <div className="flex flex-col gap-[3px]">
+                              <label className="text-[13px] text-white/70 text-right">כמות חודשים</label>
+                              <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
+                                <Input
+                                  type="tel"
+                                  title="כמות חודשים"
+                                  value={newServiceMonths}
+                                  onChange={(e) => setNewServiceMonths(e.target.value)}
+                                  placeholder="12"
+                                  className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex flex-col gap-[3px]">
+                            <label className="text-[13px] text-white/70 text-right">יום חיוב בחודש</label>
+                            <Select value={newServiceDayOfMonth} onValueChange={setNewServiceDayOfMonth}>
+                              <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center">
+                                <SelectValue placeholder="בחר יום" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                                  <SelectItem key={day} value={String(day)}>{day}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex flex-col gap-[3px]">
+                            <label className="text-[13px] text-white/70 text-right">תאריך תחילת ריטיינר</label>
+                            <DatePickerField
+                              value={newServiceStartDate}
+                              onChange={(val) => setNewServiceStartDate(val)}
+                              className="h-[40px] rounded-[7px] text-[13px]"
+                            />
+                          </div>
+                        </>
+                      )}
                       <Button
                         variant="default"
                         type="button"
@@ -3131,7 +3304,7 @@ export default function CustomersPage() {
                             שומר...
                           </>
                         ) : (
-                          "שמור שירות"
+                          newServiceType === 'one_time' ? "שמור שירות" : "שמור ריטיינר"
                         )}
                       </Button>
                     </div>
