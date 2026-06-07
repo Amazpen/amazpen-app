@@ -145,6 +145,13 @@ export default function CashFlowPage() {
     return d;
   });
 
+  // Start of the DISPLAYED range. null = default (opening date / current month
+  // forward, per David #13). The date-range picker can move this backwards so
+  // the user can review past months (e.g. April). Intentionally NOT persisted:
+  // a saved start would silently freeze the view on an old month — the exact
+  // "stuck on March" bug the savedEndDate stale-guard already fights.
+  const [viewStart, setViewStart] = useState<Date | null>(null);
+
   // Initialize from persisted — but ignore stale saved end-dates that fall
   // before today + 1 month (David: "the cashflow is stuck on March even
   // though we're at the end of April"). The persisted value silently froze
@@ -216,10 +223,19 @@ export default function CashFlowPage() {
         const openingDate = settingsData?.opening_date ? String(settingsData.opening_date).substring(0, 10) : defaultOpeningDate;
         const endDateStr = formatLocalDate(endDate);
 
-        // We need to fetch income entries from BEFORE the opening date too,
+        // Lower bound of the DISPLAYED range. Defaults to the opening date but
+        // the date-range picker can move it backwards (viewStart) so the user
+        // can review past months. Clamp so it never falls after the end date —
+        // that was the original bug: picking an earlier month set only the end,
+        // which landed before the opening date and produced a zero-length day
+        // loop, blanking the whole table.
+        let displayStartStr = viewStart ? formatLocalDate(viewStart) : openingDate;
+        if (displayStartStr > endDateStr) displayStartStr = endDateStr;
+
+        // We need to fetch income entries from BEFORE the display start too,
         // because settlement rules may push their settlement date into our range.
-        // Fetch entries from 2 months before opening date to cover bimonthly settlements.
-        const lookbackDate = new Date(openingDate + "T00:00:00");
+        // Fetch entries from 2 months before the start to cover bimonthly settlements.
+        const lookbackDate = new Date(displayStartStr + "T00:00:00");
         lookbackDate.setMonth(lookbackDate.getMonth() - 2);
         const lookbackStr = formatLocalDate(lookbackDate);
 
@@ -242,13 +258,13 @@ export default function CashFlowPage() {
             .select("id, amount, payment_method, due_date, payments!inner(business_id, supplier_id, deleted_at, suppliers(name))")
             .eq("payments.business_id", businessId)
             .is("payments.deleted_at", null)
-            .gte("due_date", openingDate)
+            .gte("due_date", displayStartStr)
             .lte("due_date", endDateStr),
           supabase
             .from("cashflow_income_overrides")
             .select("*")
             .eq("business_id", businessId)
-            .gte("settlement_date", openingDate)
+            .gte("settlement_date", displayStartStr)
             .lte("settlement_date", endDateStr),
           // Fetch active retainers for income forecast (#36)
           supabase
@@ -344,7 +360,7 @@ export default function CashFlowPage() {
           const name = `ריטיינר — ${customerLabel}${vatNote}`;
 
           // Generate entries for each month in range
-          const rangeStart = new Date(openingDate + "T00:00:00");
+          const rangeStart = new Date(displayStartStr + "T00:00:00");
           const rangeEnd = new Date(endDateStr + "T00:00:00");
           for (let m = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1); m <= rangeEnd; m.setMonth(m.getMonth() + 1)) {
             const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
@@ -353,7 +369,7 @@ export default function CashFlowPage() {
             const dateStr = `${monthKey}-${String(day).padStart(2, "0")}`;
             // Already paid this month → real bridged income covers it, skip forecast
             if (paidRetainerMonths.has(`${ret.id as string}|${monthKey}`)) continue;
-            if (dateStr < openingDate || dateStr > endDateStr) continue;
+            if (dateStr < displayStartStr || dateStr > endDateStr) continue;
             if (startDate && dateStr < startDate) continue;
             if (endRetDate && dateStr > endRetDate) continue;
 
@@ -444,7 +460,7 @@ export default function CashFlowPage() {
         }
 
         // 6. Build daily data for the range
-        const startD = new Date(openingDate + "T00:00:00");
+        const startD = new Date(displayStartStr + "T00:00:00");
         const endD = new Date(endDateStr + "T00:00:00");
         const days: DayData[] = [];
         let cumulative = openingBalance;
@@ -545,7 +561,7 @@ export default function CashFlowPage() {
     };
 
     fetchData();
-  }, [selectedBusinesses, endDate, refreshTrigger, supabase]);
+  }, [selectedBusinesses, endDate, viewStart, refreshTrigger, supabase]);
 
   // Auto-expand the current month so the cashflow doesn't appear "stuck" on
   // an earlier month. David's bug report: viewing on April 28 still showed
@@ -620,6 +636,10 @@ export default function CashFlowPage() {
   };
 
   const handleEndDateChange = (range: { start: Date; end: Date }) => {
+    // Honor BOTH ends of the picked range. Previously only the end was kept,
+    // so picking an earlier month set an end-date before the (fixed) start and
+    // blanked the table. viewStart lets the user step back into past months.
+    setViewStart(range.start);
     setEndDate(range.end);
     setSavedEndDate(range.end.toISOString());
   };
@@ -693,7 +713,7 @@ export default function CashFlowPage() {
             <span className="text-[13px] text-white/50 font-medium hidden sm:inline">צפי עד:</span>
             <div id="onboarding-cashflow-datepicker">
               <DateRangePicker
-                dateRange={{ start: new Date(settings?.opening_date || formatLocalDate(new Date())), end: endDate }}
+                dateRange={{ start: viewStart ?? new Date(settings?.opening_date || formatLocalDate(new Date())), end: endDate }}
                 onChange={handleEndDateChange}
                 variant="compact"
               />
