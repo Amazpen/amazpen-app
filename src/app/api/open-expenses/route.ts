@@ -25,6 +25,13 @@ const TYPE_LABELS: Record<string, string> = {
   employees: "עלות עובדים",
 };
 
+// suppliers.expense_type uses a different vocabulary than invoices.invoice_type
+const SUPPLIER_TYPE_LABELS: Record<string, string> = {
+  current_expenses: "הוצאות שוטפות",
+  goods_purchases: "רכישות סחורה",
+  employee_costs: "עלות עובדים",
+};
+
 const HEBREW_MONTHS = [
   "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
   "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
@@ -60,7 +67,7 @@ export async function GET(request: NextRequest) {
       // Fixed-expense suppliers only.
       supabase
         .from("suppliers")
-        .select("id, name")
+        .select("id, name, monthly_expense_amount, expense_type, created_at")
         .eq("business_id", businessId)
         .eq("is_fixed_expense", true)
         .eq("is_active", true)
@@ -140,6 +147,44 @@ export async function GET(request: NextRequest) {
       byMonth.set(ym, entry);
     }
 
+    // Current month: fixed-expense suppliers that have NO invoice yet are also
+    // "not closed" (the monthly expense hasn't been entered at all). Add them
+    // under the current month with the expected monthly amount.
+    const now = new Date();
+    const curYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const curLabel = `${HEBREW_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    const suppliersWithCurMonthInvoice = new Set(
+      (invoiceRows || [])
+        .filter((inv) => inv.invoice_date && String(inv.invoice_date).slice(0, 7) === curYm)
+        .map((inv) => inv.supplier_id as string)
+    );
+    for (const s of fixedSuppliers) {
+      const monthly = Number(s.monthly_expense_amount) || 0;
+      if (monthly <= 0) continue;
+      if (s.created_at) {
+        const c = new Date(s.created_at);
+        if (
+          c.getFullYear() > now.getFullYear() ||
+          (c.getFullYear() === now.getFullYear() && c.getMonth() > now.getMonth())
+        ) {
+          continue; // supplier created after the current month
+        }
+      }
+      if (suppliersWithCurMonthInvoice.has(s.id)) continue; // already has a record this month
+      const entry = byMonth.get(curYm) || { ym: curYm, label: curLabel, amount: 0, invoices: [] };
+      entry.amount += monthly;
+      entry.invoices.push({
+        supplier: s.name,
+        expense_type: SUPPLIER_TYPE_LABELS[s.expense_type as string] || "אחר",
+        invoice_number: "",
+        has_number: false,
+        has_image: false,
+        date: "",
+        amount: Math.round(monthly * 100) / 100,
+      });
+      byMonth.set(curYm, entry);
+    }
+
     const months = Array.from(byMonth.values())
       .sort((a, b) => (a.ym < b.ym ? 1 : a.ym > b.ym ? -1 : 0))
       .map((mo) => ({
@@ -150,7 +195,7 @@ export async function GET(request: NextRequest) {
         invoices: mo.invoices.sort((a, b) => b.amount - a.amount),
       }));
 
-    const totalOpenCount = incomplete.length;
+    const totalOpenCount = months.reduce((s, m) => s + m.count, 0);
     const totalOpenAmount =
       Math.round(months.reduce((s, m) => s + m.amount, 0) * 100) / 100;
 
