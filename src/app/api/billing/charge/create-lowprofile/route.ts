@@ -12,6 +12,22 @@ function service() {
   );
 }
 
+/**
+ * Public-facing origin for building share/redirect/webhook URLs.
+ * `new URL(request.url).origin` reflects the INTERNAL bind address behind a
+ * reverse proxy (e.g. 0.0.0.0:3001 in Docker/Traefik), which breaks the
+ * customer link AND the Cardcom webhook. Prefer an explicit env override, then
+ * the proxy's forwarded host headers, then the Host header, then request url.
+ */
+function publicOrigin(request: NextRequest): string {
+  const env = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (env) return env.replace(/\/+$/, "");
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (host) return `${proto}://${host}`;
+  return new URL(request.url).origin;
+}
+
 export async function POST(request: NextRequest) {
   // admin gate
   const server = await createServerClient();
@@ -69,7 +85,7 @@ export async function POST(request: NextRequest) {
   if (charge.error || !charge.data)
     return NextResponse.json({ error: "שגיאה ביצירת חיוב" }, { status: 500 });
 
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request);
   const lp = await createLowProfile({
     amount: gross,
     chargeId: charge.data.id,
