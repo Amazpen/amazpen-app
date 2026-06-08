@@ -2,6 +2,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { createLowProfile } from "@/lib/cardcom";
+import { computeVat, DEFAULT_VAT_PERCENT } from "@/lib/billing/vat";
 
 function service() {
   return createServiceClient(
@@ -19,11 +20,15 @@ export async function POST(request: NextRequest) {
   const { data: profile } = await server.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
   if (!profile?.is_admin) return NextResponse.json({ error: "אין הרשאת אדמין" }, { status: 403 });
 
-  const { customerId, monthlyAmount, mode } = await request.json();
+  const { customerId, monthlyAmount, vatPercent, mode } = await request.json();
   if (!customerId || !monthlyAmount || monthlyAmount <= 0)
     return NextResponse.json({ error: "חסר לקוח או סכום" }, { status: 400 });
 
   const isOneTime = mode === "one_time";
+
+  // monthlyAmount is the NET (pre-VAT) amount. Cardcom is charged the GROSS.
+  const vatPct = Number.isFinite(Number(vatPercent)) ? Number(vatPercent) : DEFAULT_VAT_PERCENT;
+  const { gross, vatAmount } = computeVat(monthlyAmount, vatPct);
 
   const db = service();
   const { data: customer } = await db.from("billing_customers").select("*").eq("id", customerId).maybeSingle();
@@ -36,12 +41,12 @@ export async function POST(request: NextRequest) {
     const { data: existingSub } = await db.from("billing_subscriptions").select("*").eq("customer_id", customerId).maybeSingle();
     if (!existingSub) {
       const ins = await db.from("billing_subscriptions")
-        .insert({ customer_id: customerId, monthly_amount: monthlyAmount, status: "pending" })
+        .insert({ customer_id: customerId, monthly_amount: monthlyAmount, vat_percent: vatPct, status: "pending" })
         .select("*").single();
       sub = ins.data;
     } else {
       const upd = await db.from("billing_subscriptions")
-        .update({ monthly_amount: monthlyAmount }).eq("id", existingSub.id).select("*").single();
+        .update({ monthly_amount: monthlyAmount, vat_percent: vatPct }).eq("id", existingSub.id).select("*").single();
       sub = upd.data;
     }
 
@@ -53,7 +58,10 @@ export async function POST(request: NextRequest) {
     .insert({
       subscription_id: isOneTime ? null : (sub as { id: string }).id,
       customer_id: customerId,
-      amount: monthlyAmount,
+      amount: gross,
+      net_amount: monthlyAmount,
+      vat_amount: vatAmount,
+      vat_percent: vatPct,
       status: "pending",
       type: isOneTime ? "one_time" : "initial",
     })
@@ -63,7 +71,7 @@ export async function POST(request: NextRequest) {
 
   const origin = new URL(request.url).origin;
   const lp = await createLowProfile({
-    amount: monthlyAmount,
+    amount: gross,
     chargeId: charge.data.id,
     operation: isOneTime ? "ChargeOnly" : "ChargeAndCreateToken",
     successUrl: `${origin}/admin/billing?charge=${charge.data.id}&status=success`,

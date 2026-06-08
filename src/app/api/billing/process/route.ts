@@ -3,13 +3,15 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { timingSafeEqual } from "crypto";
 import { chargeToken } from "@/lib/cardcom";
 import { addOneMonthClamped, isDueOn } from "@/lib/billing/dates";
+import { computeVat, DEFAULT_VAT_PERCENT } from "@/lib/billing/vat";
 
 const MAX_ATTEMPTS = 3;
 
 interface SubscriptionRow {
   id: string;
   customer_id: string | null;
-  monthly_amount: number;
+  monthly_amount: number; // NET (pre-VAT)
+  vat_percent: number | null;
   cardcom_token: string | null;
   card_expiry: string | null;
   next_charge_date: string | null;
@@ -72,12 +74,19 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       if (existing) continue;
 
+      // monthly_amount is NET; recompute gross at the subscription's stored vat_percent.
+      const vatPct = sub.vat_percent ?? DEFAULT_VAT_PERCENT;
+      const { gross, vatAmount } = computeVat(sub.monthly_amount, vatPct);
+
       const charge = await db
         .from("billing_charges")
         .insert({
           subscription_id: sub.id,
           customer_id: sub.customer_id,
-          amount: sub.monthly_amount,
+          amount: gross,
+          net_amount: sub.monthly_amount,
+          vat_amount: vatAmount,
+          vat_percent: vatPct,
           status: "pending",
           type: "recurring",
         })
@@ -91,7 +100,7 @@ export async function POST(request: NextRequest) {
       const chargeId = charge.data.id;
 
       const result = await chargeToken({
-        amount: sub.monthly_amount,
+        amount: gross,
         token: sub.cardcom_token,
         cardExpiryMMYY: sub.card_expiry,
       });

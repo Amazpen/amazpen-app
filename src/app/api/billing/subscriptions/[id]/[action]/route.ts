@@ -3,6 +3,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { chargeToken } from "@/lib/cardcom";
 import { addOneMonthClamped } from "@/lib/billing/dates";
+import { computeVat, DEFAULT_VAT_PERCENT } from "@/lib/billing/vat";
 
 function service() {
   return createServiceClient(
@@ -16,7 +17,8 @@ interface SubscriptionRow {
   id: string;
   status: string;
   customer_id: string;
-  monthly_amount: number;
+  monthly_amount: number; // NET (pre-VAT)
+  vat_percent: number | null;
   cardcom_token: string | null;
   card_expiry: string | null;
   day_of_month: number | null;
@@ -54,13 +56,16 @@ export async function POST(
   if (action === "charge-now") {
     if (!sub.cardcom_token || !sub.card_expiry)
       return NextResponse.json({ error: "אין token שמור לחיוב" }, { status: 400 });
+    // monthly_amount is NET; recompute gross at the subscription's stored vat_percent.
+    const vatPct = sub.vat_percent ?? DEFAULT_VAT_PERCENT;
+    const { gross, vatAmount } = computeVat(sub.monthly_amount, vatPct);
     const charge = await db.from("billing_charges")
-      .insert({ subscription_id: sub.id, customer_id: sub.customer_id, amount: sub.monthly_amount, status: "pending", type: "manual" })
+      .insert({ subscription_id: sub.id, customer_id: sub.customer_id, amount: gross, net_amount: sub.monthly_amount, vat_amount: vatAmount, vat_percent: vatPct, status: "pending", type: "manual" })
       .select("*").single();
     if (charge.error || !charge.data)
       return NextResponse.json({ error: "שגיאה ביצירת חיוב" }, { status: 500 });
     const chargeId = (charge.data as { id: string }).id;
-    const result = await chargeToken({ amount: sub.monthly_amount, token: sub.cardcom_token, cardExpiryMMYY: sub.card_expiry });
+    const result = await chargeToken({ amount: gross, token: sub.cardcom_token, cardExpiryMMYY: sub.card_expiry });
     await db.from("billing_charges").update({
       status: result.success ? "success" : "failed",
       cardcom_transaction_id: result.transactionId ?? null,
