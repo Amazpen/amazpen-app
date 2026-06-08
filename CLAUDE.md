@@ -69,6 +69,13 @@ Core domain types in `src/types/index.ts`: User, Business, BusinessSchedule, Use
 - `src/components/ocr/` — Document queue UI with PDF viewer support (uses `pdfjs-dist`)
 - Supports PDF-to-image conversion via `src/lib/pdfToImage.ts`
 
+### Billing / Cardcom (סליקה) — admin-only subscription billing
+Admin-only module at `/admin/billing` for charging **standalone customers** (not tied to `businesses`/`users`) on monthly recurring subscriptions via **Cardcom API v11**. Added 2026-06-08.
+- **Tables:** `billing_customers` (identity), `billing_subscriptions` (1:1 per customer; `monthly_amount`, `status` pending→active→paused/cancelled/failed, `cardcom_token`, `card_last_four`, `card_expiry`, `next_charge_date`, `day_of_month`, `failed_attempts`), `billing_charges` (per-attempt log). RLS is admin-only (`is_admin()`), separate policy per operation.
+- **Flow:** first charge = Cardcom hosted **LowProfile** page (`Operation=ChargeAndCreateToken`) in an iframe → **no card data touches our server (no PCI)**. The webhook re-verifies server-side via `getLpResult` (never trusts the body), is idempotent, and only activates the subscription if a token came back. Recurring charges = daily cron `POST /api/billing/process` (protected by the existing `CRON_SECRET` / `x-cron-secret`, same pattern as `/api/retainers/process`) charging the saved token via `Transactions/Transaction`.
+- **Code:** `src/lib/cardcom.ts` (v11 client, env-only creds), `src/lib/billing/dates.ts` (`addOneMonthClamped` with short-month clamp, `isDueOn`), routes under `src/app/api/billing/*`, page `src/app/(dashboard)/admin/billing/page.tsx` + modals in `src/components/dashboard/billing/`. Unit tests via **Vitest** (`npm test`) — the repo's only unit-test runner; added for this module.
+- **⚠️ Cardcom field-name caveat:** `GetLpResult` response field names (token / last4 / expiry) and the success code were not fully confirmed from swagger — `normalizeLpResult` extracts defensively. **The card-expiry byte-order is the key risk:** Cardcom's `CardYearMonth` is likely YYMM but the token charge sends `CardExpirationMMYY` — verify against a real first charge (the interactive charge succeeds even if this is wrong; only the recurring charge fails a month later). On a success-without-token the webhook logs the raw response keys via `console.error` and marks the charge failed instead of silently activating.
+
 ### Role-Based Access
 Roles defined in `src/types/index.ts` as `UserRole`: admin, owner, employee. Stored in `business_members` table. Admin pages under `(dashboard)/admin/`.
 
@@ -138,6 +145,13 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=
 # Runtime only
 SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=
+
+# Billing / Cardcom (admin סליקה module) — runtime only, never NEXT_PUBLIC
+CARDCOM_TERMINAL=
+CARDCOM_API_NAME=
+CARDCOM_API_PASSWORD=          # currently unused by code (v11 LowProfile/token auth uses TerminalNumber+ApiName)
+CARDCOM_BASE_URL=https://secure.cardcom.solutions/api/v11
+CRON_SECRET=                   # also protects POST /api/billing/process (shared with retainers cron)
 ```
 
 ## MCP Servers (כלים חיצוניים מחוברים)
