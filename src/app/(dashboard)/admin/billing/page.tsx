@@ -62,7 +62,7 @@ function AdminBillingPage() {
   const [customers, setCustomers] = useState<BillingCustomerWithSubscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [historySubId, setHistorySubId] = useState<string | null>(null);
+  const [historyCustomer, setHistoryCustomer] = useState<{ id: string; name: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [oneTimeCustomer, setOneTimeCustomer] = useState<{ id: string; name: string } | null>(null);
 
@@ -247,15 +247,15 @@ function AdminBillingPage() {
                         >
                           בטל
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setHistorySubId(sub.id)}
-                          className="text-[11px] px-2 py-1 rounded-md bg-white/5 text-white/70 hover:bg-white/10 transition-colors"
-                        >
-                          היסטוריה
-                        </button>
                       </>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setHistoryCustomer({ id: customer.id, name: customer.name })}
+                      className="text-[11px] px-2 py-1 rounded-md bg-white/5 text-white/70 hover:bg-white/10 transition-colors"
+                    >
+                      היסטוריה
+                    </button>
                   </span>
                 </div>
               );
@@ -282,12 +282,13 @@ function AdminBillingPage() {
         />
       )}
 
-      {historySubId && (
+      {historyCustomer && (
         <ChargeHistoryModal
-          subscriptionId={historySubId}
-          open={!!historySubId}
+          customerId={historyCustomer.id}
+          customerName={historyCustomer.name}
+          open={!!historyCustomer}
           onOpenChange={(o) => {
-            if (!o) setHistorySubId(null);
+            if (!o) setHistoryCustomer(null);
           }}
         />
       )}

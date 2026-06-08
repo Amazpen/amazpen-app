@@ -35,11 +35,13 @@ function formatChargeDate(iso: string | null): string {
 }
 
 export function ChargeHistoryModal({
-  subscriptionId,
+  customerId,
+  customerName,
   open,
   onOpenChange,
 }: {
-  subscriptionId: string;
+  customerId: string | null;
+  customerName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -48,13 +50,13 @@ export function ChargeHistoryModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !customerId) return;
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/billing/charges?subscriptionId=${subscriptionId}`);
+        const res = await fetch(`/api/billing/charges?customerId=${customerId}`);
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) {
@@ -73,7 +75,7 @@ export function ChargeHistoryModal({
     return () => {
       cancelled = true;
     };
-  }, [open, subscriptionId]);
+  }, [open, customerId]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,7 +84,9 @@ export function ChargeHistoryModal({
         className="bg-[#0F1535] border border-white/10 text-white sm:max-w-2xl"
       >
         <DialogHeader>
-          <DialogTitle className="text-right">היסטוריית חיובים</DialogTitle>
+          <DialogTitle className="text-right">
+            {customerName ? `היסטוריית חיובים — ${customerName}` : "היסטוריית חיובים"}
+          </DialogTitle>
         </DialogHeader>
 
         {loading ? (
