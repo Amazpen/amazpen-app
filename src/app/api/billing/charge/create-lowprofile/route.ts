@@ -74,8 +74,8 @@ export async function POST(request: NextRequest) {
     amount: gross,
     chargeId: charge.data.id,
     operation: isOneTime ? "ChargeOnly" : "ChargeAndCreateToken",
-    successUrl: `${origin}/admin/billing?charge=${charge.data.id}&status=success`,
-    failedUrl: `${origin}/admin/billing?charge=${charge.data.id}&status=failed`,
+    successUrl: `${origin}/pay/result?status=success`,
+    failedUrl: `${origin}/pay/result?status=failed`,
     webhookUrl: `${origin}/api/billing/cardcom/webhook`,
     customer: {
       name: customer.name,
