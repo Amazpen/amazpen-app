@@ -27,17 +27,24 @@ export async function POST(request: NextRequest) {
   const { data: charge } = await db.from("billing_charges").select("*").eq("id", returnValue).maybeSingle();
   if (!charge) return NextResponse.json({ ok: true });
 
-  const typedCharge = charge as { status: string; id: string; subscription_id: string | null };
+  const typedCharge = charge as { status: string; id: string; subscription_id: string | null; cardcom_low_profile_id: string | null };
   if (typedCharge.status === "success") return NextResponse.json({ ok: true }); // idempotent
 
+  // Prefer the LowProfileId we stored on the charge over whatever the caller sent.
+  // This prevents a forged POST from skipping verification by omitting LowProfileId.
+  const lpid = lowProfileId ?? typedCharge.cardcom_low_profile_id;
+  if (!lpid) {
+    // Cannot verify without a low-profile id — do not write any state change.
+    return NextResponse.json({ ok: true });
+  }
+
   // Re-verify with Cardcom — do NOT trust the webhook body alone.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = lowProfileId ? await getLpResult(lowProfileId) : { success: false, raw: payload, error: "no LowProfileId" } as any;
+  const result = await getLpResult(lpid);
 
   if (!result.success) {
     await db.from("billing_charges").update({
       status: "failed", error_message: result.error ?? "נכשל", cardcom_response: result.raw,
-    }).eq("id", typedCharge.id);
+    }).eq("id", typedCharge.id).eq("status", "pending");
     return NextResponse.json({ ok: true });
   }
 
@@ -50,7 +57,7 @@ export async function POST(request: NextRequest) {
     cardcom_transaction_id: result.transactionId ?? null,
     charged_at: new Date().toISOString(),
     cardcom_response: result.raw,
-  }).eq("id", typedCharge.id);
+  }).eq("id", typedCharge.id).eq("status", "pending");
 
   if (typedCharge.subscription_id) {
     await db.from("billing_subscriptions").update({
