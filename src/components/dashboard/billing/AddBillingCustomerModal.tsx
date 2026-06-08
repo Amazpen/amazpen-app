@@ -10,6 +10,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 
 type View = "form" | "iframe";
+type Mode = "subscription" | "one_time";
 
 export function AddBillingCustomerModal({
   open,
@@ -23,6 +24,7 @@ export function AddBillingCustomerModal({
   const { showToast } = useToast();
 
   const [view, setView] = useState<View>("form");
+  const [mode, setMode] = useState<Mode>("subscription");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -48,6 +50,7 @@ export function AddBillingCustomerModal({
 
   const resetAll = () => {
     resetToForm();
+    setMode("subscription");
     setName("");
     setPhone("");
     setEmail("");
@@ -81,7 +84,7 @@ export function AddBillingCustomerModal({
             clearInterval(pollRef.current);
             pollRef.current = null;
           }
-          showToast("החיוב בוצע, המנוי הופעל", "success");
+          showToast(mode === "one_time" ? "החיוב בוצע בהצלחה" : "החיוב בוצע, המנוי הופעל", "success");
           onDone();
           onOpenChange(false);
         } else if (charge.status === "failed") {
@@ -118,7 +121,7 @@ export function AddBillingCustomerModal({
       return;
     }
     if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) {
-      setFormError("יש להזין סכום חודשי גדול מ-0");
+      setFormError(mode === "one_time" ? "יש להזין סכום גדול מ-0" : "יש להזין סכום חודשי גדול מ-0");
       return;
     }
 
@@ -146,6 +149,7 @@ export function AddBillingCustomerModal({
         body: JSON.stringify({
           customerId: custData.customer.id,
           monthlyAmount,
+          mode,
         }),
       });
       const lpData = await lpRes.json();
@@ -178,6 +182,32 @@ export function AddBillingCustomerModal({
 
         {view === "form" ? (
           <form onSubmit={handleSubmit} className="space-y-3">
+            {/* Mode toggle: מנוי חודשי (right) / חיוב חד-פעמי (left) */}
+            <div className="flex gap-1 p-1 rounded-xl bg-[#111056]/60 border border-[#727BA0]/40">
+              <button
+                type="button"
+                onClick={() => setMode("subscription")}
+                className={`flex-1 text-[13px] font-semibold rounded-lg px-3 py-2 transition-colors ${
+                  mode === "subscription"
+                    ? "bg-[#29318A] text-white"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                מנוי חודשי
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("one_time")}
+                className={`flex-1 text-[13px] font-semibold rounded-lg px-3 py-2 transition-colors ${
+                  mode === "one_time"
+                    ? "bg-[#29318A] text-white"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                חיוב חד-פעמי
+              </button>
+            </div>
+
             <div>
               <label className="block text-[13px] text-white/70 mb-1 text-right">
                 שם <span className="text-[#F64E60]">*</span>
@@ -223,7 +253,7 @@ export function AddBillingCustomerModal({
               </div>
               <div>
                 <label className="block text-[13px] text-white/70 mb-1 text-right">
-                  סכום חודשי (₪) <span className="text-[#F64E60]">*</span>
+                  {mode === "one_time" ? "סכום (₪)" : "סכום חודשי (₪)"} <span className="text-[#F64E60]">*</span>
                 </label>
                 <input
                   type="number"
@@ -236,7 +266,7 @@ export function AddBillingCustomerModal({
                 />
                 {Number(amount) > 0 && (
                   <p className="text-[11px] text-white/50 mt-1 text-right ltr-num">
-                    ₪{Number(amount).toLocaleString("he-IL")} לחודש
+                    ₪{Number(amount).toLocaleString("he-IL")}{mode === "one_time" ? "" : " לחודש"}
                   </p>
                 )}
               </div>

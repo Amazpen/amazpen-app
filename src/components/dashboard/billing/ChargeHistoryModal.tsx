@@ -13,6 +13,7 @@ const CHARGE_TYPE_LABELS: Record<ChargeType, string> = {
   initial: "ראשוני",
   recurring: "חוזר",
   manual: "ידני",
+  one_time: "חד-פעמי",
 };
 
 const CHARGE_STATUS_META: Record<ChargeStatus, { label: string; color: string }> = {

@@ -6,6 +6,7 @@ import { CreditCard } from "lucide-react";
 import { useDashboard } from "../../layout";
 import { useToast } from "@/components/ui/toast";
 import { AddBillingCustomerModal } from "@/components/dashboard/billing/AddBillingCustomerModal";
+import { OneTimeChargeModal } from "@/components/dashboard/billing/OneTimeChargeModal";
 import { ChargeHistoryModal } from "@/components/dashboard/billing/ChargeHistoryModal";
 import type {
   BillingCustomerWithSubscription,
@@ -63,6 +64,7 @@ function AdminBillingPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [historySubId, setHistorySubId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [oneTimeCustomer, setOneTimeCustomer] = useState<{ id: string; name: string } | null>(null);
 
   // Redirect non-admins.
   useEffect(() => {
@@ -199,6 +201,13 @@ function AdminBillingPage() {
                     {sub?.card_last_four || "—"}
                   </span>
                   <span className="flex flex-wrap items-center justify-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setOneTimeCustomer({ id: customer.id, name: customer.name })}
+                      className="text-[11px] px-2 py-1 rounded-md bg-[#5b8cff]/15 text-[#5b8cff] hover:bg-[#5b8cff]/25 transition-colors"
+                    >
+                      חיוב חד-פעמי
+                    </button>
                     {sub && (
                       <>
                         <button
@@ -260,6 +269,18 @@ function AdminBillingPage() {
         onOpenChange={setAddOpen}
         onDone={load}
       />
+
+      {oneTimeCustomer && (
+        <OneTimeChargeModal
+          customerId={oneTimeCustomer.id}
+          customerName={oneTimeCustomer.name}
+          open={!!oneTimeCustomer}
+          onOpenChange={(o) => {
+            if (!o) setOneTimeCustomer(null);
+          }}
+          onDone={load}
+        />
+      )}
 
       {historySubId && (
         <ChargeHistoryModal
