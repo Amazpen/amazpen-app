@@ -59,3 +59,33 @@ export async function POST(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ customer: data });
 }
+
+export async function DELETE(request: NextRequest) {
+  const ctx = await requireAdmin();
+  if ("error" in ctx) return ctx.error;
+  const { supabase } = ctx;
+
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "חסר מזהה לקוח" }, { status: 400 });
+
+  const nowIso = new Date().toISOString();
+
+  // Soft-delete the customer. Charges remain in the DB for accounting records
+  // but become invisible because the customer is gone from the listing.
+  const { error: custError } = await supabase
+    .from("billing_customers")
+    .update({ deleted_at: nowIso })
+    .eq("id", id);
+  if (custError) return NextResponse.json({ error: custError.message }, { status: 500 });
+
+  // Cancel any non-cancelled subscription so the daily cron can never charge
+  // a deleted customer. This is the critical correctness guarantee.
+  const { error: subError } = await supabase
+    .from("billing_subscriptions")
+    .update({ status: "cancelled", cancelled_at: nowIso })
+    .eq("customer_id", id)
+    .neq("status", "cancelled");
+  if (subError) return NextResponse.json({ error: subError.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
