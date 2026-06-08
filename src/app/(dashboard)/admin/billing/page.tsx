@@ -94,7 +94,7 @@ function AdminBillingPage() {
     const status = searchParams.get("status");
     if (!charge || !status) return;
     if (status === "success") {
-      showToast("החיוב בוצע, המנוי הופעל", "success");
+      showToast("החיוב בוצע בהצלחה", "success");
     } else {
       showToast("החיוב נכשל", "error");
     }
