@@ -11,22 +11,16 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 // UUID, same security level as the Cardcom URL itself.
 
 const CSS = `
-.pay-wrap{min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#f5f7fa;color:#333;font-family:'Segoe UI',Tahoma,sans-serif;padding:20px;box-sizing:border-box;}
-.pay-card{width:100%;max-width:560px;background:#fff;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.1);overflow:hidden;display:flex;flex-direction:column;}
-.pay-head{background:#f3e8ff;color:#8328f8;padding:22px;text-align:center;font-size:22px;font-weight:700;}
-.pay-foot{background:#f3e8ff;color:#888;padding:16px;text-align:center;font-size:12px;}
-.pay-body{padding:28px 24px;display:flex;flex-direction:column;justify-content:center;flex:1;min-height:0;}
-.pay-title{margin:0 0 6px;font-size:20px;font-weight:700;color:#333;text-align:center;}
-.pay-amount{margin:0 0 18px;font-size:16px;color:#8328f8;font-weight:700;text-align:center;}
-.pay-note{margin:14px 0 0;font-size:12px;color:#888;text-align:center;}
-.pay-msg{margin:0;font-size:17px;color:#444;text-align:center;line-height:1.8;}
-.pay-iframe{width:100%;height:640px;border:0;border-radius:12px;background:#fff;}
-@media(max-width:600px){
-  .pay-wrap{padding:0;align-items:stretch;}
-  .pay-card{max-width:none;min-height:100dvh;border-radius:0;box-shadow:none;}
-  .pay-body{padding:16px 12px;}
-  .pay-iframe{flex:1;height:auto;min-height:420px;border-radius:8px;}
-}
+.pay-wrap{min-height:100dvh;display:flex;background:#f5f7fa;color:#333;font-family:'Segoe UI',Tahoma,sans-serif;}
+.pay-card{width:100%;min-height:100dvh;background:#fff;display:flex;flex-direction:column;}
+.pay-head{background:#f3e8ff;color:#8328f8;padding:18px;text-align:center;font-size:22px;font-weight:700;}
+.pay-foot{background:#f3e8ff;color:#888;padding:14px;text-align:center;font-size:12px;}
+.pay-body{padding:20px 16px;display:flex;flex-direction:column;flex:1;min-height:0;}
+.pay-title{margin:0 0 4px;font-size:20px;font-weight:700;color:#333;text-align:center;}
+.pay-amount{margin:0 0 14px;font-size:16px;color:#8328f8;font-weight:700;text-align:center;}
+.pay-note{margin:12px 0 0;font-size:12px;color:#888;text-align:center;}
+.pay-msg{margin:auto;font-size:17px;color:#444;text-align:center;line-height:1.8;}
+.pay-iframe{flex:1;width:100%;border:0;background:#fff;min-height:420px;}
 `;
 
 function service() {
