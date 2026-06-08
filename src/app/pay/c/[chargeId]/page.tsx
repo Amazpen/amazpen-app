@@ -6,12 +6,28 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 // hosted payment page in an iframe inside the brand shell.
 //
 // Styled to match the brand EMAILS (light + purple) — NOT the dark dashboard.
-// Inline styles override the global dark theme. No auth: it is reached by the
-// unguessable chargeId UUID, same security level as the Cardcom URL itself.
+// Responsive: a centered card on desktop, full-screen on mobile (the iframe
+// flexes to fill the viewport). No auth: reached by the unguessable chargeId
+// UUID, same security level as the Cardcom URL itself.
 
-const FONT = "'Segoe UI', Tahoma, sans-serif";
-const PURPLE = "#8328f8";
-const LILAC = "#f3e8ff";
+const CSS = `
+.pay-wrap{min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#f5f7fa;color:#333;font-family:'Segoe UI',Tahoma,sans-serif;padding:20px;box-sizing:border-box;}
+.pay-card{width:100%;max-width:560px;background:#fff;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.1);overflow:hidden;display:flex;flex-direction:column;}
+.pay-head{background:#f3e8ff;color:#8328f8;padding:22px;text-align:center;font-size:22px;font-weight:700;}
+.pay-foot{background:#f3e8ff;color:#888;padding:16px;text-align:center;font-size:12px;}
+.pay-body{padding:28px 24px;display:flex;flex-direction:column;justify-content:center;flex:1;min-height:0;}
+.pay-title{margin:0 0 6px;font-size:20px;font-weight:700;color:#333;text-align:center;}
+.pay-amount{margin:0 0 18px;font-size:16px;color:#8328f8;font-weight:700;text-align:center;}
+.pay-note{margin:14px 0 0;font-size:12px;color:#888;text-align:center;}
+.pay-msg{margin:0;font-size:17px;color:#444;text-align:center;line-height:1.8;}
+.pay-iframe{width:100%;height:640px;border:0;border-radius:12px;background:#fff;}
+@media(max-width:600px){
+  .pay-wrap{padding:0;align-items:stretch;}
+  .pay-card{max-width:none;min-height:100dvh;border-radius:0;box-shadow:none;}
+  .pay-body{padding:16px 12px;}
+  .pay-iframe{flex:1;height:auto;min-height:420px;border-radius:8px;}
+}
+`;
 
 function service() {
   return createServiceClient(
@@ -23,65 +39,14 @@ function service() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main
-      dir="rtl"
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#f5f7fa",
-        color: "#333",
-        fontFamily: FONT,
-        padding: "20px",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "560px",
-          background: "#fff",
-          borderRadius: "16px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          overflow: "hidden",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            background: LILAC,
-            color: PURPLE,
-            padding: "22px",
-            textAlign: "center",
-            fontSize: "22px",
-            fontWeight: 700,
-          }}
-        >
-          המצפן
-        </div>
-        {children}
-        {/* Footer */}
-        <div
-          style={{
-            background: LILAC,
-            color: "#888",
-            padding: "16px",
-            textAlign: "center",
-            fontSize: "12px",
-          }}
-        >
-          צוות המצפן · © המצפן - כל הזכויות שמורות
-        </div>
+    <main dir="rtl" className="pay-wrap">
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <div className="pay-card">
+        <div className="pay-head">המצפן</div>
+        <div className="pay-body">{children}</div>
+        <div className="pay-foot">צוות המצפן · © המצפן - כל הזכויות שמורות</div>
       </div>
     </main>
-  );
-}
-
-function Message({ text }: { text: string }) {
-  return (
-    <div style={{ padding: "40px 24px", textAlign: "center", lineHeight: 1.8 }}>
-      <p style={{ margin: 0, fontSize: "17px", color: "#444" }}>{text}</p>
-    </div>
   );
 }
 
@@ -103,7 +68,7 @@ export default async function Page({
   if (!charge || charge.deleted_at || !charge.cardcom_payment_url) {
     return (
       <Shell>
-        <Message text="קישור התשלום אינו תקין או שפג תוקפו." />
+        <p className="pay-msg">קישור התשלום אינו תקין או שפג תוקפו.</p>
       </Shell>
     );
   }
@@ -112,7 +77,7 @@ export default async function Page({
   if (charge.status === "success") {
     return (
       <Shell>
-        <Message text="התשלום כבר התקבל. תודה!" />
+        <p className="pay-msg">התשלום כבר התקבל. תודה!</p>
       </Shell>
     );
   }
@@ -121,51 +86,10 @@ export default async function Page({
 
   return (
     <Shell>
-      <div style={{ padding: "28px 24px" }}>
-        <h1
-          style={{
-            margin: "0 0 6px",
-            fontSize: "20px",
-            fontWeight: 700,
-            color: "#333",
-            textAlign: "center",
-          }}
-        >
-          תשלום מאובטח
-        </h1>
-        <p
-          style={{
-            margin: "0 0 18px",
-            fontSize: "16px",
-            color: PURPLE,
-            fontWeight: 700,
-            textAlign: "center",
-          }}
-        >
-          לתשלום: ₪{amount.toLocaleString("he-IL")}
-        </p>
-        <iframe
-          src={charge.cardcom_payment_url}
-          title="תשלום"
-          style={{
-            width: "100%",
-            height: "640px",
-            border: 0,
-            borderRadius: 12,
-            background: "#fff",
-          }}
-        />
-        <p
-          style={{
-            margin: "14px 0 0",
-            fontSize: "12px",
-            color: "#888",
-            textAlign: "center",
-          }}
-        >
-          התשלום מאובטח באמצעות Cardcom
-        </p>
-      </div>
+      <h1 className="pay-title">תשלום מאובטח</h1>
+      <p className="pay-amount">לתשלום: ₪{amount.toLocaleString("he-IL")}</p>
+      <iframe src={charge.cardcom_payment_url} title="תשלום" className="pay-iframe" />
+      <p className="pay-note">התשלום מאובטח באמצעות Cardcom</p>
     </Shell>
   );
 }
