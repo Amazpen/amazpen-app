@@ -13,14 +13,16 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 const CSS = `
 .pay-wrap{min-height:100dvh;display:flex;background:#f5f7fa;color:#333;font-family:'Segoe UI',Tahoma,sans-serif;}
 .pay-card{width:100%;min-height:100dvh;background:#fff;display:flex;flex-direction:column;}
-.pay-head{background:#f3e8ff;color:#8328f8;padding:18px;text-align:center;font-size:22px;font-weight:700;}
-.pay-foot{background:#f3e8ff;color:#888;padding:14px;text-align:center;font-size:12px;}
-.pay-body{padding:20px 16px;display:flex;flex-direction:column;flex:1;min-height:0;}
-.pay-title{margin:0 0 4px;font-size:20px;font-weight:700;color:#333;text-align:center;}
-.pay-amount{margin:0 0 14px;font-size:16px;color:#8328f8;font-weight:700;text-align:center;}
-.pay-note{margin:12px 0 0;font-size:12px;color:#888;text-align:center;}
+.pay-head{background:#f3e8ff;color:#8328f8;padding:12px;text-align:center;font-size:18px;font-weight:700;line-height:1.2;}
+.pay-foot{background:#f3e8ff;color:#888;padding:10px;text-align:center;font-size:11px;}
+.pay-body{padding:10px 10px 6px;display:flex;flex-direction:column;flex:1;min-height:0;}
+.pay-title{margin:0;font-size:15px;font-weight:700;color:#333;text-align:center;}
+.pay-amount{margin:2px 0 8px;font-size:15px;color:#8328f8;font-weight:700;text-align:center;}
+.pay-note{margin:8px 0 0;font-size:11px;color:#888;text-align:center;}
 .pay-msg{margin:auto;font-size:17px;color:#444;text-align:center;line-height:1.8;}
-.pay-iframe{flex:1;width:100%;border:0;background:#fff;min-height:420px;}
+/* Explicit viewport-based height so the iframe is tall even when flex:1 does
+   not propagate (parent has only min-height). flex:1 is a bonus when it does. */
+.pay-iframe{flex:1 1 auto;width:100%;border:0;background:#fff;height:calc(100dvh - 150px);min-height:520px;}
 `;
 
 function service() {
