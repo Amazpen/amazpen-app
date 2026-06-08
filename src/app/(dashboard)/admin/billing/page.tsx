@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Trash2 } from "lucide-react";
 import { useDashboard } from "../../layout";
 import { useToast } from "@/components/ui/toast";
 import { AddBillingCustomerModal } from "@/components/dashboard/billing/AddBillingCustomerModal";
@@ -115,6 +115,34 @@ function AdminBillingPage() {
         showToast(data.error || "הפעולה נכשלה", "error");
       } else if (action === "charge-now") {
         showToast("החיוב בוצע בהצלחה", "success");
+      }
+    } catch {
+      showToast("שגיאת רשת", "error");
+    } finally {
+      setBusyId(null);
+      load();
+    }
+  };
+
+  const deleteCustomer = async (customer: BillingCustomerWithSubscription) => {
+    if (
+      !window.confirm(
+        'למחוק את הלקוח "' +
+          customer.name +
+          '" וכל הלינקים/החיובים שלו? פעולה זו אינה הפיכה.'
+      )
+    )
+      return;
+    setBusyId(customer.id);
+    try {
+      const res = await fetch(`/api/billing/customers?id=${customer.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        showToast(data.error || "מחיקת הלקוח נכשלה", "error");
+      } else {
+        showToast("הלקוח נמחק", "success");
       }
     } catch {
       showToast("שגיאת רשת", "error");
@@ -255,6 +283,16 @@ function AdminBillingPage() {
                       className="text-[11px] px-2 py-1 rounded-md bg-white/5 text-white/70 hover:bg-white/10 transition-colors"
                     >
                       היסטוריה
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === customer.id}
+                      onClick={() => deleteCustomer(customer)}
+                      title="מחק לקוח"
+                      className="text-[11px] px-2 py-1 rounded-md bg-[#F64E60]/15 text-[#F64E60] hover:bg-[#F64E60]/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      מחק
                     </button>
                   </span>
                 </div>

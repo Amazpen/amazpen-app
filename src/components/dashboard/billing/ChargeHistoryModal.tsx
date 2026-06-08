@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -48,34 +49,52 @@ export function ChargeHistoryModal({
   const [charges, setCharges] = useState<BillingCharge[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!customerId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/billing/charges?customerId=${customerId}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "שגיאה בטעינת היסטוריית חיובים");
+        setCharges([]);
+        return;
+      }
+      setCharges((data.charges || []) as BillingCharge[]);
+    } catch {
+      setError("שגיאת רשת בטעינת היסטוריית חיובים");
+    } finally {
+      setLoading(false);
+    }
+  }, [customerId]);
 
   useEffect(() => {
     if (!open || !customerId) return;
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/billing/charges?customerId=${customerId}`);
-        const data = await res.json();
-        if (cancelled) return;
-        if (!res.ok) {
-          setError(data.error || "שגיאה בטעינת היסטוריית חיובים");
-          setCharges([]);
-          return;
-        }
-        setCharges((data.charges || []) as BillingCharge[]);
-      } catch {
-        if (!cancelled) setError("שגיאת רשת בטעינת היסטוריית חיובים");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
     load();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, customerId]);
+  }, [open, customerId, load]);
+
+  const deleteCharge = async (charge: BillingCharge) => {
+    if (!window.confirm("למחוק לינק/חיוב זה?")) return;
+    setDeletingId(charge.id);
+    try {
+      const res = await fetch(`/api/billing/charges?id=${charge.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        window.alert(data.error || "מחיקת החיוב נכשלה");
+        return;
+      }
+      await load();
+    } catch {
+      window.alert("שגיאת רשת");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -131,7 +150,7 @@ export function ChargeHistoryModal({
                         </span>
                       )}
                     </span>
-                    <span className="text-center">
+                    <span className="text-center inline-flex items-center justify-center gap-1.5">
                       <span
                         className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
                         style={{ background: `${meta.color}1a`, color: meta.color }}
@@ -139,6 +158,17 @@ export function ChargeHistoryModal({
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
                         {meta.label}
                       </span>
+                      {charge.status !== "success" && (
+                        <button
+                          type="button"
+                          disabled={deletingId === charge.id}
+                          onClick={() => deleteCharge(charge)}
+                          title="מחק לינק/חיוב"
+                          className="p-1 rounded-md bg-[#F64E60]/15 text-[#F64E60] hover:bg-[#F64E60]/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
                     </span>
                     {charge.status === "failed" && charge.error_message && (
                       <span className="col-span-4 text-[11px] text-[#F64E60] text-right px-1 pt-0.5">
