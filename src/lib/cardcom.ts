@@ -20,7 +20,7 @@ export interface LowProfilePayload {
   TerminalNumber: number;
   ApiName: string;
   Amount: number;
-  Operation: "ChargeAndCreateToken";
+  Operation: "ChargeAndCreateToken" | "ChargeOnly";
   ReturnValue: string;
   SuccessRedirectUrl: string;
   FailedRedirectUrl: string;
@@ -35,13 +35,14 @@ export function buildLowProfilePayload(args: {
   failedUrl: string;
   webhookUrl: string;
   customer: CardcomCustomer;
+  operation?: "ChargeAndCreateToken" | "ChargeOnly";
 }): LowProfilePayload {
   const { terminal, apiName } = cfg();
   return {
     TerminalNumber: terminal,
     ApiName: apiName,
     Amount: args.amount,
-    Operation: "ChargeAndCreateToken",
+    Operation: args.operation ?? "ChargeAndCreateToken",
     ReturnValue: args.chargeId,
     SuccessRedirectUrl: args.successUrl,
     FailedRedirectUrl: args.failedUrl,

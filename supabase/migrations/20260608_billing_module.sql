@@ -40,7 +40,7 @@ create table if not exists public.billing_charges (
   amount numeric not null,
   status text not null default 'pending'
     check (status in ('pending','success','failed')),
-  type text not null check (type in ('initial','recurring','manual')),
+  type text not null check (type in ('initial','recurring','manual','one_time')),
   cardcom_low_profile_id text,
   cardcom_transaction_id text,
   cardcom_response jsonb,

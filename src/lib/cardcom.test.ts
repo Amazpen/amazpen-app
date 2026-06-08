@@ -27,6 +27,19 @@ describe("buildLowProfilePayload", () => {
     expect(p.FailedRedirectUrl).toBe("https://app/x/failed");
     expect(p.Document?.Name).toBe("דני");
   });
+
+  it("uses ChargeOnly when operation is explicitly passed", () => {
+    const p = buildLowProfilePayload({
+      amount: 199,
+      chargeId: "charge-456",
+      successUrl: "https://app/x/success",
+      failedUrl: "https://app/x/failed",
+      webhookUrl: "https://app/x/webhook",
+      customer: { name: "דני" },
+      operation: "ChargeOnly",
+    });
+    expect(p.Operation).toBe("ChargeOnly");
+  });
 });
 
 describe("buildTokenChargePayload", () => {

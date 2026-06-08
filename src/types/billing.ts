@@ -6,7 +6,7 @@ export type SubscriptionStatus =
   | "failed";
 
 export type ChargeStatus = "pending" | "success" | "failed";
-export type ChargeType = "initial" | "recurring" | "manual";
+export type ChargeType = "initial" | "recurring" | "manual" | "one_time";
 
 export interface BillingCustomer {
   id: string;
