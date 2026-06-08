@@ -64,7 +64,7 @@ function AdminBillingPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [historyCustomer, setHistoryCustomer] = useState<{ id: string; name: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [oneTimeCustomer, setOneTimeCustomer] = useState<{ id: string; name: string } | null>(null);
+  const [oneTimeCustomer, setOneTimeCustomer] = useState<{ id: string; name: string; phone: string | null } | null>(null);
 
   // Redirect non-admins.
   useEffect(() => {
@@ -203,7 +203,7 @@ function AdminBillingPage() {
                   <span className="flex flex-wrap items-center justify-center gap-1">
                     <button
                       type="button"
-                      onClick={() => setOneTimeCustomer({ id: customer.id, name: customer.name })}
+                      onClick={() => setOneTimeCustomer({ id: customer.id, name: customer.name, phone: customer.phone })}
                       className="text-[11px] px-2 py-1 rounded-md bg-[#5b8cff]/15 text-[#5b8cff] hover:bg-[#5b8cff]/25 transition-colors"
                     >
                       חיוב חד-פעמי
@@ -274,6 +274,7 @@ function AdminBillingPage() {
         <OneTimeChargeModal
           customerId={oneTimeCustomer.id}
           customerName={oneTimeCustomer.name}
+          customerPhone={oneTimeCustomer.phone}
           open={!!oneTimeCustomer}
           onOpenChange={(o) => {
             if (!o) setOneTimeCustomer(null);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { computeVat, DEFAULT_VAT_PERCENT } from "@/lib/billing/vat";
+import { PaymentLinkView } from "./PaymentLinkView";
 
-type View = "form" | "iframe";
+type View = "form" | "link";
 type Mode = "subscription" | "one_time";
 
 export function AddBillingCustomerModal({
@@ -35,19 +36,13 @@ export function AddBillingCustomerModal({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
+  const [payUrl, setPayUrl] = useState<string | null>(null);
   const [chargeId, setChargeId] = useState<string | null>(null);
-
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resetToForm = () => {
     setView("form");
-    setIframeUrl(null);
+    setPayUrl(null);
     setChargeId(null);
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
   };
 
   const resetAll = () => {
@@ -68,50 +63,6 @@ export function AddBillingCustomerModal({
     if (!open) resetAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  // Poll the charge result while the Cardcom iframe is shown.
-  useEffect(() => {
-    if (view !== "iframe" || !chargeId) return;
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const res = await fetch(`/api/billing/charge/result?chargeId=${chargeId}`);
-        const data = await res.json();
-        if (cancelled) return;
-        const charge = data.charge as
-          | { id: string; status: string; error_message: string | null }
-          | null;
-        if (!charge) return;
-        if (charge.status === "success") {
-          if (pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-          }
-          showToast(mode === "one_time" ? "החיוב בוצע בהצלחה" : "החיוב בוצע, המנוי הופעל", "success");
-          onDone();
-          onOpenChange(false);
-        } else if (charge.status === "failed") {
-          if (pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-          }
-          setFormError(charge.error_message || "החיוב נכשל, נסה שוב");
-          resetToForm();
-        }
-      } catch {
-        // transient network error — keep polling
-      }
-    };
-    pollRef.current = setInterval(tick, 3000);
-    return () => {
-      cancelled = true;
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, chargeId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,9 +113,9 @@ export function AddBillingCustomerModal({
         return;
       }
 
-      setIframeUrl(lpData.url);
+      setPayUrl(lpData.url);
       setChargeId(lpData.chargeId);
-      setView("iframe");
+      setView("link");
     } catch {
       setFormError("שגיאת רשת");
     } finally {
@@ -180,7 +131,7 @@ export function AddBillingCustomerModal({
       >
         <DialogHeader>
           <DialogTitle className="text-right">
-            {view === "form" ? "לקוח חדש" : "הזנת פרטי תשלום"}
+            {view === "form" ? "לקוח חדש" : "לינק לתשלום"}
           </DialogTitle>
         </DialogHeader>
 
@@ -316,25 +267,22 @@ export function AddBillingCustomerModal({
             </div>
           </form>
         ) : (
-          <div className="space-y-2">
-            <p className="text-white/60 text-[12px] text-center">
-              ממתין להשלמת התשלום… העמוד יתעדכן אוטומטית
-            </p>
-            {iframeUrl && (
-              <iframe
-                src={iframeUrl}
-                title="Cardcom"
-                className="w-full h-[600px] rounded-lg border border-white/10 bg-white"
-              />
-            )}
-            <button
-              type="button"
-              onClick={resetToForm}
-              className="text-white/50 hover:text-white text-[12px] underline"
-            >
-              חזרה לטופס
-            </button>
-          </div>
+          payUrl && chargeId && (
+            <PaymentLinkView
+              url={payUrl}
+              chargeId={chargeId}
+              phone={phone}
+              onSuccess={() => {
+                showToast(mode === "one_time" ? "התשלום התקבל" : "התשלום התקבל, המנוי הופעל", "success");
+                onDone();
+                onOpenChange(false);
+              }}
+              onClose={() => {
+                onDone();
+                onOpenChange(false);
+              }}
+            />
+          )
         )}
       </DialogContent>
     </Dialog>
