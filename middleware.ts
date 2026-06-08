@@ -82,6 +82,13 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ["/login", "/register", "/forgot-password", "/reset-password", "/auth/callback", "/pay"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
 
+  // Auth-only pages: a logged-in user has no business seeing login/register, so
+  // they get bounced to the dashboard. NOTE: `/pay/*` is public but NOT an auth
+  // page — a logged-in admin must be able to open a payment link, so it is
+  // deliberately excluded here (otherwise admins get redirected to the dashboard).
+  const authRoutes = ["/login", "/register", "/forgot-password", "/reset-password"];
+  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
+
   // If user is not authenticated and trying to access protected route
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
@@ -92,7 +99,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // If user is authenticated and trying to access login/register
-  if (user && isPublicRoute) {
+  if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
