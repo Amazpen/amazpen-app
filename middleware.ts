@@ -59,7 +59,7 @@ export async function middleware(request: NextRequest) {
   // RLS, so the worst case without this is an empty shell — but /login is the
   // honest response). On an already-public route just continue.
   if (authCheckFailed) {
-    const isPublicRouteOnFailure = ["/login", "/register", "/forgot-password", "/reset-password", "/auth/callback"]
+    const isPublicRouteOnFailure = ["/login", "/register", "/forgot-password", "/reset-password", "/auth/callback", "/pay"]
       .some((route) => pathname.startsWith(route)) || pathname.startsWith("/.well-known");
     if (isPublicRouteOnFailure) {
       return supabaseResponse;
@@ -76,7 +76,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/login", "/register", "/forgot-password", "/reset-password", "/auth/callback"];
+  // `/pay/*` is the public customer-facing payment thank-you page (and any
+  // future public payment pages). Customers paying via a shared Cardcom link
+  // are not logged in, so they must reach it without being bounced to /login.
+  const publicRoutes = ["/login", "/register", "/forgot-password", "/reset-password", "/auth/callback", "/pay"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
 
   // If user is not authenticated and trying to access protected route
