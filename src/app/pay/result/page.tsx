@@ -4,46 +4,101 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
 
-function PayResult() {
-  const searchParams = useSearchParams();
-  const status = searchParams.get("status");
-  const success = status === "success";
+// Customer-facing page — styled to match the brand emails (light + purple),
+// NOT the dark admin dashboard. Inline styles override the global dark theme.
+const FONT = "'Segoe UI', Tahoma, sans-serif";
+const PURPLE = "#8328f8";
+const LILAC = "#f3e8ff";
 
+function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main
       dir="rtl"
-      className="min-h-screen flex items-center justify-center bg-[#0B1133] px-4"
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#f5f7fa",
+        color: "#333",
+        fontFamily: FONT,
+        padding: "20px",
+      }}
     >
-      <div className="w-full max-w-md bg-[#0F1535] border border-white/10 rounded-2xl p-8 text-center shadow-2xl">
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "480px",
+          background: "#fff",
+          borderRadius: "16px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            background: LILAC,
+            color: PURPLE,
+            padding: "22px",
+            textAlign: "center",
+            fontSize: "22px",
+            fontWeight: 700,
+          }}
+        >
+          המצפן
+        </div>
+        {children}
+        {/* Footer */}
+        <div
+          style={{
+            background: LILAC,
+            color: "#888",
+            padding: "16px",
+            textAlign: "center",
+            fontSize: "12px",
+          }}
+        >
+          צוות המצפן · © המצפן - כל הזכויות שמורות
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function PayResult() {
+  const searchParams = useSearchParams();
+  const success = searchParams.get("status") === "success";
+
+  return (
+    <Shell>
+      <div style={{ padding: "36px 24px", textAlign: "center", lineHeight: 1.8 }}>
         {success ? (
           <>
-            <CheckCircle2
-              size={64}
-              className="mx-auto text-[#17DB4E]"
-              strokeWidth={1.5}
-            />
-            <h1 className="mt-5 text-[22px] font-bold text-white">
+            <CheckCircle2 size={64} strokeWidth={1.5} style={{ color: "#16a34a", margin: "0 auto" }} />
+            <h1 style={{ margin: "18px 0 0", fontSize: "22px", fontWeight: 700, color: "#333" }}>
               התשלום התקבל בהצלחה
             </h1>
-            <p className="mt-2 text-[15px] text-white/70">תודה רבה</p>
+            <p style={{ margin: "10px 0 0", fontSize: "15px", color: "#666" }}>
+              תודה רבה! קיבלנו את תשלומך.
+            </p>
           </>
         ) : (
           <>
-            <XCircle
-              size={64}
-              className="mx-auto text-[#F64E60]"
-              strokeWidth={1.5}
-            />
-            <h1 className="mt-5 text-[22px] font-bold text-white">
+            <XCircle size={64} strokeWidth={1.5} style={{ color: "#dc2626", margin: "0 auto" }} />
+            <h1 style={{ margin: "18px 0 0", fontSize: "22px", fontWeight: 700, color: "#333" }}>
               התשלום לא הושלם
             </h1>
-            <p className="mt-2 text-[15px] text-white/70">
-              נא לנסות שוב או לפנות אלינו
+            <p style={{ margin: "10px 0 0", fontSize: "15px", color: "#666" }}>
+              נא לנסות שוב או לפנות אלינו בטלפון{" "}
+              <span style={{ color: PURPLE, fontWeight: 700, whiteSpace: "nowrap" }} dir="ltr">
+                054-5554106
+              </span>
             </p>
           </>
         )}
       </div>
-    </main>
+    </Shell>
   );
 }
 
@@ -53,7 +108,15 @@ export default function PayResultPage() {
       fallback={
         <main
           dir="rtl"
-          className="min-h-screen flex items-center justify-center bg-[#0B1133] text-white"
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f5f7fa",
+            color: "#888",
+            fontFamily: FONT,
+          }}
         >
           טוען...
         </main>
