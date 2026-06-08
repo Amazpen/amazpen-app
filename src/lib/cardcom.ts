@@ -16,6 +16,29 @@ export interface CardcomCustomer {
   phone?: string | null;
 }
 
+/** A Cardcom invoice line item. The terminal is configured to issue tax
+ *  invoices, so at least one Products entry is REQUIRED — omitting it returns
+ *  ResponseCode 5047 "No InvoiceLines data was send". UnitCost is the GROSS
+ *  (charged) amount; the terminal's VAT config breaks out the VAT on the invoice. */
+export interface CardcomProduct {
+  Description: string;
+  UnitCost: number;
+  Quantity: number;
+}
+
+export interface CardcomDocument {
+  Name: string;
+  Email?: string;
+  TaxId?: string;
+  Mobile?: string;
+  Products: CardcomProduct[];
+}
+
+/** Build the required Products array (single line = the charged amount). */
+function buildProducts(description: string, grossAmount: number): CardcomProduct[] {
+  return [{ Description: description, UnitCost: grossAmount, Quantity: 1 }];
+}
+
 export interface LowProfilePayload {
   TerminalNumber: number;
   ApiName: string;
@@ -25,7 +48,7 @@ export interface LowProfilePayload {
   SuccessRedirectUrl: string;
   FailedRedirectUrl: string;
   WebHookUrl: string;
-  Document?: { Name: string; Email?: string; TaxId?: string; Mobile?: string };
+  Document: CardcomDocument;
 }
 
 export function buildLowProfilePayload(args: {
@@ -36,6 +59,7 @@ export function buildLowProfilePayload(args: {
   webhookUrl: string;
   customer: CardcomCustomer;
   operation?: "ChargeAndCreateToken" | "ChargeOnly";
+  productDescription?: string;
 }): LowProfilePayload {
   const { terminal, apiName } = cfg();
   return {
@@ -52,6 +76,7 @@ export function buildLowProfilePayload(args: {
       Email: args.customer.email ?? undefined,
       TaxId: args.customer.taxId ?? undefined,
       Mobile: args.customer.phone ?? undefined,
+      Products: buildProducts(args.productDescription ?? "תשלום - המצפן", args.amount),
     },
   };
 }
@@ -62,12 +87,18 @@ export interface TokenChargePayload {
   Amount: number;
   Token: string;
   CardExpirationMMYY: string;
+  // Same terminal as LowProfile → issues tax invoices → requires invoice lines.
+  Document: CardcomDocument;
 }
 
 export function buildTokenChargePayload(args: {
   amount: number;
   token: string;
   cardExpiryMMYY: string;
+  productDescription?: string;
+  customerName?: string;
+  customerEmail?: string | null;
+  customerTaxId?: string | null;
 }): TokenChargePayload {
   const { terminal, apiName } = cfg();
   return {
@@ -76,6 +107,12 @@ export function buildTokenChargePayload(args: {
     Amount: args.amount,
     Token: args.token,
     CardExpirationMMYY: args.cardExpiryMMYY,
+    Document: {
+      Name: args.customerName ?? "לקוח",
+      Email: args.customerEmail ?? undefined,
+      TaxId: args.customerTaxId ?? undefined,
+      Products: buildProducts(args.productDescription ?? "מנוי חודשי - המצפן", args.amount),
+    },
   };
 }
 
@@ -146,6 +183,10 @@ export async function chargeToken(args: {
   amount: number;
   token: string;
   cardExpiryMMYY: string;
+  productDescription?: string;
+  customerName?: string;
+  customerEmail?: string | null;
+  customerTaxId?: string | null;
 }): Promise<NormalizedResult> {
   const raw = await postJson("/Transactions/Transaction", buildTokenChargePayload(args));
   return normalizeLpResult(raw);

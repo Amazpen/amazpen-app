@@ -26,6 +26,27 @@ describe("buildLowProfilePayload", () => {
     expect(p.SuccessRedirectUrl).toBe("https://app/x/success");
     expect(p.FailedRedirectUrl).toBe("https://app/x/failed");
     expect(p.Document?.Name).toBe("דני");
+    // Terminal issues tax invoices → exactly one product line is required (else 5047).
+    expect(p.Document.Products).toHaveLength(1);
+    expect(p.Document.Products[0]).toEqual({
+      Description: "תשלום - המצפן",
+      UnitCost: 199,
+      Quantity: 1,
+    });
+  });
+
+  it("uses a custom product description when provided", () => {
+    const p = buildLowProfilePayload({
+      amount: 50,
+      chargeId: "c",
+      successUrl: "s",
+      failedUrl: "f",
+      webhookUrl: "w",
+      customer: { name: "x" },
+      productDescription: "מנוי חודשי - המצפן",
+    });
+    expect(p.Document.Products[0].Description).toBe("מנוי חודשי - המצפן");
+    expect(p.Document.Products[0].UnitCost).toBe(50);
   });
 
   it("uses ChargeOnly when operation is explicitly passed", () => {
@@ -50,6 +71,9 @@ describe("buildTokenChargePayload", () => {
     expect(p.Amount).toBe(199);
     expect(p.Token).toBe("tok-1");
     expect(p.CardExpirationMMYY).toBe("1230");
+    // Same terminal requires an invoice line on the token charge too.
+    expect(p.Document.Products).toHaveLength(1);
+    expect(p.Document.Products[0].UnitCost).toBe(199);
   });
 });
 
