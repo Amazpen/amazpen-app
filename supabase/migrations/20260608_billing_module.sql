@@ -47,6 +47,7 @@ create table if not exists public.billing_charges (
   type text not null check (type in ('initial','recurring','manual','one_time')),
   cardcom_low_profile_id text,
   cardcom_transaction_id text,
+  cardcom_payment_url text, -- raw Cardcom hosted URL embedded by /pay/c/[chargeId]
   cardcom_response jsonb,
   error_message text,
   charged_at timestamptz,

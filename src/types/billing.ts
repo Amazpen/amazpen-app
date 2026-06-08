@@ -54,6 +54,7 @@ export interface BillingCharge {
   type: ChargeType;
   cardcom_low_profile_id: string | null;
   cardcom_transaction_id: string | null;
+  cardcom_payment_url: string | null;
   cardcom_response: unknown;
   error_message: string | null;
   charged_at: string | null;
