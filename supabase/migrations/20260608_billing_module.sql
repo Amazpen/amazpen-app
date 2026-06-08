@@ -16,7 +16,8 @@ create table if not exists public.billing_customers (
 create table if not exists public.billing_subscriptions (
   id uuid primary key default gen_random_uuid(),
   customer_id uuid not null references public.billing_customers(id) on delete cascade,
-  monthly_amount numeric not null check (monthly_amount > 0),
+  monthly_amount numeric not null check (monthly_amount > 0), -- NET (pre-VAT)
+  vat_percent numeric not null default 18,
   currency text not null default 'ILS',
   status text not null default 'pending'
     check (status in ('pending','active','paused','cancelled','failed')),
@@ -37,7 +38,10 @@ create table if not exists public.billing_charges (
   id uuid primary key default gen_random_uuid(),
   subscription_id uuid references public.billing_subscriptions(id) on delete set null,
   customer_id uuid references public.billing_customers(id) on delete set null,
-  amount numeric not null,
+  amount numeric not null, -- GROSS charged (net + vat)
+  vat_percent numeric,
+  net_amount numeric,
+  vat_amount numeric,
   status text not null default 'pending'
     check (status in ('pending','success','failed')),
   type text not null check (type in ('initial','recurring','manual','one_time')),

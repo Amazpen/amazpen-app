@@ -24,7 +24,9 @@ export interface BillingCustomer {
 export interface BillingSubscription {
   id: string;
   customer_id: string;
+  /** NET (pre-VAT). Gross charged = monthly_amount * (1 + vat_percent/100). */
   monthly_amount: number;
+  vat_percent: number;
   currency: string;
   status: SubscriptionStatus;
   cardcom_token: string | null;
@@ -43,7 +45,11 @@ export interface BillingCharge {
   id: string;
   subscription_id: string | null;
   customer_id: string | null;
+  /** GROSS charged (net + vat). The breakdown is in net/vat fields below. */
   amount: number;
+  vat_percent: number | null;
+  net_amount: number | null;
+  vat_amount: number | null;
   status: ChargeStatus;
   type: ChargeType;
   cardcom_low_profile_id: string | null;
