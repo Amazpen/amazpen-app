@@ -19,38 +19,43 @@ export async function POST(request: NextRequest) {
   const { data: profile } = await server.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
   if (!profile?.is_admin) return NextResponse.json({ error: "אין הרשאת אדמין" }, { status: 403 });
 
-  const { customerId, monthlyAmount } = await request.json();
+  const { customerId, monthlyAmount, mode } = await request.json();
   if (!customerId || !monthlyAmount || monthlyAmount <= 0)
     return NextResponse.json({ error: "חסר לקוח או סכום" }, { status: 400 });
+
+  const isOneTime = mode === "one_time";
 
   const db = service();
   const { data: customer } = await db.from("billing_customers").select("*").eq("id", customerId).maybeSingle();
   if (!customer) return NextResponse.json({ error: "לקוח לא נמצא" }, { status: 404 });
 
-  // upsert a pending subscription (one per customer)
   let sub: Record<string, unknown> | null = null;
 
-  const { data: existingSub } = await db.from("billing_subscriptions").select("*").eq("customer_id", customerId).maybeSingle();
-  if (!existingSub) {
-    const ins = await db.from("billing_subscriptions")
-      .insert({ customer_id: customerId, monthly_amount: monthlyAmount, status: "pending" })
-      .select("*").single();
-    sub = ins.data;
-  } else {
-    const upd = await db.from("billing_subscriptions")
-      .update({ monthly_amount: monthlyAmount }).eq("id", existingSub.id).select("*").single();
-    sub = upd.data;
+  if (!isOneTime) {
+    // upsert a pending subscription (one per customer)
+    const { data: existingSub } = await db.from("billing_subscriptions").select("*").eq("customer_id", customerId).maybeSingle();
+    if (!existingSub) {
+      const ins = await db.from("billing_subscriptions")
+        .insert({ customer_id: customerId, monthly_amount: monthlyAmount, status: "pending" })
+        .select("*").single();
+      sub = ins.data;
+    } else {
+      const upd = await db.from("billing_subscriptions")
+        .update({ monthly_amount: monthlyAmount }).eq("id", existingSub.id).select("*").single();
+      sub = upd.data;
+    }
+
+    if (!sub) return NextResponse.json({ error: "שגיאה ביצירת מנוי" }, { status: 500 });
   }
 
-  if (!sub) return NextResponse.json({ error: "שגיאה ביצירת מנוי" }, { status: 500 });
-
+  // For one-time: no subscription, type one_time. For subscription: initial charge tied to the sub.
   const charge = await db.from("billing_charges")
     .insert({
-      subscription_id: (sub as { id: string }).id,
+      subscription_id: isOneTime ? null : (sub as { id: string }).id,
       customer_id: customerId,
       amount: monthlyAmount,
       status: "pending",
-      type: "initial",
+      type: isOneTime ? "one_time" : "initial",
     })
     .select("*").single();
   if (charge.error || !charge.data)
@@ -60,6 +65,7 @@ export async function POST(request: NextRequest) {
   const lp = await createLowProfile({
     amount: monthlyAmount,
     chargeId: charge.data.id,
+    operation: isOneTime ? "ChargeOnly" : "ChargeAndCreateToken",
     successUrl: `${origin}/admin/billing?charge=${charge.data.id}&status=success`,
     failedUrl: `${origin}/admin/billing?charge=${charge.data.id}&status=failed`,
     webhookUrl: `${origin}/api/billing/cardcom/webhook`,
@@ -76,5 +82,8 @@ export async function POST(request: NextRequest) {
     .eq("id", charge.data.id);
 
   if (!lp.url) return NextResponse.json({ error: "Cardcom לא החזיר כתובת תשלום", raw: lp.raw }, { status: 502 });
+  if (isOneTime) {
+    return NextResponse.json({ url: lp.url, chargeId: charge.data.id });
+  }
   return NextResponse.json({ url: lp.url, chargeId: charge.data.id, subscriptionId: (sub as { id: string }).id });
 }

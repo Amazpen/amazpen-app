@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const { data: charge } = await db.from("billing_charges").select("*").eq("id", returnValue).maybeSingle();
   if (!charge) return NextResponse.json({ ok: true });
 
-  const typedCharge = charge as { status: string; id: string; subscription_id: string | null; cardcom_low_profile_id: string | null };
+  const typedCharge = charge as { status: string; id: string; type: string; subscription_id: string | null; cardcom_low_profile_id: string | null };
   if (typedCharge.status === "success") return NextResponse.json({ ok: true }); // idempotent
 
   // Prefer the LowProfileId we stored on the charge over whatever the caller sent.
@@ -53,7 +53,9 @@ export async function POST(request: NextRequest) {
   // silently skip this customer forever. Surface it as a failed charge instead of
   // flipping the sub to active with a null token. The likely cause is a field-name
   // mismatch in normalizeLpResult — store the raw response so the real names show in DB.
-  if (!result.token) {
+  // EXCEPTION: a one-time charge (ChargeOnly) legitimately has NO token and NO
+  // subscription — for it, a Cardcom-verified success IS a success.
+  if (!result.token && typedCharge.type !== "one_time") {
     console.error(
       "[billing webhook] success without token; raw result keys:",
       Object.keys((result as { raw?: Record<string, unknown> }).raw ?? {})
