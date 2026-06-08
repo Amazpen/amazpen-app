@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { computeVat, DEFAULT_VAT_PERCENT } from "@/lib/billing/vat";
 
 type View = "form" | "iframe";
 type Mode = "subscription" | "one_time";
@@ -30,6 +31,7 @@ export function AddBillingCustomerModal({
   const [email, setEmail] = useState("");
   const [taxId, setTaxId] = useState("");
   const [amount, setAmount] = useState("");
+  const [vatPercent, setVatPercent] = useState(String(DEFAULT_VAT_PERCENT));
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -56,6 +58,7 @@ export function AddBillingCustomerModal({
     setEmail("");
     setTaxId("");
     setAmount("");
+    setVatPercent(String(DEFAULT_VAT_PERCENT));
     setSubmitting(false);
     setFormError(null);
   };
@@ -149,6 +152,7 @@ export function AddBillingCustomerModal({
         body: JSON.stringify({
           customerId: custData.customer.id,
           monthlyAmount,
+          vatPercent: Number(vatPercent) || 0,
           mode,
         }),
       });
@@ -241,19 +245,21 @@ export function AddBillingCustomerModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[13px] text-white/70 mb-1 text-right">ח.פ / ת.ז</label>
-                <input
-                  type="text"
-                  value={taxId}
-                  onChange={(e) => setTaxId(e.target.value)}
-                  className="w-full bg-[#111056]/60 border border-[#727BA0] rounded-xl px-3 py-2 text-white text-[14px] text-right ltr-num placeholder:text-white/30 focus:border-white/50 outline-none"
-                />
-              </div>
+            <div>
+              <label className="block text-[13px] text-white/70 mb-1 text-right">ח.פ / ת.ז</label>
+              <input
+                type="text"
+                value={taxId}
+                onChange={(e) => setTaxId(e.target.value)}
+                className="w-full bg-[#111056]/60 border border-[#727BA0] rounded-xl px-3 py-2 text-white text-[14px] text-right ltr-num placeholder:text-white/30 focus:border-white/50 outline-none"
+              />
+            </div>
+
+            {/* Amount (NET) on the right, VAT % on the left (RTL: first child = right) */}
+            <div className="grid grid-cols-[1fr_0.5fr] gap-3">
               <div>
                 <label className="block text-[13px] text-white/70 mb-1 text-right">
-                  {mode === "one_time" ? "סכום (₪)" : "סכום חודשי (₪)"} <span className="text-[#F64E60]">*</span>
+                  {mode === "one_time" ? "סכום (לפני מע\"מ) ₪" : "סכום חודשי (לפני מע\"מ) ₪"} <span className="text-[#F64E60]">*</span>
                 </label>
                 <input
                   type="number"
@@ -264,13 +270,29 @@ export function AddBillingCustomerModal({
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full bg-[#111056]/60 border border-[#727BA0] rounded-xl px-3 py-2 text-white text-[14px] text-right ltr-num placeholder:text-white/30 focus:border-white/50 outline-none"
                 />
-                {Number(amount) > 0 && (
-                  <p className="text-[11px] text-white/50 mt-1 text-right ltr-num">
-                    ₪{Number(amount).toLocaleString("he-IL")}{mode === "one_time" ? "" : " לחודש"}
-                  </p>
-                )}
+              </div>
+              <div>
+                <label className="block text-[13px] text-white/70 mb-1 text-right">מע&quot;מ %</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={vatPercent}
+                  onChange={(e) => setVatPercent(e.target.value)}
+                  className="w-full bg-[#111056]/60 border border-[#727BA0] rounded-xl px-3 py-2 text-white text-[14px] text-right ltr-num placeholder:text-white/30 focus:border-white/50 outline-none"
+                />
               </div>
             </div>
+
+            {Number(amount) > 0 && (() => {
+              const b = computeVat(Number(amount), Number(vatPercent) || 0);
+              return (
+                <p className="text-[12px] text-white/70 text-right ltr-num">
+                  נטו ₪{b.net.toLocaleString("he-IL")} · מע&quot;מ {b.vatPercent}% ₪{b.vatAmount.toLocaleString("he-IL")} · לחיוב ₪{b.gross.toLocaleString("he-IL")}{mode === "one_time" ? "" : " לחודש"}
+                </p>
+              );
+            })()}
 
             {formError && (
               <p className="text-[#F64E60] text-[12px] text-right">{formError}</p>

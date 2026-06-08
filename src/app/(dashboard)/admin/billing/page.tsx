@@ -164,7 +164,7 @@ function AdminBillingPage() {
           >
             <span className="text-[13px] font-medium text-center">שם</span>
             <span className="text-[13px] font-medium text-center">טלפון</span>
-            <span className="text-[13px] font-medium text-center">סכום חודשי (₪)</span>
+            <span className="text-[13px] font-medium text-center">סכום חודשי (נטו) (₪)</span>
             <span className="text-[13px] font-medium text-center">סטטוס</span>
             <span className="text-[13px] font-medium text-center">תאריך חיוב הבא</span>
             <span className="text-[13px] font-medium text-center">4 ספרות אחרונות</span>

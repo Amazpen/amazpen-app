@@ -123,8 +123,13 @@ export function ChargeHistoryModal({
                     <span className="text-[12px] text-center">
                       {CHARGE_TYPE_LABELS[charge.type]}
                     </span>
-                    <span className="text-[12px] ltr-num text-center font-medium">
-                      ₪{charge.amount.toLocaleString("he-IL")}
+                    <span className="text-[12px] ltr-num text-center font-medium flex flex-col items-center leading-tight">
+                      <span>₪{charge.amount.toLocaleString("he-IL")}</span>
+                      {charge.net_amount != null && charge.vat_amount != null && (
+                        <span className="text-[10px] text-white/45 font-normal">
+                          נטו ₪{charge.net_amount.toLocaleString("he-IL")} + מע&quot;מ ₪{charge.vat_amount.toLocaleString("he-IL")}
+                        </span>
+                      )}
                     </span>
                     <span className="text-center">
                       <span
