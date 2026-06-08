@@ -86,12 +86,21 @@ export async function POST(request: NextRequest) {
   });
 
   await db.from("billing_charges")
-    .update({ cardcom_low_profile_id: lp.lowProfileId, cardcom_response: lp.raw })
+    .update({
+      cardcom_low_profile_id: lp.lowProfileId,
+      cardcom_payment_url: lp.url,
+      cardcom_response: lp.raw,
+    })
     .eq("id", charge.data.id);
 
   if (!lp.url) return NextResponse.json({ error: "Cardcom לא החזיר כתובת תשלום", raw: lp.raw }, { status: 502 });
+
+  // The link the admin shares is the BRANDED page on our own domain, which
+  // embeds the Cardcom payment page in an iframe. The background poll still
+  // uses chargeId, so it is unaffected by this change.
+  const brandedUrl = `${origin}/pay/c/${charge.data.id}`;
   if (isOneTime) {
-    return NextResponse.json({ url: lp.url, chargeId: charge.data.id });
+    return NextResponse.json({ url: brandedUrl, chargeId: charge.data.id });
   }
-  return NextResponse.json({ url: lp.url, chargeId: charge.data.id, subscriptionId: (sub as { id: string }).id });
+  return NextResponse.json({ url: brandedUrl, chargeId: charge.data.id, subscriptionId: (sub as { id: string }).id });
 }
