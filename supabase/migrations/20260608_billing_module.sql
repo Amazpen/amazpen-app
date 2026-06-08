@@ -50,7 +50,8 @@ create table if not exists public.billing_charges (
   cardcom_response jsonb,
   error_message text,
   charged_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  deleted_at timestamptz
 );
 
 create index if not exists idx_billing_sub_customer on public.billing_subscriptions(customer_id);

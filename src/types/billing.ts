@@ -58,6 +58,7 @@ export interface BillingCharge {
   error_message: string | null;
   charged_at: string | null;
   created_at: string;
+  deleted_at: string | null;
 }
 
 /** Row shape returned by GET /api/billing/customers */
