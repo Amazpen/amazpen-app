@@ -48,6 +48,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // Cardcom verified the charge, but if no token came back we CANNOT activate the
+  // subscription: the recurring cron filters on a non-null cardcom_token and would
+  // silently skip this customer forever. Surface it as a failed charge instead of
+  // flipping the sub to active with a null token. The likely cause is a field-name
+  // mismatch in normalizeLpResult — store the raw response so the real names show in DB.
+  if (!result.token) {
+    console.error(
+      "[billing webhook] success without token; raw result keys:",
+      Object.keys((result as { raw?: Record<string, unknown> }).raw ?? {})
+    );
+    await db.from("billing_charges").update({
+      status: "failed",
+      error_message:
+        "החיוב אושר ב-Cardcom אך לא הוחזר token — יש לאמת את שמות שדות התגובה (normalizeLpResult)",
+      cardcom_response: result.raw,
+    }).eq("id", typedCharge.id).eq("status", "pending");
+    return NextResponse.json({ ok: true });
+  }
+
   const todayStr = new Date().toISOString().split("T")[0];
   const dayOfMonth = Number(todayStr.split("-")[2]);
   const nextChargeDate = addOneMonthClamped(todayStr, dayOfMonth);
@@ -62,8 +81,10 @@ export async function POST(request: NextRequest) {
   if (typedCharge.subscription_id) {
     await db.from("billing_subscriptions").update({
       status: "active",
-      cardcom_token: result.token ?? null,
+      cardcom_token: result.token,
       card_last_four: result.lastFour ?? null,
+      // NOTE: Cardcom's CardYearMonth may be YYMM; our token charge sends it as CardExpirationMMYY.
+      // Verify byte-order against a real GetLpResult before relying on recurring charges (see plan §field-name caveat).
       card_expiry: result.expiryMMYY ?? null,
       day_of_month: dayOfMonth,
       next_charge_date: nextChargeDate,
