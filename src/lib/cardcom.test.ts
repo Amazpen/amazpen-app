@@ -78,18 +78,20 @@ describe("buildTokenChargePayload", () => {
 });
 
 describe("normalizeLpResult", () => {
-  it("maps a successful raw result (ResponseCode 0) to success", () => {
+  it("maps a successful raw result using the real Cardcom field shape", () => {
+    // Shape confirmed against a real production GetLpResult payload.
     const raw = {
       ResponseCode: 0,
-      TranzactionId: 555,
-      TokenInfo: { Token: "tok-xyz", CardLast4Digits: "4242", CardYearMonth: "1230" },
+      TranzactionId: 250835519,
+      TokenInfo: { Token: "tok-xyz", CardMonth: 8, CardYear: 2027 },
+      TranzactionInfo: { Last4CardDigitsString: "0932", Last4CardDigits: 932 },
     };
     const n = normalizeLpResult(raw);
     expect(n.success).toBe(true);
     expect(n.token).toBe("tok-xyz");
-    expect(n.lastFour).toBe("4242");
-    expect(n.expiryMMYY).toBe("1230");
-    expect(n.transactionId).toBe("555");
+    expect(n.lastFour).toBe("0932");
+    expect(n.expiryMMYY).toBe("0827"); // CardMonth 8 + CardYear 2027 → MMYY
+    expect(n.transactionId).toBe("250835519");
   });
   it("maps a non-zero ResponseCode to failure with the description", () => {
     const n = normalizeLpResult({ ResponseCode: 57, Description: "declined" });

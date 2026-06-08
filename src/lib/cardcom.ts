@@ -126,20 +126,42 @@ export interface NormalizedResult {
   raw: unknown;
 }
 
-/** Defensive extraction — Cardcom field names vary; check several. */
+/**
+ * Extract the fields we need from a Cardcom v11 result. Field names confirmed
+ * against a real production GetLpResult payload (terminal 191080):
+ *   - token: TokenInfo.Token
+ *   - expiry: separate numeric TokenInfo.CardMonth + TokenInfo.CardYear → MMYY
+ *   - last4: TranzactionInfo.Last4CardDigitsString (zero-padded string)
+ *   - txid: TranzactionId
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeLpResult(raw: any): NormalizedResult {
   const code = raw?.ResponseCode ?? raw?.responseCode;
   const success = code === 0;
   const tokenInfo = raw?.TokenInfo ?? raw?.tokenInfo ?? {};
+  const tx = raw?.TranzactionInfo ?? raw?.TransactionInfo ?? {};
+  const ui = raw?.UIValues ?? {};
   const tranId =
-    raw?.TranzactionId ?? raw?.TransactionId ?? raw?.tranzactionId ?? raw?.InternalDealNumber;
+    raw?.TranzactionId ?? raw?.TransactionId ?? tx?.TranzactionId ?? raw?.InternalDealNumber;
+
+  // Cardcom returns the card expiry as separate numeric month + year fields
+  // (NOT a combined string). Build MMYY (e.g. month 8, year 2027 → "0827").
+  const month = tokenInfo.CardMonth ?? tx.CardMonth ?? ui.CardMonth;
+  const year = tokenInfo.CardYear ?? tx.CardYear ?? ui.CardYear;
+  const expiryMMYY =
+    month != null && year != null
+      ? String(month).padStart(2, "0") + String(year).slice(-2)
+      : undefined;
+
+  const lastFour =
+    tx.Last4CardDigitsString ??
+    (tx.Last4CardDigits != null ? String(tx.Last4CardDigits).padStart(4, "0") : undefined);
+
   return {
     success,
-    token: tokenInfo.Token ?? tokenInfo.token ?? raw?.Token,
-    lastFour:
-      tokenInfo.CardLast4Digits ?? tokenInfo.Last4Digits ?? raw?.CardNumLast4 ?? raw?.Last4,
-    expiryMMYY: tokenInfo.CardYearMonth ?? tokenInfo.CardValidityYearMonth ?? raw?.CardExpiry,
+    token: tokenInfo.Token ?? tx.Token ?? raw?.Token,
+    lastFour,
+    expiryMMYY,
     transactionId: tranId != null ? String(tranId) : undefined,
     error: success ? undefined : raw?.Description ?? raw?.description ?? `ResponseCode ${code}`,
     raw,
