@@ -36,11 +36,17 @@ export async function POST(request: NextRequest) {
   const { data: profile } = await server.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
   if (!profile?.is_admin) return NextResponse.json({ error: "אין הרשאת אדמין" }, { status: 403 });
 
-  const { customerId, monthlyAmount, vatPercent, mode } = await request.json();
+  const { customerId, monthlyAmount, vatPercent, mode, numOfPayments } = await request.json();
   if (!customerId || !monthlyAmount || monthlyAmount <= 0)
     return NextResponse.json({ error: "חסר לקוח או סכום" }, { status: 400 });
 
   const isOneTime = mode === "one_time";
+
+  // Installments only make sense for a one-time charge; a subscription's initial
+  // hit creates a recurring token, so it's always a single payment.
+  const payments = isOneTime
+    ? Math.max(1, Math.floor(Number(numOfPayments) || 1))
+    : 1;
 
   // monthlyAmount is the NET (pre-VAT) amount. Cardcom is charged the GROSS.
   const vatPct = Number.isFinite(Number(vatPercent)) ? Number(vatPercent) : DEFAULT_VAT_PERCENT;
@@ -90,6 +96,7 @@ export async function POST(request: NextRequest) {
     amount: gross,
     chargeId: charge.data.id,
     operation: isOneTime ? "ChargeOnly" : "ChargeAndCreateToken",
+    numOfPayments: payments,
     successUrl: `${origin}/pay/result?status=success`,
     failedUrl: `${origin}/pay/result?status=failed`,
     webhookUrl: `${origin}/api/billing/cardcom/webhook`,

@@ -39,6 +39,17 @@ function buildProducts(description: string, grossAmount: number): CardcomProduct
   return [{ Description: description, UnitCost: grossAmount, Quantity: 1 }];
 }
 
+/** Installment (תשלומים) settings on the hosted page. Regular Israeli
+ *  installments just need MaxNumOfPayments > 1 — the page splits the amount and
+ *  shows a payments selector. (CreditType is NOT set: 6=קרדיט financing, a
+ *  different product from a plain even split.) The terminal must be enabled for
+ *  installments or Cardcom ignores/rejects these. */
+export interface LowProfileAdvancedDefinition {
+  MinNumOfPayments: number;
+  MaxNumOfPayments: number;
+  SelectedNumOfPayments: number;
+}
+
 export interface LowProfilePayload {
   TerminalNumber: number;
   ApiName: string;
@@ -48,6 +59,7 @@ export interface LowProfilePayload {
   SuccessRedirectUrl: string;
   FailedRedirectUrl: string;
   WebHookUrl: string;
+  AdvancedDefinition?: LowProfileAdvancedDefinition;
   Document: CardcomDocument;
 }
 
@@ -60,8 +72,11 @@ export function buildLowProfilePayload(args: {
   customer: CardcomCustomer;
   operation?: "ChargeAndCreateToken" | "ChargeOnly";
   productDescription?: string;
+  /** Number of credit-card installments. 1 (or omitted) = single payment. */
+  numOfPayments?: number;
 }): LowProfilePayload {
   const { terminal, apiName } = cfg();
+  const payments = Math.max(1, Math.floor(Number(args.numOfPayments) || 1));
   return {
     TerminalNumber: terminal,
     ApiName: apiName,
@@ -71,6 +86,16 @@ export function buildLowProfilePayload(args: {
     SuccessRedirectUrl: args.successUrl,
     FailedRedirectUrl: args.failedUrl,
     WebHookUrl: args.webhookUrl,
+    // Only attach when splitting — a lone payment keeps the default UI.
+    ...(payments > 1
+      ? {
+          AdvancedDefinition: {
+            MinNumOfPayments: 1,
+            MaxNumOfPayments: payments,
+            SelectedNumOfPayments: payments,
+          },
+        }
+      : {}),
     Document: {
       Name: args.customer.name,
       Email: args.customer.email ?? undefined,

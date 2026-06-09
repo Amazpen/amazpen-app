@@ -38,6 +38,7 @@ export function OneTimeChargeModal({
   const [view, setView] = useState<View>("form");
   const [amount, setAmount] = useState("");
   const [vatPercent, setVatPercent] = useState(String(DEFAULT_VAT_PERCENT));
+  const [numPayments, setNumPayments] = useState("1");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -54,6 +55,7 @@ export function OneTimeChargeModal({
     resetToForm();
     setAmount("");
     setVatPercent(String(DEFAULT_VAT_PERCENT));
+    setNumPayments("1");
     setSubmitting(false);
     setFormError(null);
   };
@@ -82,6 +84,7 @@ export function OneTimeChargeModal({
           customerId,
           monthlyAmount: oneTimeAmount,
           vatPercent: Number(vatPercent) || 0,
+          numOfPayments: Math.max(1, Math.floor(Number(numPayments) || 1)),
           mode: "one_time",
         }),
       });
@@ -115,8 +118,8 @@ export function OneTimeChargeModal({
 
         {view === "form" ? (
           <form onSubmit={handleSubmit} className="space-y-3">
-            {/* Amount (NET) on the right, VAT % on the left (RTL: first child = right) */}
-            <div className="grid grid-cols-[1fr_0.5fr] gap-3">
+            {/* RTL: first child = right. Amount (right) → VAT% → מספר תשלומים (left) */}
+            <div className="grid grid-cols-[1fr_0.5fr_0.6fr] gap-3">
               <div>
                 <label className="block text-[13px] text-white/70 mb-1 text-right">
                   סכום (לפני מע&quot;מ) ₪ <span className="text-[#F64E60]">*</span>
@@ -144,13 +147,30 @@ export function OneTimeChargeModal({
                   className="w-full bg-[#111056]/60 border border-[#727BA0] rounded-xl px-3 py-2 text-white text-[14px] text-right ltr-num placeholder:text-white/30 focus:border-white/50 outline-none"
                 />
               </div>
+              <div>
+                <label className="block text-[13px] text-white/70 mb-1 text-right">מס׳ תשלומים</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  value={numPayments}
+                  onChange={(e) => setNumPayments(e.target.value)}
+                  className="w-full bg-[#111056]/60 border border-[#727BA0] rounded-xl px-3 py-2 text-white text-[14px] text-right ltr-num placeholder:text-white/30 focus:border-white/50 outline-none"
+                />
+              </div>
             </div>
 
             {Number(amount) > 0 && (() => {
               const b = computeVat(Number(amount), Number(vatPercent) || 0);
+              const n = Math.max(1, Math.floor(Number(numPayments) || 1));
+              const perPayment = b.gross / n;
               return (
                 <p className="text-[12px] text-white/70 text-right ltr-num">
                   נטו ₪{b.net.toLocaleString("he-IL")} · מע&quot;מ {b.vatPercent}% ₪{b.vatAmount.toLocaleString("he-IL")} · לחיוב ₪{b.gross.toLocaleString("he-IL")}
+                  {n > 1 && (
+                    <> · {n} תשלומים של ₪{perPayment.toLocaleString("he-IL", { maximumFractionDigits: 2 })}</>
+                  )}
                 </p>
               );
             })()}
