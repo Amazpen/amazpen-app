@@ -60,9 +60,16 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
   const [customEnd, setCustomEnd] = useState("");
 
   const applyCustomRange = () => {
-    if (!customStart || !customEnd) return;
-    const [sy, sm, sd] = customStart.split("-").map(Number);
-    const [ey, em, ed] = customEnd.split("-").map(Number);
+    // Fall back to the values currently shown in the inputs — they display the
+    // active range via `customStart || toInputDate(...)`, but the draft state
+    // stays "" until the field is actively edited. Without this, touching only
+    // one field (e.g. just מתאריך) leaves the other "" and the click silently
+    // no-ops. What the user sees in the inputs is what gets applied.
+    const startVal = customStart || toInputDate(dateRange.start);
+    const endVal = customEnd || toInputDate(dateRange.end);
+    if (!startVal || !endVal) return;
+    const [sy, sm, sd] = startVal.split("-").map(Number);
+    const [ey, em, ed] = endVal.split("-").map(Number);
     const start = new Date(sy, sm - 1, sd);
     const end = new Date(ey, em - 1, ed);
     if (end < start) return;
