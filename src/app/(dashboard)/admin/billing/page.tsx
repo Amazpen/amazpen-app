@@ -158,9 +158,6 @@ function AdminBillingPage() {
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
       {/* Header — admin standard */}
       <div className="flex flex-col items-center gap-[10px] mb-6">
-        <div className="w-[60px] h-[60px] rounded-full bg-[#4A56D4] flex items-center justify-center">
-          <CreditCard className="w-[30px] h-[30px] text-white" />
-        </div>
         <h1 className="text-[24px] font-bold text-white">סליקה</h1>
         <p className="text-[14px] text-white/50 text-center">ניהול לקוחות, מנויים וחיובים חוזרים</p>
       </div>
