@@ -2412,7 +2412,7 @@ function ExpensesPageInner() {
 
       // Check if OCR couldn't read the document — let user fill manually
       if (data.ocr_failed) {
-        showToast("לא הצלחנו לזהות טקסט מהמסמך — ניתן למלא את הפרטים ידנית", "info");
+        showToast("לא הצלחנו לזהות טקסט מהמסמך - ניתן למלא את הפרטים ידנית", "info");
         setOcrApplied(true);
       } else {
         // Populate form fields from extracted data
@@ -2451,9 +2451,9 @@ function ExpensesPageInner() {
     } catch (err) {
       console.error("OCR extraction error:", err);
       const msg = err instanceof DOMException && err.name === "AbortError"
-        ? "הזיהוי נכשל — חרג מזמן המתנה (60 שניות)"
+        ? "הזיהוי נכשל - חרג מזמן המתנה (60 שניות)"
         : `לא הצלחנו לזהות נתונים: ${err instanceof Error ? err.message : "שגיאה לא ידועה"}`;
-      showToast("לא הצלחנו לזהות את המסמך — ניתן למלא את הפרטים ידנית", "info");
+      showToast("לא הצלחנו לזהות את המסמך - ניתן למלא את הפרטים ידנית", "info");
       setOcrApplied(true);
       // Report OCR failure to DB
       try {
@@ -3166,7 +3166,7 @@ function ExpensesPageInner() {
         </label>
         <span className="text-[13px] text-white/60 ltr-num">
           {paidSelectedInvoiceIds.size > 0 && (
-            <>נבחרו {paidSelectedInvoiceIds.size} — ₪{paidSelectedInvoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+            <>נבחרו {paidSelectedInvoiceIds.size} - ₪{paidSelectedInvoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
           )}
         </span>
       </div>
@@ -3522,7 +3522,7 @@ function ExpensesPageInner() {
 
         if (payErr) {
           console.error("[Edit Expense] Payment insert error:", payErr);
-          showToast("שגיאה ביצירת תשלום — הסטטוס עודכן אך התשלום לא נשמר", "error");
+          showToast("שגיאה ביצירת תשלום - הסטטוס עודכן אך התשלום לא נשמר", "error");
         } else if (newPayment) {
           // Mirror the link the add-flow creates so supplier-balance queries
           // that read payment_invoice_links (and not just payments.invoice_id)
@@ -3593,7 +3593,7 @@ function ExpensesPageInner() {
           .eq("id", editSelectedOpenPaymentId);
         if (linkFkErr) {
           console.error("[Edit Expense] link open payment (FK) error:", linkFkErr);
-          showToast("שגיאה בקישור התשלום — הסטטוס עודכן אך הקישור לא נשמר", "error");
+          showToast("שגיאה בקישור התשלום - הסטטוס עודכן אך הקישור לא נשמר", "error");
         } else {
           const { error: linkJunctionErr } = await supabase
             .from("payment_invoice_links")
@@ -3630,7 +3630,7 @@ function ExpensesPageInner() {
                 .from("invoices")
                 .update({ status: "pending" })
                 .eq("id", editingInvoice.id);
-              showToast(`⚠️ סכום החשבונית השתנה — הסטטוס חזר ל"ממתין" כי התשלום המקושר (₪${paymentAmount.toLocaleString()}) כבר לא תואם`, "warning");
+              showToast(`⚠️ סכום החשבונית השתנה - הסטטוס חזר ל"ממתין" כי התשלום המקושר (₪${paymentAmount.toLocaleString()}) כבר לא תואם`, "warning");
             }
           }
         }
@@ -4513,7 +4513,7 @@ function ExpensesPageInner() {
     const amountStr = paymentAmount % 1 === 0
       ? paymentAmount.toLocaleString("he-IL")
       : paymentAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (!confirm(`לנתק את התשלום ₪${amountStr} מתאריך ${paymentDate} מהחשבונית הזו?\nהתשלום עצמו לא יימחק — הוא יעבור לרשימת התשלומים הלא משויכים.`)) return;
+    if (!confirm(`לנתק את התשלום ₪${amountStr} מתאריך ${paymentDate} מהחשבונית הזו?\nהתשלום עצמו לא יימחק - הוא יעבור לרשימת התשלומים הלא משויכים.`)) return;
 
     const supabase = createClient();
     const { error } = await supabase
@@ -4967,7 +4967,7 @@ function ExpensesPageInner() {
           {/* CSV Export Button — exports *exactly* what the user sees on screen.
               When a global search is active (reference/supplier/amount/notes/creditCard)
               we export the full global result set, not just the locally-loaded
-              recentInvoices — otherwise the CSV silently drops rows that the
+              recentInvoices - otherwise the CSV silently drops rows that the
               search surfaced. */}
           <Button
             type="button"
@@ -5219,7 +5219,7 @@ function ExpensesPageInner() {
                 <div className="bg-[#29318A]/30 border border-[#29318A]/50 rounded-[7px] px-[10px] py-[6px] mb-[5px]">
                   <span className="text-[12px] text-[#00D4FF]">
                     נמצאו {globalMatches.length} תוצאות מחוץ לטווח הנוכחי (טאב/תאריכים)
-                    {globalMatches.length >= 500 && " — מוצגות 500 הראשונות. צמצמו את החיפוש לתוצאות מדויקות יותר."}
+                    {globalMatches.length >= 500 && " - מוצגות 500 הראשונות. צמצמו את החיפוש לתוצאות מדויקות יותר."}
                   </span>
                 </div>
               )}
@@ -5745,7 +5745,7 @@ function ExpensesPageInner() {
       {/* Daily Labor Entries Table - only shown in employees tab */}
       {activeTab === "employees" && dailyLaborEntries.length > 0 && (
         <div className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
-          <h2 className="text-[18px] font-bold text-center">מילוי יומי — עלות עובדים</h2>
+          <h2 className="text-[18px] font-bold text-center">מילוי יומי - עלות עובדים</h2>
           <div className="w-full max-h-[500px] overflow-y-scroll">
             {/* Header with sortable columns */}
             <div className="grid grid-cols-[0.7fr_1.2fr_0.7fr_0.8fr_0.8fr_1fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center sticky top-0 z-10">
@@ -6068,7 +6068,7 @@ function ExpensesPageInner() {
                       <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span className="text-[14px] font-medium text-[#3CD856]">
-                      תשלומים לא משויכים — {unlinkedPayments.length} ממתינים לקישור
+                      תשלומים לא משויכים - {unlinkedPayments.length} ממתינים לקישור
                     </span>
                   </div>
                   {showUnlinkedPayments && (
@@ -6133,7 +6133,7 @@ function ExpensesPageInner() {
                         <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                       <span className="text-[14px] font-medium text-[#bc76ff]">
-                        הוצאה חודשית קבועה — {fixedOpenInvoices.length} חשבוניות פתוחות
+                        הוצאה חודשית קבועה - {fixedOpenInvoices.length} חשבוניות פתוחות
                       </span>
                     </div>
                     {showFixedInvoices && (
@@ -6174,7 +6174,7 @@ function ExpensesPageInner() {
                                 : "bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80"
                             }`}
                           >
-                            {inv.month} — ₪{inv.total_amount.toLocaleString("he-IL")}
+                            {inv.month} - ₪{inv.total_amount.toLocaleString("he-IL")}
                           </Button>
                         ))}
                       </div>
@@ -6831,7 +6831,7 @@ function ExpensesPageInner() {
                     when the invoice has no linked payments yet and the user
                     hasn't ticked "שולמה במלואה" (the two are mutually exclusive
                     ways to mark the invoice paid). Use case: supplier was paid
-                    in advance, the invoice arrived later — link the two so the
+                    in advance, the invoice arrived later - link the two so the
                     invoice closes against the existing payment. */}
                 {!isPaidInFull && (editingInvoice?.linkedPayments?.length || 0) === 0 && (
                   <>
@@ -7087,7 +7087,7 @@ function ExpensesPageInner() {
                         <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                       <span className="text-[14px] font-medium text-[#bc76ff]">
-                        הוצאה חודשית קבועה — {fixedOpenInvoices.length} חשבוניות פתוחות
+                        הוצאה חודשית קבועה - {fixedOpenInvoices.length} חשבוניות פתוחות
                       </span>
                     </div>
                     {showFixedInvoices && (
@@ -7128,7 +7128,7 @@ function ExpensesPageInner() {
                                 : "bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80"
                             }`}
                           >
-                            {inv.month} — ₪{inv.total_amount.toLocaleString("he-IL")}
+                            {inv.month} - ₪{inv.total_amount.toLocaleString("he-IL")}
                           </Button>
                         ))}
                       </div>

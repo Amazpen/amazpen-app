@@ -1085,7 +1085,7 @@ export default function CustomersPage() {
             .insert({
               id: incomeSourceId,
               business_id: formBusinessId,
-              name: `ריטיינר — ${fBusinessName.trim()}`,
+              name: `ריטיינר - ${fBusinessName.trim()}`,
               is_active: true,
             });
 
@@ -1421,7 +1421,7 @@ export default function CustomersPage() {
       // Link an income source (robust against the partial-unique 409).
       let linkedId = customer.linked_income_source_id || null;
       if (!linkedId && customer.business_id) {
-        linkedId = await ensureIncomeSource(supabase, customer.business_id, `ריטיינר — ${(customer.business_name || '').trim()}`);
+        linkedId = await ensureIncomeSource(supabase, customer.business_id, `ריטיינר - ${(customer.business_name || '').trim()}`);
         if (linkedId) {
           await supabase.from("customers").update({ linked_income_source_id: linkedId }).eq("id", customerId);
         }
@@ -1740,7 +1740,7 @@ export default function CustomersPage() {
                   {/* The customer's own identity — prefer business_name, fall
                       back to contact_name. We avoid item.business.name (the
                       service provider's business) and also reject business_name
-                      if it accidentally matches the provider's name — bad data
+                      if it accidentally matches the provider's name - bad data
                       from imports/typos used to render "בדיקות" on every card. */}
                   {(() => {
                     const customerBizName = item.customer?.business_name?.trim();
@@ -2630,7 +2630,7 @@ export default function CustomersPage() {
                     {/* "Create business from customer" used to live here for
                         admins as part of the legacy amazpen-internal CRM
                         (turning a paying client into a tracked business).
-                        Removed — irrelevant to a service-business owner
+                        Removed - irrelevant to a service-business owner
                         managing their own customer list. */}
                   </>
                 ) : (
@@ -4015,7 +4015,7 @@ export default function CustomersPage() {
             return (
               <>
                 <div className="flex items-center justify-between mb-[12px]">
-                  <h3 className="text-[16px] font-bold text-white">פירוט תשלומים — {monthLabel}</h3>
+                  <h3 className="text-[16px] font-bold text-white">פירוט תשלומים - {monthLabel}</h3>
                   <span className="text-[11px] text-white/50">{monthPayments.length} תשלום{monthPayments.length === 1 ? "" : "ים"}</span>
                 </div>
                 <div className="flex items-center justify-between bg-[#29318A]/40 rounded-[7px] p-[10px] mb-[12px]">

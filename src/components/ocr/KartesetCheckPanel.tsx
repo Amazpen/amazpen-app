@@ -364,7 +364,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
         <h3 className="text-[16px] font-bold text-white">בדיקת כרטסת</h3>
         <p className="text-[12px] text-white/60 leading-[1.5]">
           טען את כל החשבוניות והתשלומים של ספק לטווח תאריכים, וסמן ✓ כל שורה שמופיעה גם בכרטסת שקיבלת מהספק.
-          הסימון נשמר אוטומטית — בפעם הבאה תראה מה כבר אישרת.
+          הסימון נשמר אוטומטית - בפעם הבאה תראה מה כבר אישרת.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_140px_100px] gap-[8px]">
@@ -428,7 +428,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
             <div className="flex items-center gap-[10px]">
               <span className="text-[14px] font-bold text-white">{supplierName}</span>
               <span className="text-[12px] text-white/50 ltr-num">
-                {formatDateDisplay(dateFrom)} — {formatDateDisplay(dateTo)}
+                {formatDateDisplay(dateFrom)} - {formatDateDisplay(dateTo)}
               </span>
             </div>
             {rows.length > 0 && (
@@ -556,7 +556,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
                 {showStatementInput && (
                   <>
                     <p className="text-[11px] text-white/50 leading-[1.5]">
-                      העתק את שורות הכרטסת מהספק והדבק כאן (כל תנועה בשורה — תאריך, מספר מסמך וסכום).
+                      העתק את שורות הכרטסת מהספק והדבק כאן (כל תנועה בשורה - תאריך, מספר מסמך וסכום).
                       המערכת תזהה אילו תנועות קיימות בכרטסת אך חסרות במצפן.
                     </p>
                     <textarea
@@ -579,7 +579,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
                     ) : (
                       <div className="bg-[#F64E60]/10 border border-[#F64E60]/40 rounded-[8px] p-[10px]">
                         <div className="text-[14px] font-bold text-[#F64E60] mb-[8px]">
-                          תנועות חסרות — יש בכרטסת ואין במצפן ({missingFromMatzpen.length})
+                          תנועות חסרות - יש בכרטסת ואין במצפן ({missingFromMatzpen.length})
                         </div>
                         <div className="grid grid-cols-[90px_1fr_110px] text-[11px] text-white/50 font-medium pb-[4px] border-b border-white/10">
                           <span>תאריך</span>

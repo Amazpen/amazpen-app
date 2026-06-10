@@ -1114,7 +1114,7 @@ export default function OCRBusinessPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ocrDocumentId: id }),
-          }).catch(() => { /* swallow — cron will retry */ });
+          }).catch(() => { /* swallow - cron will retry */ });
         }
 
         alert('המסמך נקלט בהצלחה ✓');
@@ -1138,7 +1138,7 @@ export default function OCRBusinessPage() {
 
       } catch (error) {
         console.error('Error saving document:', error);
-        alert('שגיאה בשמירת המסמך — הנתונים לא נשמרו. נסה שוב.');
+        alert('שגיאה בשמירת המסמך - הנתונים לא נשמרו. נסה שוב.');
       } finally {
         setIsLoading(false);
       }
@@ -1483,7 +1483,7 @@ export default function OCRBusinessPage() {
         ocr_data: newOcrData,
       } : null);
 
-      showToast(extracted ? "חיתוך נשמר ו-Mistral OCR חודש בהצלחה" : "חיתוך נשמר (Mistral OCR נכשל — נסה ידנית)", extracted ? "success" : "warning");
+      showToast(extracted ? "חיתוך נשמר ו-Mistral OCR חודש בהצלחה" : "חיתוך נשמר (Mistral OCR נכשל - נסה ידנית)", extracted ? "success" : "warning");
     } catch (err) {
       console.error("[Crop-Demo] Save failed:", err);
       showToast(err instanceof Error ? err.message : "שגיאה בשמירת החיתוך", "error");
@@ -1496,7 +1496,7 @@ export default function OCRBusinessPage() {
   const handleReExtract = useCallback(async () => {
     if (!currentDocument || isReExtracting) return;
     if (!currentDocument.image_url) {
-      showToast("אין תמונה למסמך זה — לא ניתן להריץ OCR מחדש", "error");
+      showToast("אין תמונה למסמך זה - לא ניתן להריץ OCR מחדש", "error");
       return;
     }
     setIsReExtracting(true);
@@ -1564,7 +1564,7 @@ export default function OCRBusinessPage() {
         setCurrentDocument(refreshed);
       }
 
-      showToast("OCR הסתיים — בדוק שהנתונים נכונים", "success");
+      showToast("OCR הסתיים - בדוק שהנתונים נכונים", "success");
     } catch (err) {
       console.error("[Re-extract] Failed:", err);
       showToast(err instanceof Error ? err.message : "שגיאה בהרצת OCR מחדש", "error");
@@ -1604,7 +1604,7 @@ export default function OCRBusinessPage() {
   return (
     <div className="relative flex flex-col h-[calc(100vh-60px)] bg-[#0a0d1f]">
       {/*
-        Preview overlay — non-allowed businesses see a blurred version of the
+        Preview overlay - non-allowed businesses see a blurred version of the
         page (with their own data) plus a CTA, so they understand what the
         feature does without being able to use it. We blur the inner content
         with `filter: blur(8px)` and put a backdrop-blur overlay on top that
@@ -1625,7 +1625,7 @@ export default function OCRBusinessPage() {
             </div>
             <h2 className="text-white text-[20px] font-bold mb-2">קליטת מסמכים OCR</h2>
             <p className="text-white/70 text-[14px] mb-1">פיצ&#39;ר זה זמין כעת לעסקים נבחרים בלבד.</p>
-            <p className="text-white/50 text-[13px] mb-6">לפרטים נוספים — צור קשר עם הצוות.</p>
+            <p className="text-white/50 text-[13px] mb-6">לפרטים נוספים - צור קשר עם הצוות.</p>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FFA412]/15 border border-[#FFA412]/30">
               <span className="text-[#FFA412] text-[12px] font-semibold">בקרוב גם לעסק שלך</span>
             </div>

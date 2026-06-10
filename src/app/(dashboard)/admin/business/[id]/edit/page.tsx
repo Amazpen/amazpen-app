@@ -1750,7 +1750,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           ניתוב מסמכי OCR לפי מספר טלפון
         </label>
         <p className="text-[11px] text-white/50 text-right">
-          מסמכים שיישלחו דרך WhatsApp/Telegram מהמספרים האלה ינותבו אוטומטית לעסק זה — ללא צורך בזיהוי AI.
+          מסמכים שיישלחו דרך WhatsApp/Telegram מהמספרים האלה ינותבו אוטומטית לעסק זה - ללא צורך בזיהוי AI.
         </p>
 
         {/* Existing phones list */}
@@ -1778,7 +1778,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 {isAuto ? (
                   <span
                     className="w-[28px] h-[28px] rounded-full bg-white/5 text-white/30 flex items-center justify-center flex-shrink-0"
-                    title="נטען מפרופיל המשתמש — מתעדכן אוטומטית בעריכת חברי הצוות"
+                    title="נטען מפרופיל המשתמש - מתעדכן אוטומטית בעריכת חברי הצוות"
                   >
                     🔒
                   </span>
@@ -1833,7 +1833,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               value={newIntakeNotes}
               onChange={(e) => setNewIntakeNotes(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddIntakePhone(); } }}
-              placeholder="הערה (אופציונלי) — למשל: 'הטלפון של דוד'"
+              placeholder="הערה (אופציונלי) - למשל: 'הטלפון של דוד'"
               className="w-full h-full bg-transparent text-white text-[13px] text-right rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
             />
           </div>
@@ -1848,7 +1848,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         </div>
 
         <p className="text-[11px] text-white/40 text-right">
-          פורמט: E.164 ללא +. דוגמה: 972501234567 (לא 050-1234567). אם אותו מספר משויך לכמה עסקים — הניתוב לא יעבוד והמערכת תיפול חזרה לזיהוי AI.
+          פורמט: E.164 ללא +. דוגמה: 972501234567 (לא 050-1234567). אם אותו מספר משויך לכמה עסקים - הניתוב לא יעבוד והמערכת תיפול חזרה לזיהוי AI.
         </p>
       </div>
 
@@ -2514,7 +2514,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               onChange={(e) => setNewBillingDay(parseInt(e.target.value) || 1)}
               disabled={newCardImmediate}
               aria-label="יום חיוב בחודש"
-              title={newCardImmediate ? "מיידי — אין יום חיוב" : "יום חיוב בחודש (1-31)"}
+              title={newCardImmediate ? "מיידי - אין יום חיוב" : "יום חיוב בחודש (1-31)"}
               className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px] disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
@@ -2532,7 +2532,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
         {/* "מיידי (דיירקט)" — חיוב בתאריך המסמך, ללא יום חיוב חודשי */}
         <label className="flex flex-row-reverse items-center justify-end gap-[8px] mb-[10px] cursor-pointer select-none">
-          <span className="text-[13px] text-white/70">מיידי (דיירקט) — חיוב בתאריך המסמך</span>
+          <span className="text-[13px] text-white/70">מיידי (דיירקט) - חיוב בתאריך המסמך</span>
           <input
             type="checkbox"
             checked={newCardImmediate}

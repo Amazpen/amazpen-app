@@ -87,9 +87,9 @@ export interface DataSourceOption {
 export const DATA_SOURCE_OPTIONS: DataSourceOption[] = [
   // --- דשבורד: הכנסות ---
   { value: "revenue", label: "סה״כ מכירות (צפי חודשי)", measurementType: "currency", isLowerBetter: false },
-  { value: "avg_ticket_1", label: "ממוצע להזמנה — מקור 1", measurementType: "currency", isLowerBetter: false },
-  { value: "avg_ticket_2", label: "ממוצע להזמנה — מקור 2", measurementType: "currency", isLowerBetter: false },
-  { value: "avg_ticket_3", label: "ממוצע להזמנה — מקור 3", measurementType: "currency", isLowerBetter: false },
+  { value: "avg_ticket_1", label: "ממוצע להזמנה - מקור 1", measurementType: "currency", isLowerBetter: false },
+  { value: "avg_ticket_2", label: "ממוצע להזמנה - מקור 2", measurementType: "currency", isLowerBetter: false },
+  { value: "avg_ticket_3", label: "ממוצע להזמנה - מקור 3", measurementType: "currency", isLowerBetter: false },
   // --- דשבורד: עלויות ---
   { value: "labor_cost_pct", label: "עלות עובדים (%)", measurementType: "percentage", isLowerBetter: true },
   { value: "food_cost_pct", label: "עלות מכר (%)", measurementType: "percentage", isLowerBetter: true },

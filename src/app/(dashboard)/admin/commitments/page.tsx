@@ -275,7 +275,7 @@ export default function CommitmentsImportPage() {
           <div className="bg-[#4956D4]/20 rounded-[15px] p-[15px]">
             <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">העלאת קובץ CSV</h3>
             <p className="text-[12px] text-white/40 text-right mb-[12px]">
-              תומך בייצוא מ-Bubble — כל שורה = התחייבות אחת עם עמודות: <span className="text-[#8B93FF]">שם הספק</span>, <span className="text-[#8B93FF]">כמות תשלומים</span>, <span className="text-[#8B93FF]">סכום חיוב חודשי כולל ריבית (משוער)</span>, <span className="text-[#8B93FF]">תאריך חיוב ראשון</span>, <span className="text-[#8B93FF]">תאריך סיום התחייבות</span>
+              תומך בייצוא מ-Bubble - כל שורה = התחייבות אחת עם עמודות: <span className="text-[#8B93FF]">שם הספק</span>, <span className="text-[#8B93FF]">כמות תשלומים</span>, <span className="text-[#8B93FF]">סכום חיוב חודשי כולל ריבית (משוער)</span>, <span className="text-[#8B93FF]">תאריך חיוב ראשון</span>, <span className="text-[#8B93FF]">תאריך סיום התחייבות</span>
             </p>
             <div className="flex items-center gap-[10px]">
               <label className="flex-1 border border-dashed border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center cursor-pointer hover:border-[#4956D4] transition-colors">

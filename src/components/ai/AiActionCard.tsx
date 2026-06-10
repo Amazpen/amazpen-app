@@ -208,7 +208,7 @@ export function AiActionCard({ action }: AiActionCardProps) {
                 <DetailRow
                   key={i}
                   label={`אמצעי ${i + 1}`}
-                  value={`${PAYMENT_METHOD_LABELS[m.method] || m.method} — ${formatCurrency(m.amount)}${m.due_date ? ` (חיוב: ${formatDate(m.due_date)})` : ""}`}
+                  value={`${PAYMENT_METHOD_LABELS[m.method] || m.method} - ${formatCurrency(m.amount)}${m.due_date ? ` (חיוב: ${formatDate(m.due_date)})` : ""}`}
                 />
               ))
             ) : (

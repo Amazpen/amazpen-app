@@ -59,7 +59,7 @@ export function AiDataTable({ sections, period, businessName }: AiDataTableProps
       {/* Title */}
       {businessName && (
         <div className="text-center">
-          <h3 className="text-white text-[16px] font-bold">📊 סיכום מצטבר — {businessName}</h3>
+          <h3 className="text-white text-[16px] font-bold">📊 סיכום מצטבר - {businessName}</h3>
           {period && <p className="text-white/50 text-[12px] mt-0.5">{period}</p>}
         </div>
       )}

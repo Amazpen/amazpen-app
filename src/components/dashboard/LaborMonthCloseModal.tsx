@@ -116,7 +116,7 @@ export function LaborMonthCloseModal({
         >
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-[17px] font-bold">
-              סגירת חודש עלות עובדים — {monthNames[month - 1]} {year}
+              סגירת חודש עלות עובדים - {monthNames[month - 1]} {year}
             </Dialog.Title>
             <button onClick={onClose} aria-label="סגור" className="text-white/60 hover:text-white">
               <X size={20} />

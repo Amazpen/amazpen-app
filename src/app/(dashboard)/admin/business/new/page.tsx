@@ -1551,7 +1551,7 @@ function NewBusinessPage() {
               onChange={(e) => setNewBillingDay(parseInt(e.target.value) || 1)}
               disabled={newCardImmediate}
               aria-label="יום חיוב בחודש"
-              title={newCardImmediate ? "מיידי — אין יום חיוב" : "יום חיוב בחודש (1-31)"}
+              title={newCardImmediate ? "מיידי - אין יום חיוב" : "יום חיוב בחודש (1-31)"}
               className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px] disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
@@ -1569,7 +1569,7 @@ function NewBusinessPage() {
 
         {/* "מיידי (דיירקט)" — חיוב בתאריך המסמך, ללא יום חיוב חודשי */}
         <label className="flex flex-row-reverse items-center justify-end gap-[8px] mb-[10px] cursor-pointer select-none">
-          <span className="text-[13px] text-white/70">מיידי (דיירקט) — חיוב בתאריך המסמך</span>
+          <span className="text-[13px] text-white/70">מיידי (דיירקט) - חיוב בתאריך המסמך</span>
           <input
             type="checkbox"
             checked={newCardImmediate}
@@ -2506,7 +2506,7 @@ function NewBusinessPage() {
           </div>
           <div className="flex flex-col gap-[4px]">
             <span className="text-[17px] font-bold text-white">עסק רגיל</span>
-            <span className="text-[13px] text-white/55 leading-relaxed">מסעדה, בית קפה, חנות — עסק עם מקורות הכנסה ישירים כמו קופה, אפליקציות משלוחים וכו&apos;</span>
+            <span className="text-[13px] text-white/55 leading-relaxed">מסעדה, בית קפה, חנות - עסק עם מקורות הכנסה ישירים כמו קופה, אפליקציות משלוחים וכו&apos;</span>
           </div>
         </button>
 
@@ -2525,7 +2525,7 @@ function NewBusinessPage() {
           </div>
           <div className="flex flex-col gap-[4px]">
             <span className="text-[17px] font-bold text-white">עסק נותן שירות</span>
-            <span className="text-[13px] text-white/55 leading-relaxed">עסק שמציע שירותים ללקוחות — ההכנסות מנוהלות דרך עמוד ניהול הלקוחות ולא דרך מקורות הכנסה קבועים</span>
+            <span className="text-[13px] text-white/55 leading-relaxed">עסק שמציע שירותים ללקוחות - ההכנסות מנוהלות דרך עמוד ניהול הלקוחות ולא דרך מקורות הכנסה קבועים</span>
           </div>
         </button>
       </div>

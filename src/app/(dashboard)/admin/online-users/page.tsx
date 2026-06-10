@@ -174,7 +174,7 @@ function UserAiAnalyst({ userId, days, ready }: { userId: string; days: number; 
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-[#a855f7]" />
           <span className="text-white font-semibold text-[14px]">ניתוח AI</span>
-          <span className="text-white/40 text-[11px]">— שאל על המשתמש הזה</span>
+          <span className="text-white/40 text-[11px]">- שאל על המשתמש הזה</span>
         </div>
         <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -452,7 +452,7 @@ function UserHistoryModal({ user, onClose }: { user: PresenceUser; onClose: () =
 
               {/* Section: heatmap */}
               <Section
-                title="מתי הוא נכנס — מפת חום"
+                title="מתי הוא נכנס - מפת חום"
                 icon={<Sunrise className="w-4 h-4" />}
                 hint="כל ריבוע = יום בשבוע × שעה. כהה יותר = יותר פעיל באותה שעה"
               >
@@ -504,7 +504,7 @@ function UserHistoryModal({ user, onClose }: { user: PresenceUser; onClose: () =
                 <Section
                   title="דפים שהוא ברח מהם"
                   icon={<AlertTriangle className="w-4 h-4 text-[#F64E60]" />}
-                  hint="דפים שיצא מהם תוך פחות מ-10 שניות — מועמדים לבדיקת UX"
+                  hint="דפים שיצא מהם תוך פחות מ-10 שניות - מועמדים לבדיקת UX"
                 >
                   <div className="bg-[#111056]/60 border border-[#F64E60]/30 rounded-xl overflow-hidden">
                     {stats.dropOffPages.map((p, i) => (
@@ -686,10 +686,10 @@ function EngagementCard({ score, level }: { score: number; level: "high" | "medi
   const label = level === "high" ? "התמכרות גבוהה" : level === "medium" ? "התמכרות בינונית" : "התמכרות נמוכה";
   const description =
     level === "high"
-      ? "המשתמש משתמש במערכת באופן מתמיד — שמור עליו"
+      ? "המשתמש משתמש במערכת באופן מתמיד - שמור עליו"
       : level === "medium"
       ? "שימוש סביר אבל יש מקום לשיפור"
-      : "שימוש דליל — צריך onboarding או פולואפ";
+      : "שימוש דליל - צריך onboarding או פולואפ";
 
   // Circular progress (SVG) with conic gradient feel via stroke-dasharray
   const circumference = 2 * Math.PI * 36;
@@ -751,10 +751,10 @@ function ChurnCard({ risk, daysSinceLastSeen }: { risk: "low" | "medium" | "high
   const Icon = risk === "low" ? Activity : risk === "medium" ? Clock : AlertTriangle;
   const description =
     risk === "low"
-      ? "פעיל לאחרונה — המשתמש שלך"
+      ? "פעיל לאחרונה - המשתמש שלך"
       : risk === "medium"
-      ? "התחיל להירדם — שווה לשלוח התראה"
-      : "מסכן לעזוב — צריך פולואפ אישי";
+      ? "התחיל להירדם - שווה לשלוח התראה"
+      : "מסכן לעזוב - צריך פולואפ אישי";
   const lastSeenText =
     daysSinceLastSeen === 0
       ? "היה היום"
@@ -802,10 +802,10 @@ function StreakCard({ streak, activeDays, totalDays }: { streak: number; activeD
   const consistencyPct = totalDays > 0 ? Math.round((activeDays / totalDays) * 100) : 0;
   const description =
     streak >= 5
-      ? "רצף יפה — המשתמש בנה הרגל"
+      ? "רצף יפה - המשתמש בנה הרגל"
       : streak > 0
-      ? "התחיל רצף — לעודד שימשיך"
-      : "רצף נשבר — שווה תזכורת";
+      ? "התחיל רצף - לעודד שימשיך"
+      : "רצף נשבר - שווה תזכורת";
 
   return (
     <div
@@ -881,7 +881,7 @@ function HeatmapGrid({ heatmap }: { heatmap: number[][] }) {
               <div key={dow} className="flex items-center mt-0.5 group/row">
                 <div
                   className="w-10 shrink-0 text-[11px] text-white/60 group-hover/row:text-white transition"
-                  title={`${dayLabelsLong[dow]} — סה״כ ${Math.round(dayTotal / 60)} דקות`}
+                  title={`${dayLabelsLong[dow]} - סה״כ ${Math.round(dayTotal / 60)} דקות`}
                 >
                   {dayLabels[dow]}
                 </div>
@@ -898,8 +898,8 @@ function HeatmapGrid({ heatmap }: { heatmap: number[][] }) {
                       style={{ background: bg }}
                       title={
                         val > 0
-                          ? `${dayLabelsLong[dow]} ${String(h).padStart(2, "0")}:00 — ${Math.round(val / 60)} דקות`
-                          : `${dayLabelsLong[dow]} ${String(h).padStart(2, "0")}:00 — לא היה פעיל`
+                          ? `${dayLabelsLong[dow]} ${String(h).padStart(2, "0")}:00 - ${Math.round(val / 60)} דקות`
+                          : `${dayLabelsLong[dow]} ${String(h).padStart(2, "0")}:00 - לא היה פעיל`
                       }
                     />
                   );
@@ -971,7 +971,7 @@ function DailyActivityChart({ data }: { data: Array<{ date: string; seconds: num
                   minHeight: d.seconds > 0 ? "2px" : "0",
                   minWidth: "8px",
                 }}
-                title={`${d.date} — ${Math.round(d.seconds / 60)} דקות`}
+                title={`${d.date} - ${Math.round(d.seconds / 60)} דקות`}
               >
                 {/* Tooltip on hover */}
                 <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-[#0F1535] border border-white/20 rounded px-2 py-1 text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">

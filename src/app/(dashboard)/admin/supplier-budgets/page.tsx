@@ -230,7 +230,7 @@ export default function SupplierBudgetsImportPage() {
             <p className="text-[13px] text-white/60 mb-[8px]">
               <span className="text-[#8B93FF] font-bold">קובץ תקציבי ספקים</span>
               <br/>
-              <span className="text-white/40 text-[12px]">עמודות: ספק, שנה, חודש (במספר), סכום תקציב חודשי — שורות כפולות לאותו ספק/חודש מצטברות אוטומטית</span>
+              <span className="text-white/40 text-[12px]">עמודות: ספק, שנה, חודש (במספר), סכום תקציב חודשי - שורות כפולות לאותו ספק/חודש מצטברות אוטומטית</span>
             </p>
             <label className="flex border border-dashed border-[#4C526B] rounded-[10px] h-[48px] items-center justify-center cursor-pointer hover:border-[#4956D4] transition-colors">
               <span className="text-[14px] text-white/60">
@@ -245,7 +245,7 @@ export default function SupplierBudgetsImportPage() {
         {unmatched.length > 0 && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-[15px] p-[15px]">
             <h3 className="text-[14px] font-bold text-yellow-400 mb-[8px]">⚠️ ספקים שלא נמצאו ({unmatched.length})</h3>
-            <p className="text-[12px] text-white/50 mb-[8px]">הספקים הבאים לא קיימים בעסק — השורות שלהם לא יייובאו:</p>
+            <p className="text-[12px] text-white/50 mb-[8px]">הספקים הבאים לא קיימים בעסק - השורות שלהם לא יייובאו:</p>
             <div className="flex flex-wrap gap-[6px]">
               {unmatched.map(s => (
                 <span key={s} className="bg-yellow-500/20 text-yellow-300 text-[12px] px-[8px] py-[3px] rounded-full">{s}</span>

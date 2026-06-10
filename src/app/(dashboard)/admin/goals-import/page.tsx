@@ -262,7 +262,7 @@ export default function GoalsImportPage() {
             {/* Goals CSV */}
             <div>
               <p className="text-[13px] text-white/60 mb-[8px]">
-                <span className="text-[#8B93FF] font-bold">קובץ יעדים כללים</span> — חובה
+                <span className="text-[#8B93FF] font-bold">קובץ יעדים כללים</span> - חובה
                 <br/>
                 <span className="text-white/40 text-[12px]">עמודות: שנה, חודש (מספר), תקציב מכירות ברוטו, תקציב עלות עובדים (באחוזים), תקציב עלות מכר (באחוזים), תקציב הוצאות שוטפות (בשקל)</span>
               </p>
@@ -277,9 +277,9 @@ export default function GoalsImportPage() {
             {/* Details CSV */}
             <div>
               <p className="text-[13px] text-white/60 mb-[8px]">
-                <span className="text-[#8B93FF] font-bold">קובץ פרטים כללים לכל חודש</span> — אופציונלי
+                <span className="text-[#8B93FF] font-bold">קובץ פרטים כללים לכל חודש</span> - אופציונלי
                 <br/>
-                <span className="text-white/40 text-[12px]">עמודות: העמסה, ימי עבודה בחודש, ימי עבודה בפועל בחודש, מע&quot;מ — <strong>באותו סדר שורות</strong> כקובץ היעדים</span>
+                <span className="text-white/40 text-[12px]">עמודות: העמסה, ימי עבודה בחודש, ימי עבודה בפועל בחודש, מע&quot;מ - <strong>באותו סדר שורות</strong> כקובץ היעדים</span>
               </p>
               <label className="flex border border-dashed border-[#4C526B] rounded-[10px] h-[48px] items-center justify-center cursor-pointer hover:border-[#4956D4] transition-colors">
                 <span className="text-[14px] text-white/60">

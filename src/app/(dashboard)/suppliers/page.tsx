@@ -2693,7 +2693,7 @@ export default function SuppliersPage() {
                     type="button"
                     onClick={() => setTrackPrices(!trackPrices)}
                     className="flex items-center gap-[3px]"
-                    title="כאשר כבוי — מעקב פריטים והתראות שינוי מחיר לא יופעלו לספק זה"
+                    title="כאשר כבוי - מעקב פריטים והתראות שינוי מחיר לא יופעלו לספק זה"
                   >
                     <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
                       {trackPrices ? (
@@ -3089,7 +3089,7 @@ export default function SuppliersPage() {
                     type="button"
                     onClick={() => setVatRequired("two_thirds")}
                     className="flex items-center gap-[3px]"
-                    title='מע"מ 2/3 — החזר 66.67% מהמע"מ (לרוב על הוצאות רכב לעסק)'
+                    title='מע"מ 2/3 - החזר 66.67% מהמע"מ (לרוב על הוצאות רכב לעסק)'
                   >
                     <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={vatRequired === "two_thirds" ? "text-white" : "text-[#979797]"}>
                       {vatRequired === "two_thirds" ? (
@@ -3105,7 +3105,7 @@ export default function SuppliersPage() {
                 </div>
                 {vatRequired === "two_thirds" && (
                   <p className="text-[12px] text-white/60 mt-[2px]">
-                    בחישוב המע&quot;מ — רק 2/3 מהמע&quot;מ של החשבונית יוחזר (נהוג בהוצאות רכב לעסק).
+                    בחישוב המע&quot;מ - רק 2/3 מהמע&quot;מ של החשבונית יוחזר (נהוג בהוצאות רכב לעסק).
                   </p>
                 )}
               </div>
@@ -4297,8 +4297,8 @@ export default function SuppliersPage() {
                                                 <div key={split.id || sIdx} className="flex items-center justify-between px-[8px] py-[2px] text-[11px] text-white/60">
                                                   <span>
                                                     תשלום {split.installment_number || sIdx + 1}
-                                                    {split.due_date && ` — ${new Date(split.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}`}
-                                                    {split.check_number && ` — צ׳ק ${split.check_number}`}
+                                                    {split.due_date && ` - ${new Date(split.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}`}
+                                                    {split.check_number && ` - צ׳ק ${split.check_number}`}
                                                   </span>
                                                   <span className="ltr-num">₪{split.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                 </div>
@@ -4345,7 +4345,7 @@ export default function SuppliersPage() {
                                       }}
                                       className="bg-[#29318A] text-white text-[13px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#3D44A0] transition-colors"
                                     >
-                                      חשבונית מקושרת: {payment.linkedInvoice.invoiceNumber || payment.linkedInvoice.date} — ₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      חשבונית מקושרת: {payment.linkedInvoice.invoiceNumber || payment.linkedInvoice.date} - ₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </Button>
                                   </div>
                                 )}

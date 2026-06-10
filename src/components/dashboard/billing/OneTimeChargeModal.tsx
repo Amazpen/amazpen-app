@@ -112,7 +112,7 @@ export function OneTimeChargeModal({
       >
         <DialogHeader>
           <DialogTitle className="text-right">
-            {view === "form" ? `חיוב חד-פעמי — ${customerName}` : "לינק לתשלום"}
+            {view === "form" ? `חיוב חד-פעמי - ${customerName}` : "לינק לתשלום"}
           </DialogTitle>
         </DialogHeader>
 

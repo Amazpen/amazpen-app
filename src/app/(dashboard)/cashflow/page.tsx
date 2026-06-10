@@ -336,7 +336,7 @@ export default function CashFlowPage() {
               : (businessName || "לקוח");
             const vatNote = isForeign ? "" : ' (כולל מע"מ)';
             const existing = customerPaymentsByDate.get(dateStr) || [];
-            existing.push({ name: `תקבול — ${customerLabel}${vatNote}`, amount: gross });
+            existing.push({ name: `תקבול - ${customerLabel}${vatNote}`, amount: gross });
             customerPaymentsByDate.set(dateStr, existing);
             paidGrossByDate.set(dateStr, (paidGrossByDate.get(dateStr) || 0) + gross);
           }
@@ -357,7 +357,7 @@ export default function CashFlowPage() {
             ? (businessName && businessName !== contactName ? `${contactName} / ${businessName}` : contactName)
             : (businessName || "לקוח");
           const vatNote = isForeign ? "" : ' (כולל מע"מ)';
-          const name = `ריטיינר — ${customerLabel}${vatNote}`;
+          const name = `ריטיינר - ${customerLabel}${vatNote}`;
 
           // Generate entries for each month in range
           const rangeStart = new Date(displayStartStr + "T00:00:00");
@@ -685,7 +685,7 @@ export default function CashFlowPage() {
               <div className="flex items-center gap-[6px]">
                 <span className="text-[12px] text-white/50">מצב בבנק תחילת פעילות</span>
                 <span
-                  title="עמוד בגרסת בטא — התחזיות עדיין בכיוונון"
+                  title="עמוד בגרסת בטא - התחזיות עדיין בכיוונון"
                   className="bg-[#FFA412] text-[#0F1535] text-[10px] font-bold px-[6px] py-[1px] rounded-full whitespace-nowrap leading-[1.4]"
                 >
                   בטא

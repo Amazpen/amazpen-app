@@ -298,7 +298,7 @@ export function getToolSteps(message: UIMessage): ToolStep[] {
       if (isDone && toolName === "getMonthlySummary") {
         const bizName = getBusinessNameFromOutput(toolPart.output);
         if (bizName) {
-          detail = detail ? `${bizName} — ${detail}` : bizName;
+          detail = detail ? `${bizName} - ${detail}` : bizName;
         }
       }
 
@@ -408,7 +408,7 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
             <div className="flex items-center gap-2">
               <span className="text-white/65 text-[12px] font-medium">
                 {activeStep?.label || "מעבד..."}
-                {activeStep?.detail && <span className="text-white/35 mr-1.5">— {activeStep.detail}</span>}
+                {activeStep?.detail && <span className="text-white/35 mr-1.5">- {activeStep.detail}</span>}
               </span>
               {/* Live progress counter */}
               {steps.length > 1 && (
@@ -563,7 +563,7 @@ function GroupedSteps({ group }: { group: ToolGroup }) {
                 <span className="text-white/40 truncate max-w-[200px]">{step.detail || step.label}</span>
                 {step.resultSummary && (
                   <span className={step.resultSummary === "אין נתונים עדיין" ? "text-white/20" : `${display.color} opacity-60`}>
-                    — {step.resultSummary}
+                    - {step.resultSummary}
                   </span>
                 )}
               </div>

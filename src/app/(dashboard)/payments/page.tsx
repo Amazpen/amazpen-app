@@ -749,7 +749,7 @@ function PendingPaymentsReport({
                         <span className="text-center ltr-num">{fmtMoney(inv.paidAmount)}</span>
                         <span className="text-center ltr-num font-semibold">{fmtMoney(inv.balance)}</span>
                         {/* Document preview (#4): open the invoice scan. Multi-page
-                            attachments are stored as a JSON array — open the first. */}
+                            attachments are stored as a JSON array - open the first. */}
                         <span className="flex justify-center">
                           {inv.attachmentUrl ? (
                             <button
@@ -804,7 +804,7 @@ function PendingPaymentsReport({
       </div>
 
       <p className="text-[11px] text-white/40 text-center">
-        הסכום מסונכרן עם עמוד &quot;ניהול הוצאות&quot; — כל חשבונית שמסומנת שולמה (גם חלקית) יורדת בהתאם.
+        הסכום מסונכרן עם עמוד &quot;ניהול הוצאות&quot; - כל חשבונית שמסומנת שולמה (גם חלקית) יורדת בהתאם.
       </p>
 
       {/* Document preview overlay (#4) — portal to body so it stacks above
@@ -1126,7 +1126,7 @@ function PaymentsPageInner() {
 
       // Check if OCR couldn't read the document — let user fill manually
       if (data.ocr_failed) {
-        showToast("לא הצלחנו לזהות טקסט מהמסמך — ניתן למלא את הפרטים ידנית", "info");
+        showToast("לא הצלחנו לזהות טקסט מהמסמך - ניתן למלא את הפרטים ידנית", "info");
       } else {
         if (data.document_date) setPaymentDate(data.document_date);
         if (data.document_number) setReference(data.document_number);
@@ -1137,9 +1137,9 @@ function PaymentsPageInner() {
       setOcrApplied(true);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        showToast("הזיהוי נכשל — חרג מזמן המתנה (60 שניות)", "info");
+        showToast("הזיהוי נכשל - חרג מזמן המתנה (60 שניות)", "info");
       } else {
-        showToast("לא הצלחנו לזהות את המסמך — ניתן למלא את הפרטים ידנית", "info");
+        showToast("לא הצלחנו לזהות את המסמך - ניתן למלא את הפרטים ידנית", "info");
       }
       setOcrApplied(true);
     } finally {
@@ -2431,7 +2431,7 @@ function PaymentsPageInner() {
         .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
       const diff = Math.abs(invoicesTotal - paymentTotal);
       if (diff > 5) {
-        showToast(`לא ניתן לבצע תשלום חלקי — הפרש של ₪${diff.toFixed(2)} בין סכום התשלום לסכום החשבוניות`, "error");
+        showToast(`לא ניתן לבצע תשלום חלקי - הפרש של ₪${diff.toFixed(2)} בין סכום התשלום לסכום החשבוניות`, "error");
         savingPaymentRef.current = false;
         return;
       }
@@ -2478,7 +2478,7 @@ function PaymentsPageInner() {
         }
         setIsUploadingReceipt(false);
         if (uploadFailed) {
-          showToast("שגיאה בהעלאת הקובץ — האסמכתא לא נשמרה", "error");
+          showToast("שגיאה בהעלאת הקובץ - האסמכתא לא נשמרה", "error");
           setIsSaving(false);
           return;
         }
@@ -2574,7 +2574,7 @@ function PaymentsPageInner() {
         }
 
         clearPaymentDraft();
-        showToast(`נוצרו ${insertedIds.length} תשלומים ללא חשבונית. כשהחשבונית תגיע — סגור איתה את התשלום מ-${suppliers.find(s => s.id === selectedSupplier)?.name || "הספק"}.`, "success");
+        showToast(`נוצרו ${insertedIds.length} תשלומים ללא חשבונית. כשהחשבונית תגיע - סגור איתה את התשלום מ-${suppliers.find(s => s.id === selectedSupplier)?.name || "הספק"}.`, "success");
         setShowAddPaymentPopup(false);
         resetForm();
         setRefreshTrigger(t => t + 1);
@@ -3012,7 +3012,7 @@ function PaymentsPageInner() {
         }
         setIsUploadingReceipt(false);
         if (uploadFailed) {
-          showToast("שגיאה בהעלאת הקובץ — האסמכתא לא נשמרה", "error");
+          showToast("שגיאה בהעלאת הקובץ - האסמכתא לא נשמרה", "error");
           setIsSaving(false);
           return;
         }
@@ -3174,7 +3174,7 @@ function PaymentsPageInner() {
           const selectedInvoices = openInvoices.filter(inv => selectedInvoiceIds.has(inv.id));
           const invoicesTotal = selectedInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
           if (Math.abs(invoicesTotal - totalAmount) > 5) {
-            showToast(`⚠️ סכום התשלום (₪${totalAmount.toLocaleString()}) לא תואם לסכום החשבוניות (₪${invoicesTotal.toLocaleString()}) — החשבוניות חזרו לסטטוס "ממתין"`, "warning");
+            showToast(`⚠️ סכום התשלום (₪${totalAmount.toLocaleString()}) לא תואם לסכום החשבוניות (₪${invoicesTotal.toLocaleString()}) - החשבוניות חזרו לסטטוס "ממתין"`, "warning");
           }
         }
       }
@@ -3908,7 +3908,7 @@ function PaymentsPageInner() {
     <div className="text-white p-[7px] pb-[10px]">
       <ConfirmDialog />
       {/* Date Range and Add Button.
-          Mobile: stacked — date picker + help on top row, action buttons full-width below.
+          Mobile: stacked - date picker + help on top row, action buttons full-width below.
           Desktop (sm+): single row with actions on the right, date/help on the left. */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[10px] mb-[10px]">
         {/* Date picker + help — first on mobile, last (left) on desktop */}
@@ -4949,8 +4949,8 @@ function PaymentsPageInner() {
                                     <div key={split.id || sIdx} className="flex items-center justify-between px-[8px] py-[2px] text-[11px] text-white/60">
                                       <span>
                                         תשלום {split.installment_number || sIdx + 1}
-                                        {split.due_date && ` — ${new Date(split.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}`}
-                                        {split.check_number && ` — צ׳ק ${split.check_number}`}
+                                        {split.due_date && ` - ${new Date(split.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}`}
+                                        {split.check_number && ` - צ׳ק ${split.check_number}`}
                                       </span>
                                       <span className="ltr-num">₪{split.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
@@ -5177,7 +5177,7 @@ function PaymentsPageInner() {
             {/* AI prefill banner */}
             {isAiPrefill && (
               <div className="mx-4 mt-3 mb-1 p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-lg text-center">
-                <span className="text-[13px] text-blue-200 font-medium">מילוי אוטומטי מדדי — בדוק ואשר</span>
+                <span className="text-[13px] text-blue-200 font-medium">מילוי אוטומטי מדדי - בדוק ואשר</span>
               </div>
             )}
 
@@ -5340,7 +5340,7 @@ function PaymentsPageInner() {
                   </Button>
                   {unlinkedMode && (
                     <div className="bg-[#7e3af2]/10 border border-[#7e3af2]/30 rounded-[8px] px-[10px] py-[8px] text-[13px] text-white/85 leading-[1.5]">
-                      התשלום ייווצר ללא קישור לחשבונית. כשהחשבונית תגיע (OCR או הוספה ידנית) — תוכל לבחור אם לסגור איתה תשלום זה.
+                      התשלום ייווצר ללא קישור לחשבונית. כשהחשבונית תגיע (OCR או הוספה ידנית) - תוכל לבחור אם לסגור איתה תשלום זה.
                       <br />
                       בכל שורת תשלום ניתן לסמן: <span className="text-emerald-300 font-bold">V</span> = חשבונית נפרדת לתשלום זה · <span className="text-orange-300 font-bold">X</span> = חלק מחשבונית אחת משותפת.
                     </div>
@@ -5994,8 +5994,8 @@ function PaymentsPageInner() {
                         </svg>
                         <span className={`text-[14px] ${textClass}`}>
                           {isBlocked
-                            ? `לא ניתן לבצע תשלום חלקי — הפרש של ₪${diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} בין סכום התשלום לסכום החשבוניות`
-                            : `סכום התשלום (₪${paymentTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) ${paymentTotal > invoicesTotal ? "גבוה" : "נמוך"} מסכום החשבוניות שנבחרו (₪${invoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) — הפרש: ₪${diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            ? `לא ניתן לבצע תשלום חלקי - הפרש של ₪${diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} בין סכום התשלום לסכום החשבוניות`
+                            : `סכום התשלום (₪${paymentTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) ${paymentTotal > invoicesTotal ? "גבוה" : "נמוך"} מסכום החשבוניות שנבחרו (₪${invoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) - הפרש: ₪${diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           }
                         </span>
                       </div>

@@ -446,8 +446,8 @@ export default function InsightsPage() {
           id: "revenue-trend",
           title: isUp ? "צפי עלייה בהכנסות לעומת חודש קודם" : "צפי ירידה בהכנסות לעומת חודש קודם",
           description: isUp
-            ? `לפי הקצב הנוכחי, ההכנסות לסוף החודש צפויות להגיע ל-${formatCurrencyFull(monthlyPaceRevenue)} — עלייה של ${formatPercent(Math.abs(changePct))} לעומת ${formatCurrencyFull(prevTotal)} בחודש שעבר.`
-            : `לפי הקצב הנוכחי, ההכנסות לסוף החודש צפויות להגיע ל-${formatCurrencyFull(monthlyPaceRevenue)} — ירידה של ${formatPercent(Math.abs(changePct))} לעומת ${formatCurrencyFull(prevTotal)} בחודש שעבר.`,
+            ? `לפי הקצב הנוכחי, ההכנסות לסוף החודש צפויות להגיע ל-${formatCurrencyFull(monthlyPaceRevenue)} - עלייה של ${formatPercent(Math.abs(changePct))} לעומת ${formatCurrencyFull(prevTotal)} בחודש שעבר.`
+            : `לפי הקצב הנוכחי, ההכנסות לסוף החודש צפויות להגיע ל-${formatCurrencyFull(monthlyPaceRevenue)} - ירידה של ${formatPercent(Math.abs(changePct))} לעומת ${formatCurrencyFull(prevTotal)} בחודש שעבר.`,
           severity: isUp ? "positive" : "negative",
           category: "revenue",
           value: `קצב צפוי: ${formatCurrencyFull(monthlyPaceRevenue)} | חודש קודם: ${formatCurrencyFull(prevTotal)}`,
@@ -465,7 +465,7 @@ export default function InsightsPage() {
         results.push({
           id: "monthly-pace",
           title: "קצב הכנסות חודשי צפוי",
-          description: `לפי ממוצע יומי של ${formatCurrencyFull(dailyAvg)}, הקצב החודשי צפוי להגיע ל-${formatCurrencyFull(monthlyPace)}${revenueTarget > 0 ? `. היעד החודשי הוא ${formatCurrencyFull(revenueTarget)} — ${monthlyPace >= revenueTarget ? "את/ה בדרך לעמוד ביעד" : `חסרים ${formatCurrencyFull(revenueTarget - monthlyPace)}`}.` : "."}`,
+          description: `לפי ממוצע יומי של ${formatCurrencyFull(dailyAvg)}, הקצב החודשי צפוי להגיע ל-${formatCurrencyFull(monthlyPace)}${revenueTarget > 0 ? `. היעד החודשי הוא ${formatCurrencyFull(revenueTarget)} - ${monthlyPace >= revenueTarget ? "את/ה בדרך לעמוד ביעד" : `חסרים ${formatCurrencyFull(revenueTarget - monthlyPace)}`}.` : "."}`,
           severity: revenueTarget > 0 ? (monthlyPace >= revenueTarget ? "positive" : "warning") : "info",
           category: "revenue",
           value: `קצב צפוי: ${formatCurrencyFull(monthlyPace)}${revenueTarget > 0 ? ` | יעד: ${formatCurrencyFull(revenueTarget)}` : ""}`,
@@ -496,7 +496,7 @@ export default function InsightsPage() {
               ? "חרגת מתקציב הרכישות לחודש"
               : "תקציב רכישות פנוי עד סוף החודש",
             description: overBudget
-              ? `לפי צפי הכנסות חודשי של ${fmtPace} ויעד עלות מזון של ${formatPercent(foodTargetPct)}, התקציב המקסימלי לרכישות החודש הוא ${fmtAllowed}. עד עכשיו נרכש ב-${fmtSpent} — חריגה של ${fmtRemaining}.`
+              ? `לפי צפי הכנסות חודשי של ${fmtPace} ויעד עלות מזון של ${formatPercent(foodTargetPct)}, התקציב המקסימלי לרכישות החודש הוא ${fmtAllowed}. עד עכשיו נרכש ב-${fmtSpent} - חריגה של ${fmtRemaining}.`
               : `לפי צפי הכנסות חודשי של ${fmtPace} ויעד עלות מזון של ${formatPercent(foodTargetPct)}, מותר לקנות החודש עד ${fmtAllowed}. עד עכשיו נרכש ב-${fmtSpent}, אז נשאר תקציב של ${fmtRemaining} עד סוף החודש.`,
             severity: overBudget ? "negative" : "info",
             category: "expenses",
@@ -552,7 +552,7 @@ export default function InsightsPage() {
         results.push({
           id: "best-worst-day",
           title: "פער בין היום החזק לחלש",
-          description: `היום הכי חזק היה ${DAY_NAMES[bestDate.getDay()]} ${bestDate.toLocaleDateString("he-IL")} (${formatCurrencyFull(Number(best.total_register))}). היום הכי חלש היה ${DAY_NAMES[worstDate.getDay()]} ${worstDate.toLocaleDateString("he-IL")} (${formatCurrencyFull(Number(worst.total_register))}). הפער הוא ${formatCurrencyFull(gap)} — כלומר הפוטנציאל של כל יום חלש להתקרב ליום חזק הוא משמעותי.`,
+          description: `היום הכי חזק היה ${DAY_NAMES[bestDate.getDay()]} ${bestDate.toLocaleDateString("he-IL")} (${formatCurrencyFull(Number(best.total_register))}). היום הכי חלש היה ${DAY_NAMES[worstDate.getDay()]} ${worstDate.toLocaleDateString("he-IL")} (${formatCurrencyFull(Number(worst.total_register))}). הפער הוא ${formatCurrencyFull(gap)} - כלומר הפוטנציאל של כל יום חלש להתקרב ליום חזק הוא משמעותי.`,
           severity: "info",
           category: "revenue",
           value: `${formatCurrencyFull(Number(best.total_register))} (שיא) → ${formatCurrencyFull(Number(worst.total_register))} (שפל)`,
@@ -631,7 +631,7 @@ export default function InsightsPage() {
           results.push({
             id: "below-avg-days",
             title: "רוב הימים מתחת לממוצע",
-            description: `${belowAvg.length} מתוך ${entries.length} ימים היו מתחת לממוצע היומי של ${formatCurrencyFull(avg)}. כמה ימים חזקים מושכים את הממוצע למעלה — שווה לבדוק מה מייחד אותם ולנסות לשכפל את ההצלחה.`,
+            description: `${belowAvg.length} מתוך ${entries.length} ימים היו מתחת לממוצע היומי של ${formatCurrencyFull(avg)}. כמה ימים חזקים מושכים את הממוצע למעלה - שווה לבדוק מה מייחד אותם ולנסות לשכפל את ההצלחה.`,
             severity: "warning",
             category: "operations",
             value: `ממוצע יומי: ${formatCurrencyFull(avg)} | ${belowAvg.length}/${entries.length} ימים מתחתיו`,
@@ -653,8 +653,8 @@ export default function InsightsPage() {
             id: "labor-vs-target",
             title: diff > 0 ? "חריגה ביעד עלות כוח אדם" : "עלות כוח אדם מתחת ליעד",
             description: diff > 0
-              ? `עלות כ״א עומדת על ${formatPercent(laborPct)} מהפדיון לפני מע״מ — חריגה של ${formatPercent(Math.abs(diff))} מהיעד (${formatPercent(laborTarget)}). המשמעות: ${formatCurrencyFull(Math.abs(diffAmount))} עודף בהוצאות עובדים החודש.`
-              : `עלות כ״א עומדת על ${formatPercent(laborPct)} — מתחת ליעד של ${formatPercent(laborTarget)} ב-${formatPercent(Math.abs(diff))}. חיסכון של ${formatCurrencyFull(Math.abs(diffAmount))} בהוצאות עובדים.`,
+              ? `עלות כ״א עומדת על ${formatPercent(laborPct)} מהפדיון לפני מע״מ - חריגה של ${formatPercent(Math.abs(diff))} מהיעד (${formatPercent(laborTarget)}). המשמעות: ${formatCurrencyFull(Math.abs(diffAmount))} עודף בהוצאות עובדים החודש.`
+              : `עלות כ״א עומדת על ${formatPercent(laborPct)} - מתחת ליעד של ${formatPercent(laborTarget)} ב-${formatPercent(Math.abs(diff))}. חיסכון של ${formatCurrencyFull(Math.abs(diffAmount))} בהוצאות עובדים.`,
             severity: diff > 3 ? "negative" : diff > 0 ? "warning" : "positive",
             category: "labor",
             value: `בפועל: ${formatPercent(laborPct)} (${formatCurrencyFull(laborCostWithManager)}) | יעד: ${formatPercent(laborTarget)}`,
@@ -664,10 +664,10 @@ export default function InsightsPage() {
             id: "labor-pct",
             title: `עלות כוח אדם: ${formatPercent(laborPct)}`,
             description: laborPct > 30
-              ? `עלות כ״א היא ${formatPercent(laborPct)} מהפדיון — מעל הסף המומלץ של 30%. מומלץ לבדוק שעות עבודה בימים חלשים ולשקול אופטימיזציה.`
+              ? `עלות כ״א היא ${formatPercent(laborPct)} מהפדיון - מעל הסף המומלץ של 30%. מומלץ לבדוק שעות עבודה בימים חלשים ולשקול אופטימיזציה.`
               : laborPct < 20
-              ? `עלות כ״א היא רק ${formatPercent(laborPct)} מהפדיון — מתחת לממוצע בענף (20%-30%). יעילות מצוינת, אבל כדאי לוודא שזה לא על חשבון איכות השירות.`
-              : `עלות כ״א היא ${formatPercent(laborPct)} מהפדיון — בטווח הנורמלי של 20%-30%.`,
+              ? `עלות כ״א היא רק ${formatPercent(laborPct)} מהפדיון - מתחת לממוצע בענף (20%-30%). יעילות מצוינת, אבל כדאי לוודא שזה לא על חשבון איכות השירות.`
+              : `עלות כ״א היא ${formatPercent(laborPct)} מהפדיון - בטווח הנורמלי של 20%-30%.`,
             severity: laborPct > 30 ? "negative" : laborPct < 20 ? "positive" : "info",
             category: "labor",
             value: `${formatCurrencyFull(laborCostWithManager)} (${formatPercent(laborPct)} מפדיון)`,
@@ -707,8 +707,8 @@ export default function InsightsPage() {
             id: "food-cost-target",
             title: diff > 0 ? "חריגה ביעד עלות סחורה" : "עלות סחורה מתחת ליעד",
             description: diff > 0
-              ? `עלות הסחורה (קניות) עומדת על ${formatPercent(foodPct)} — חריגה של ${formatPercent(Math.abs(diff))} מיעד ${formatPercent(foodTarget)}. זה אומר ${formatCurrencyFull(Math.abs(diffAmount))} עודף בקניות. כדאי לבדוק מחירי ספקים, פחת, וגודל מנות.`
-              : `עלות הסחורה היא ${formatPercent(foodPct)} — מתחת ליעד של ${formatPercent(foodTarget)}. חיסכון של ${formatCurrencyFull(Math.abs(diffAmount))}.`,
+              ? `עלות הסחורה (קניות) עומדת על ${formatPercent(foodPct)} - חריגה של ${formatPercent(Math.abs(diff))} מיעד ${formatPercent(foodTarget)}. זה אומר ${formatCurrencyFull(Math.abs(diffAmount))} עודף בקניות. כדאי לבדוק מחירי ספקים, פחת, וגודל מנות.`
+              : `עלות הסחורה היא ${formatPercent(foodPct)} - מתחת ליעד של ${formatPercent(foodTarget)}. חיסכון של ${formatCurrencyFull(Math.abs(diffAmount))}.`,
             severity: diff > 3 ? "negative" : diff > 0 ? "warning" : "positive",
             category: "expenses",
             value: `בפועל: ${formatPercent(foodPct)} (${formatCurrencyFull(totalGoods)}) | יעד: ${formatPercent(foodTarget)}`,
@@ -723,8 +723,8 @@ export default function InsightsPage() {
               id: "food-cost-trend",
               title: foodChange > 0 ? "צפי עלייה בעלויות סחורה" : "צפי ירידה בעלויות סחורה",
               description: foodChange > 0
-                ? `לפי הקצב הנוכחי, עלויות הסחורה לסוף החודש צפויות להגיע ל-${formatCurrencyFull(projectedGoods)} — עלייה של ${formatPercent(Math.abs(foodChange))} לעומת ${formatCurrencyFull(prevGoods)} בחודש שעבר. כדאי לבדוק: עליית מחירי ספקים? הזמנות גדולות יותר? פחת שעלה?`
-                : `לפי הקצב הנוכחי, עלויות הסחורה לסוף החודש צפויות להיות ${formatCurrencyFull(projectedGoods)} — ירידה של ${formatPercent(Math.abs(foodChange))} לעומת ${formatCurrencyFull(prevGoods)} בחודש שעבר.`,
+                ? `לפי הקצב הנוכחי, עלויות הסחורה לסוף החודש צפויות להגיע ל-${formatCurrencyFull(projectedGoods)} - עלייה של ${formatPercent(Math.abs(foodChange))} לעומת ${formatCurrencyFull(prevGoods)} בחודש שעבר. כדאי לבדוק: עליית מחירי ספקים? הזמנות גדולות יותר? פחת שעלה?`
+                : `לפי הקצב הנוכחי, עלויות הסחורה לסוף החודש צפויות להיות ${formatCurrencyFull(projectedGoods)} - ירידה של ${formatPercent(Math.abs(foodChange))} לעומת ${formatCurrencyFull(prevGoods)} בחודש שעבר.`,
               severity: foodChange > 15 ? "negative" : foodChange > 0 ? "warning" : "positive",
               category: "suppliers",
               value: `קצב צפוי: ${formatCurrencyFull(projectedGoods)} | חודש קודם: ${formatCurrencyFull(prevGoods)}`,
@@ -751,8 +751,8 @@ export default function InsightsPage() {
             id: "current-exp-target",
             title: diff > 0 ? "צפי חריגה ביעד הוצאות שוטפות" : "הוצאות שוטפות צפויות מתחת ליעד",
             description: diff > 0
-              ? `לפי הקצב הנוכחי, ההוצאות השוטפות לסוף החודש צפויות להגיע ל-${formatCurrencyFull(projectedCurrentExp)} (כרגע ${formatCurrencyFull(totalCurrentExp)} ב-${entries.length} ימים) — חריגה של ${formatCurrencyFull(Math.abs(diff))} מיעד ${formatCurrencyFull(expTarget)}.`
-              : `לפי הקצב הנוכחי, ההוצאות השוטפות לסוף החודש צפויות להיות ${formatCurrencyFull(projectedCurrentExp)} (כרגע ${formatCurrencyFull(totalCurrentExp)} ב-${entries.length} ימים) — ${formatCurrencyFull(Math.abs(diff))} מתחת ליעד ${formatCurrencyFull(expTarget)}.`,
+              ? `לפי הקצב הנוכחי, ההוצאות השוטפות לסוף החודש צפויות להגיע ל-${formatCurrencyFull(projectedCurrentExp)} (כרגע ${formatCurrencyFull(totalCurrentExp)} ב-${entries.length} ימים) - חריגה של ${formatCurrencyFull(Math.abs(diff))} מיעד ${formatCurrencyFull(expTarget)}.`
+              : `לפי הקצב הנוכחי, ההוצאות השוטפות לסוף החודש צפויות להיות ${formatCurrencyFull(projectedCurrentExp)} (כרגע ${formatCurrencyFull(totalCurrentExp)} ב-${entries.length} ימים) - ${formatCurrencyFull(Math.abs(diff))} מתחת ליעד ${formatCurrencyFull(expTarget)}.`,
             severity: diff > 0 ? "negative" : "positive",
             category: "expenses",
             value: `קצב צפוי: ${formatCurrencyFull(projectedCurrentExp)} (${formatPercent(expPct)} מקצב פדיון) | יעד: ${formatCurrencyFull(expTarget)}`,
@@ -825,7 +825,7 @@ export default function InsightsPage() {
           results.push({
             id: "top-suppliers",
             title: `3 ספקים מובילים = ${formatPercent(top3Pct)} מההוצאות`,
-            description: `הספקים הגדולים ביותר: ${top3.map((s) => `${s.name} (${formatCurrencyFull(s.total)})`).join(", ")}. ${top3Pct > 60 ? "ריכוז גבוה בספקים בודדים מגביר סיכון ויכולת מיקוח — שווה לבדוק חלופות." : "הפיזור בין הספקים סביר."}`,
+            description: `הספקים הגדולים ביותר: ${top3.map((s) => `${s.name} (${formatCurrencyFull(s.total)})`).join(", ")}. ${top3Pct > 60 ? "ריכוז גבוה בספקים בודדים מגביר סיכון ויכולת מיקוח - שווה לבדוק חלופות." : "הפיזור בין הספקים סביר."}`,
             severity: top3Pct > 70 ? "warning" : "info",
             category: "suppliers",
             value: `סה״כ הוצאות ספקים: ${formatCurrencyFull(totalSpending)}`,
@@ -849,7 +849,7 @@ export default function InsightsPage() {
 
           results.push({
             id: "fixed-expenses",
-            title: `${fixedSuppliers.length} הוצאות קבועות — ${formatCurrencyFull(totalFixed)}/חודש`,
+            title: `${fixedSuppliers.length} הוצאות קבועות - ${formatCurrencyFull(totalFixed)}/חודש`,
             description: `הוצאות קבועות מהוות ${formatPercent(fixedPct)} מהקצב החודשי הצפוי (${formatCurrencyFull(denomIncomeBeforeVat)} לפני מע״מ). הגדולות: ${topFixed.map((s) => `${s.name} (${formatCurrencyFull(Number(s.monthly_expense_amount) || 0)})`).join(", ")}. ${fixedPct > 20 ? "מומלץ לעבור על הרשימה ולבדוק אם כולן הכרחיות." : "הרמה סבירה."}`,
             severity: fixedPct > 25 ? "warning" : "info",
             category: "expenses",
@@ -887,8 +887,8 @@ export default function InsightsPage() {
               id: `ticket-${sourceId}`,
               title: diff >= 0 ? `תיק ממוצע "${agg.name}" מעל היעד` : `תיק ממוצע "${agg.name}" מתחת ליעד`,
               description: diff >= 0
-                ? `התיק הממוצע ב"${agg.name}" הוא ${formatCurrencyFull(avgTicket)} — מעל יעד ${formatCurrencyFull(ticketTarget)} ב-${formatCurrencyFull(Math.abs(diff))}. ב-${formatNumber(agg.orders)} הזמנות, זה הוסיף ${formatCurrencyFull(Math.abs(totalImpact))} להכנסות.`
-                : `התיק הממוצע ב"${agg.name}" הוא ${formatCurrencyFull(avgTicket)} — מתחת ליעד ${formatCurrencyFull(ticketTarget)} ב-${formatCurrencyFull(Math.abs(diff))}. ב-${formatNumber(agg.orders)} הזמנות, הפער עלה ${formatCurrencyFull(Math.abs(totalImpact))}. כדאי לבדוק אם ניתן לשפר ע״י מכירה נלווית (upsell).`,
+                ? `התיק הממוצע ב"${agg.name}" הוא ${formatCurrencyFull(avgTicket)} - מעל יעד ${formatCurrencyFull(ticketTarget)} ב-${formatCurrencyFull(Math.abs(diff))}. ב-${formatNumber(agg.orders)} הזמנות, זה הוסיף ${formatCurrencyFull(Math.abs(totalImpact))} להכנסות.`
+                : `התיק הממוצע ב"${agg.name}" הוא ${formatCurrencyFull(avgTicket)} - מתחת ליעד ${formatCurrencyFull(ticketTarget)} ב-${formatCurrencyFull(Math.abs(diff))}. ב-${formatNumber(agg.orders)} הזמנות, הפער עלה ${formatCurrencyFull(Math.abs(totalImpact))}. כדאי לבדוק אם ניתן לשפר ע״י מכירה נלווית (upsell).`,
               severity: diff >= 0 ? "positive" : "warning",
               category: "revenue",
               value: `ממוצע: ${formatCurrencyFull(avgTicket)} | יעד: ${formatCurrencyFull(ticketTarget)} | ${formatNumber(agg.orders)} הזמנות`,
@@ -963,8 +963,8 @@ export default function InsightsPage() {
               id: `product-${agg.name}`,
               title: diff > 0 ? `"${agg.name}" חורג מהיעד` : `"${agg.name}" מתחת ליעד`,
               description: diff > 0
-                ? `עלות "${agg.name}" (${formatNumber(agg.totalQty)} ${agg.unit}) מגיעה ל-${formatPercent(pct)} מהפדיון — מעל יעד ${formatPercent(agg.targetPct)} ב-${formatPercent(Math.abs(diff))}. חריגה של ${formatCurrencyFull((Math.abs(diff) / 100) * incomeBeforeVat)}.`
-                : `עלות "${agg.name}" היא ${formatPercent(pct)} — מתחת ליעד ${formatPercent(agg.targetPct)}.`,
+                ? `עלות "${agg.name}" (${formatNumber(agg.totalQty)} ${agg.unit}) מגיעה ל-${formatPercent(pct)} מהפדיון - מעל יעד ${formatPercent(agg.targetPct)} ב-${formatPercent(Math.abs(diff))}. חריגה של ${formatCurrencyFull((Math.abs(diff) / 100) * incomeBeforeVat)}.`
+                : `עלות "${agg.name}" היא ${formatPercent(pct)} - מתחת ליעד ${formatPercent(agg.targetPct)}.`,
               severity: diff > 1 ? "warning" : diff > 0 ? "info" : "positive",
               category: "expenses",
               value: `${formatCurrencyFull(agg.totalCost)} (${formatNumber(agg.totalQty)} ${agg.unit}) | ${formatPercent(pct)} מפדיון`,
@@ -1053,8 +1053,8 @@ export default function InsightsPage() {
             id: "goal-progress",
             title: gapPct >= 0 ? "מקדימים את יעד ההכנסות" : "פיגור ביעד ההכנסות",
             description: gapPct >= 0
-              ? `הגעת ל-${formatPercent(progressPct)} מהיעד (צריך ${formatPercent(expectedPct)} לפי הקצב). ב-${daysInMonth - dayOfMonth} הימים שנותרו צריך ממוצע של ${formatCurrencyFull(dailyNeeded)} ליום כדי לעמוד ביעד — קצב נמוך מהממוצע הנוכחי, מה שאומר שאתם בדרך הנכונה.`
-              : `הגעת ל-${formatPercent(progressPct)} מהיעד (${formatPercent(expectedPct)} צפוי). חסרים ${formatCurrencyFull(revenueTarget - currentTotal)} ב-${daysInMonth - dayOfMonth} ימים — צריך ממוצע של ${formatCurrencyFull(dailyNeeded)} ליום, ${dailyNeeded > currentTotal / entries.length ? "מעל הממוצע הנוכחי" : "קרוב לממוצע הנוכחי"}.`,
+              ? `הגעת ל-${formatPercent(progressPct)} מהיעד (צריך ${formatPercent(expectedPct)} לפי הקצב). ב-${daysInMonth - dayOfMonth} הימים שנותרו צריך ממוצע של ${formatCurrencyFull(dailyNeeded)} ליום כדי לעמוד ביעד - קצב נמוך מהממוצע הנוכחי, מה שאומר שאתם בדרך הנכונה.`
+              : `הגעת ל-${formatPercent(progressPct)} מהיעד (${formatPercent(expectedPct)} צפוי). חסרים ${formatCurrencyFull(revenueTarget - currentTotal)} ב-${daysInMonth - dayOfMonth} ימים - צריך ממוצע של ${formatCurrencyFull(dailyNeeded)} ליום, ${dailyNeeded > currentTotal / entries.length ? "מעל הממוצע הנוכחי" : "קרוב לממוצע הנוכחי"}.`,
             severity: gapPct >= 5 ? "positive" : gapPct >= -5 ? "info" : "negative",
             category: "goals",
             value: `${formatCurrencyFull(currentTotal)} / ${formatCurrencyFull(revenueTarget)} (${formatPercent(progressPct)})`,

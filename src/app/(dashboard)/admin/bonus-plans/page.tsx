@@ -545,13 +545,13 @@ export default function BonusPlansPage() {
   const getDataSourceLabel = useCallback((source: string, customLabel?: string | null) => {
     if (source === "custom" && customLabel) return customLabel;
     // Dynamic labels for income sources
-    if (source === "avg_ticket_1" && incomeSourceNames[0]) return `ממוצע להזמנה — ${incomeSourceNames[0]}`;
-    if (source === "avg_ticket_2" && incomeSourceNames[1]) return `ממוצע להזמנה — ${incomeSourceNames[1]}`;
-    if (source === "avg_ticket_3" && incomeSourceNames[2]) return `ממוצע להזמנה — ${incomeSourceNames[2]}`;
+    if (source === "avg_ticket_1" && incomeSourceNames[0]) return `ממוצע להזמנה - ${incomeSourceNames[0]}`;
+    if (source === "avg_ticket_2" && incomeSourceNames[1]) return `ממוצע להזמנה - ${incomeSourceNames[1]}`;
+    if (source === "avg_ticket_3" && incomeSourceNames[2]) return `ממוצע להזמנה - ${incomeSourceNames[2]}`;
     // Dynamic labels for managed products
-    if (source === "managed_product_1" && managedProductNames[0]) return `מוצר מנוהל — ${managedProductNames[0]}`;
-    if (source === "managed_product_2" && managedProductNames[1]) return `מוצר מנוהל — ${managedProductNames[1]}`;
-    if (source === "managed_product_3" && managedProductNames[2]) return `מוצר מנוהל — ${managedProductNames[2]}`;
+    if (source === "managed_product_1" && managedProductNames[0]) return `מוצר מנוהל - ${managedProductNames[0]}`;
+    if (source === "managed_product_2" && managedProductNames[1]) return `מוצר מנוהל - ${managedProductNames[1]}`;
+    if (source === "managed_product_3" && managedProductNames[2]) return `מוצר מנוהל - ${managedProductNames[2]}`;
     return DATA_SOURCE_OPTIONS.find((o) => o.value === source)?.label || source;
   }, [incomeSourceNames, managedProductNames]);
 
@@ -1134,7 +1134,7 @@ export default function BonusPlansPage() {
                                 {status.qualifiedTier ? (
                                   <span className="font-semibold"> → {formatCurrency(status.bonusAmount)}</span>
                                 ) : (
-                                  <span className="opacity-70"> — לא עומד בסף</span>
+                                  <span className="opacity-70"> - לא עומד בסף</span>
                                 )}
                               </>
                             ) : (
@@ -1161,7 +1161,7 @@ export default function BonusPlansPage() {
                           <div className="text-[12px] sm:text-sm leading-relaxed text-white">
                             <span className="font-semibold">לקבלת בונוס:</span>{" "}
                             ב-<span className="font-semibold">{status.remainingOrders}</span>{" "}
-                            ההזמנות שנותרו עד סוף החודש — ממוצע נדרש{" "}
+                            ההזמנות שנותרו עד סוף החודש - ממוצע נדרש{" "}
                             <span className="font-semibold">{formatCurrency(status.neededAvgRemaining)}</span>{" "}
                             להזמנה{" "}
                             <span className="opacity-70">

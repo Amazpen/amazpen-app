@@ -66,7 +66,7 @@ export function IncomeSourceSettlementEditor({ source, open, onClose, onSave }: 
       <DialogContent className="bg-[#0F1535] border-white/10 text-white max-w-[420px]" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right text-[18px]">
-            הגדרות תקבול — {source.name}
+            הגדרות תקבול - {source.name}
           </DialogTitle>
         </DialogHeader>
 

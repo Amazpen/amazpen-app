@@ -489,7 +489,7 @@ export default function DashboardLayout({
         .from("notifications")
         .select("id")
         .eq("user_id", user.id)
-        .eq("title", "הכירו את דדי — הסוכן החכם של המצפן")
+        .eq("title", "הכירו את דדי - הסוכן החכם של המצפן")
         .maybeSingle();
 
       if (existing) {
@@ -499,7 +499,7 @@ export default function DashboardLayout({
 
       await supabase.from("notifications").insert({
         user_id: user.id,
-        title: "הכירו את דדי — הסוכן החכם של המצפן",
+        title: "הכירו את דדי - הסוכן החכם של המצפן",
         message: "דדי יכול לנתח נתונים עסקיים, להציג טבלאות וגרפים, לעזור בתכנון תקציב ולענות על כל שאלה. נסו עכשיו!",
         type: "info",
         is_read: false,
@@ -731,7 +731,7 @@ export default function DashboardLayout({
 
         {/* Sidebar Menu - Slide-in on mobile, permanent on desktop.
             On lg+, the sidebar can also be collapsed to icons-only via
-            the chevron button below — width drops to 60px and the inner
+            the chevron button below - width drops to 60px and the inner
             labels are hidden by CSS via the data-collapsed attribute. */}
         <nav
           aria-label="תפריט ראשי"

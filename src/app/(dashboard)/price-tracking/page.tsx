@@ -76,7 +76,7 @@ export default function PriceTrackingPage() {
     // Some RLS configs return success with 0 rows updated — guard so the user
     // doesn't see a silent "saved" while DB is unchanged.
     if (!updated || updated.length === 0) {
-      alert('שמירת המחיר לא נדחתה אבל גם לא בוצעה — בדוק הרשאות.');
+      alert('שמירת המחיר לא נדחתה אבל גם לא בוצעה - בדוק הרשאות.');
       setEditSaving(false);
       return;
     }
@@ -589,7 +589,7 @@ export default function PriceTrackingPage() {
                   </p>
                   <p className="text-[12px] text-white/60">
                     התייקר ב-<span className="ltr-num text-[#F64E60] font-medium">{insights.biggestLeak.pct.toFixed(1)}%</span>
-                    {' '}— מוסיף <span className="ltr-num text-[#F64E60] font-semibold">₪{Math.round(insights.biggestLeak.impact).toLocaleString('he-IL')}</span> להוצאות.
+                    {' '}- מוסיף <span className="ltr-num text-[#F64E60] font-semibold">₪{Math.round(insights.biggestLeak.impact).toLocaleString('he-IL')}</span> להוצאות.
                     {' '}<span className="text-white/40">שווה לשקול תחליף או משא ומתן.</span>
                   </p>
                 </div>
@@ -608,7 +608,7 @@ export default function PriceTrackingPage() {
                   </p>
                   <p className="text-[12px] text-white/60">
                     הוזל ב-<span className="ltr-num text-[#3CD856] font-medium">{Math.abs(insights.biggestSaving.pct).toFixed(1)}%</span>
-                    {' '}— חוסך <span className="ltr-num text-[#3CD856] font-semibold">₪{Math.abs(Math.round(insights.biggestSaving.impact)).toLocaleString('he-IL')}</span> בעלויות.
+                    {' '}- חוסך <span className="ltr-num text-[#3CD856] font-semibold">₪{Math.abs(Math.round(insights.biggestSaving.impact)).toLocaleString('he-IL')}</span> בעלויות.
                     {' '}<span className="text-white/40">הזדמנות לקבע מחיר או להגדיל הזמנה.</span>
                   </p>
                 </div>
@@ -626,7 +626,7 @@ export default function PriceTrackingPage() {
                     <span className="ltr-num font-medium">{insights.mostActiveSupplier.count}</span> פריטים
                   </p>
                   <p className="text-[12px] text-white/60">
-                    תזזיתיות גבוהה — שווה לפתוח שיחת מחיר אחת על כל הסל במקום פריט-פריט.
+                    תזזיתיות גבוהה - שווה לפתוח שיחת מחיר אחת על כל הסל במקום פריט-פריט.
                   </p>
                 </div>
               </div>
@@ -956,7 +956,7 @@ export default function PriceTrackingPage() {
           >
             <div className="flex items-start justify-between p-[14px] border-b border-[#4C526B]">
               <div className="flex flex-col gap-[2px]">
-                <span className="text-white text-[16px] font-semibold">היסטוריית מחירים — {historyModalAlert.item_name}</span>
+                <span className="text-white text-[16px] font-semibold">היסטוריית מחירים - {historyModalAlert.item_name}</span>
                 <span className="text-white/50 text-[12px]">{historyModalAlert.supplier_name}</span>
               </div>
               <button

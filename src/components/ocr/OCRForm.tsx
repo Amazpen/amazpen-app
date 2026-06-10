@@ -2354,7 +2354,7 @@ export default function OCRForm({
         const amountMismatch = targetTotal > 0 && pctDiff > 20;
         if (amountMismatch) {
           confirm(
-            `⚠️ עדכון חשבונית הוצאה קבועה\n\nסכום החשבונית שנבחרה: ₪${targetTotal.toFixed(2)}\nסכום החדש מה-OCR: ₪${newTotal.toFixed(2)} (שינוי של ${pctDiff.toFixed(1)}%)\n\nנראה ששני הסכומים שונים מהותית — ייתכן שזו חשבונית אחרת ולא עדכון.\n\nלהמשיך ולדרוס את החשבונית הקיימת?`,
+            `⚠️ עדכון חשבונית הוצאה קבועה\n\nסכום החשבונית שנבחרה: ₪${targetTotal.toFixed(2)}\nסכום החדש מה-OCR: ₪${newTotal.toFixed(2)} (שינוי של ${pctDiff.toFixed(1)}%)\n\nנראה ששני הסכומים שונים מהותית - ייתכן שזו חשבונית אחרת ולא עדכון.\n\nלהמשיך ולדרוס את החשבונית הקיימת?`,
             () => {
               fixedOverwriteConfirmedRef.current = true;
               handleSubmit();
@@ -2941,7 +2941,7 @@ export default function OCRForm({
           const yearsBack = currentYear - docYear;
           return (
             <span className="text-[12px] text-[#F2C94C] font-medium text-right">
-              ⚠️ תאריך משנה {docYear} ({yearsBack === 1 ? 'שנה' : `${yearsBack} שנים`} אחורה) — לאמת מול המסמך
+              ⚠️ תאריך משנה {docYear} ({yearsBack === 1 ? 'שנה' : `${yearsBack} שנים`} אחורה) - לאמת מול המסמך
             </span>
           );
         })()}
@@ -3219,7 +3219,7 @@ export default function OCRForm({
                 <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span className="text-[14px] font-medium text-[#bc76ff]">
-                הוצאה חודשית קבועה — {fixedOpenInvoices.length} חשבוניות פתוחות
+                הוצאה חודשית קבועה - {fixedOpenInvoices.length} חשבוניות פתוחות
                 {selectedIds.length > 1 ? ` · ${selectedIds.length} נבחרו` : ''}
               </span>
             </div>
@@ -3255,7 +3255,7 @@ export default function OCRForm({
                       }`}
                     >
                       <span className="flex-1 text-right">
-                        {inv.month} — &#8362;{inv.total_amount.toLocaleString('he-IL')}
+                        {inv.month} - &#8362;{inv.total_amount.toLocaleString('he-IL')}
                       </span>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0">
                         {isSelected ? (
@@ -3351,7 +3351,7 @@ export default function OCRForm({
               <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <span className="text-[14px] font-medium text-[#3CD856]">
-              תשלומים לא משויכים — {unlinkedPayments.length} ממתינים לקישור
+              תשלומים לא משויכים - {unlinkedPayments.length} ממתינים לקישור
             </span>
           </div>
           {showUnlinkedPayments && (
@@ -3665,7 +3665,7 @@ export default function OCRForm({
             </div>
             {/* Rows */}
             {lineItems.length === 0 && (
-              <div className="text-center text-white/40 text-[13px] py-[10px]">אין פריטים — הוסף פריט ידנית</div>
+              <div className="text-center text-white/40 text-[13px] py-[10px]">אין פריטים - הוסף פריט ידנית</div>
             )}
             {lineItems.map((li, idx) => (
               <div key={`line-${idx}`} className="grid grid-cols-[1fr_50px_60px_75px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B]/50 py-[6px] px-[4px] gap-[2px]">
@@ -4495,7 +4495,7 @@ export default function OCRForm({
             </label>
             <span className="text-[13px] text-white/60 ltr-num">
               {paymentSelectedInvoiceIds.size > 0 && (
-                <>נבחרו {paymentSelectedInvoiceIds.size} — &#8362;{paymentSelectedInvoicesTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+                <>נבחרו {paymentSelectedInvoiceIds.size} - &#8362;{paymentSelectedInvoicesTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
               )}
             </span>
           </div>
@@ -4624,7 +4624,7 @@ export default function OCRForm({
                                     <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                                   </svg>
                                   <div className="flex flex-col gap-[2px] flex-1 text-right min-w-0">
-                                    <span className="text-[11px] font-semibold text-[#F59E0B]">בבירור — לא ניתן לתשלום</span>
+                                    <span className="text-[11px] font-semibold text-[#F59E0B]">בבירור - לא ניתן לתשלום</span>
                                     <span className="text-[11px] text-white/80 leading-[1.4] break-words">
                                       {reasonText
                                         ? <><span className="text-white/50">סיבה: </span>{reasonText}</>
@@ -5133,7 +5133,7 @@ export default function OCRForm({
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
             <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
-          <span className="text-[13px] text-[#FFA412] font-medium">לא זוהה עסק אוטומטית — בחר עסק ידנית</span>
+          <span className="text-[13px] text-[#FFA412] font-medium">לא זוהה עסק אוטומטית - בחר עסק ידנית</span>
         </div>
       )}
 
@@ -5212,7 +5212,7 @@ export default function OCRForm({
                 >
                   {/* Click on the chip body opens a preview of the merged doc.
                       Critical for the user to verify what's actually attached
-                      — earlier the chip showed only a filename and the file
+                      - earlier the chip showed only a filename and the file
                       contents were unreachable from the form. */}
                   <button
                     type="button"
@@ -5257,7 +5257,7 @@ export default function OCRForm({
           {/* Sum totals from merged docs — shown only when there's data and the
               user might want to combine. We deliberately DON'T auto-merge into
               amountBeforeVat to avoid confusion when the user attached pages
-              of the SAME invoice (e.g. a multi-page scan) — adding them would
+              of the SAME invoice (e.g. a multi-page scan) - adding them would
               double-count. The button gives the user explicit control. */}
           {mergedDocuments.some(md => md.ocr_data?.subtotal != null && md.ocr_data.subtotal !== 0) && (() => {
             const sumSubtotal = mergedDocuments.reduce((s, md) => s + (Number(md.ocr_data?.subtotal) || 0), 0);
@@ -5271,7 +5271,7 @@ export default function OCRForm({
                     סכום במסמכים המצורפים: <span className="text-[#17DB4E] font-semibold ltr-num" dir="ltr">₪{sumSubtotal.toLocaleString('he-IL', { maximumFractionDigits: 2 })}</span>
                   </span>
                   <span className="text-white/40 text-[10px]">
-                    אם זו אותה חשבונית בכמה עמודים — אל תוסיף. אם אלה חשבוניות שונות שאתה מאחד — לחץ &quot;חבר סכומים&quot;.
+                    אם זו אותה חשבונית בכמה עמודים - אל תוסיף. אם אלה חשבוניות שונות שאתה מאחד - לחץ &quot;חבר סכומים&quot;.
                   </span>
                 </div>
                 <Button
@@ -5459,7 +5459,7 @@ export default function OCRForm({
                     <div className="flex items-center justify-between gap-2 mt-1">
                       <span className="text-white/50 text-[12px]">{new Date(p.payment_date).toLocaleDateString('he-IL')}</span>
                       {p.receipt_url && (
-                        <span className="text-[#F2C94C] text-[11px]">כבר יש מסמך מצורף — יתווסף</span>
+                        <span className="text-[#F2C94C] text-[11px]">כבר יש מסמך מצורף - יתווסף</span>
                       )}
                     </div>
                     {p.notes && <p className="text-white/40 text-[12px] mt-1 truncate">{p.notes}</p>}
@@ -5542,7 +5542,7 @@ export default function OCRForm({
                         {inv.status ? ` · ${statusLabel(inv.status)}` : ''}
                       </span>
                       {inv.attachment_url && (
-                        <span className="text-[#F2C94C] text-[11px] shrink-0">כבר יש מסמך מצורף — יתווסף</span>
+                        <span className="text-[#F2C94C] text-[11px] shrink-0">כבר יש מסמך מצורף - יתווסף</span>
                       )}
                     </div>
                     {busy && <p className="text-white/70 text-[12px] mt-1">מצרף…</p>}
@@ -5555,7 +5555,7 @@ export default function OCRForm({
       </Sheet>
 
       {/* Full-screen image preview overlay. Rendered through a portal to
-          document.body so it escapes the Radix Sheet's modal layer — when it
+          document.body so it escapes the Radix Sheet's modal layer - when it
           lived inside the Sheet's React subtree, Radix's pointer-events
           blocker (the dialog overlay) sat on top of it and swallowed clicks,
           so the X (and click-to-close) did nothing. The portal puts the

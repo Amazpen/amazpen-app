@@ -1327,7 +1327,7 @@ export default function OCRPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ocrDocumentId: id }),
-          }).catch(() => { /* swallow — cron will retry */ });
+          }).catch(() => { /* swallow - cron will retry */ });
         }
 
         alert('המסמך נקלט בהצלחה ✓');
@@ -1365,7 +1365,7 @@ export default function OCRPage() {
 
       } catch (error) {
         console.error('Error saving document:', error);
-        alert('שגיאה בשמירת המסמך — הנתונים לא נשמרו. נסה שוב.');
+        alert('שגיאה בשמירת המסמך - הנתונים לא נשמרו. נסה שוב.');
       } finally {
         setIsLoading(false);
       }
@@ -1735,7 +1735,7 @@ export default function OCRPage() {
         ocr_data: newOcrData,
       } : null);
 
-      showToast(extracted ? "חיתוך נשמר ו-OCR חודש בהצלחה" : "חיתוך נשמר (OCR נכשל — נסה ידנית)", extracted ? "success" : "warning");
+      showToast(extracted ? "חיתוך נשמר ו-OCR חודש בהצלחה" : "חיתוך נשמר (OCR נכשל - נסה ידנית)", extracted ? "success" : "warning");
     } catch (err) {
       console.error("[Crop] Save failed:", err);
       showToast(err instanceof Error ? err.message : "שגיאה בשמירת החיתוך", "error");
@@ -1753,7 +1753,7 @@ export default function OCRPage() {
   const handleReExtract = useCallback(async () => {
     if (!currentDocument || isReExtracting) return;
     if (!currentDocument.image_url) {
-      showToast("אין תמונה למסמך זה — לא ניתן להריץ OCR מחדש", "error");
+      showToast("אין תמונה למסמך זה - לא ניתן להריץ OCR מחדש", "error");
       return;
     }
     setIsReExtracting(true);
@@ -1831,7 +1831,7 @@ export default function OCRPage() {
         setCurrentDocument(refreshed);
       }
 
-      showToast("OCR הסתיים — בדוק שהנתונים נכונים", "success");
+      showToast("OCR הסתיים - בדוק שהנתונים נכונים", "success");
     } catch (err) {
       console.error("[Re-extract] Failed:", err);
       showToast(err instanceof Error ? err.message : "שגיאה בהרצת OCR מחדש", "error");
@@ -2048,7 +2048,7 @@ export default function OCRPage() {
       </div>
 
       {/* The "+ הוספת ספק חדש" link now redirects to /suppliers with a
-          prefill instead of opening an inline modal — see onRequestAddSupplier
+          prefill instead of opening an inline modal - see onRequestAddSupplier
           above. /suppliers routes back here with ?supplierAdded=<id> on save,
           and the effect at the top of the file refreshes + auto-selects. */}
 

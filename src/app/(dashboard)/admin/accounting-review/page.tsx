@@ -816,7 +816,7 @@ export default function AccountingReviewPage() {
                   ? "border-[#4C9AFF]/60 bg-[#4C9AFF]/15 text-[#4C9AFF] hover:bg-[#4C9AFF]/25"
                   : "border-white/20 bg-white/5 text-white/90 hover:bg-white/10 hover:border-white/30"
               }`}
-              title={showAllDates ? "מציג את כל התאריכים — לחץ כדי לחזור לסינון חודש" : "הצג את כל החשבוניות ללא סינון חודש"}
+              title={showAllDates ? "מציג את כל התאריכים - לחץ כדי לחזור לסינון חודש" : "הצג את כל החשבוניות ללא סינון חודש"}
             >
               {showAllDates ? "כל התאריכים ✓" : "הצג הכל"}
             </Button>
@@ -828,8 +828,8 @@ export default function AccountingReviewPage() {
         {dateFilterDisabled && (
           <div className="flex-shrink-0 text-xs text-white/60 bg-[#4C9AFF]/10 border border-[#4C9AFF]/30 rounded-md px-3 py-1.5">
             {showAllDates
-              ? "מציג את כל החשבוניות — ללא סינון חודשים"
-              : "חיפוש לפי אסמכתא פעיל — סינון החודש הושבת באופן זמני"}
+              ? "מציג את כל החשבוניות - ללא סינון חודשים"
+              : "חיפוש לפי אסמכתא פעיל - סינון החודש הושבת באופן זמני"}
           </div>
         )}
 

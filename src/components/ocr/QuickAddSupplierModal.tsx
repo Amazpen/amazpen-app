@@ -183,7 +183,7 @@ export default function QuickAddSupplierModal({
       return;
     }
     if (!businessId) {
-      setError("לא נבחר עסק — בחרו עסק מהתפריט בראש הדף לפני הוספת ספק");
+      setError("לא נבחר עסק - בחרו עסק מהתפריט בראש הדף לפני הוספת ספק");
       return;
     }
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -258,7 +258,7 @@ export default function QuickAddSupplierModal({
         return;
       }
       if (!data?.id) {
-        setError("הוספה הצליחה אבל לא הוחזר מזהה — נסו לרענן");
+        setError("הוספה הצליחה אבל לא הוחזר מזהה - נסו לרענן");
         setIsSaving(false);
         return;
       }
@@ -512,7 +512,7 @@ export default function QuickAddSupplierModal({
                 type="button"
                 onClick={() => setVatRequired("two_thirds")}
                 className="flex items-center gap-[3px]"
-                title='מע"מ 2/3 — החזר 66.67% מהמע"מ (לרוב על הוצאות רכב לעסק)'
+                title='מע"מ 2/3 - החזר 66.67% מהמע"מ (לרוב על הוצאות רכב לעסק)'
               >
                 <Radio active={vatRequired === "two_thirds"} />
                 <span className={`text-[15px] font-semibold ${vatRequired === "two_thirds" ? "text-white" : "text-[#979797]"}`}>מע&quot;מ 2/3</span>
@@ -520,7 +520,7 @@ export default function QuickAddSupplierModal({
             </div>
             {vatRequired === "two_thirds" && (
               <p className="text-[12px] text-white/60 mt-[2px]">
-                בחישוב המע&quot;מ — רק 2/3 מהמע&quot;מ של החשבונית יוחזר (נהוג בהוצאות רכב לעסק).
+                בחישוב המע&quot;מ - רק 2/3 מהמע&quot;מ של החשבונית יוחזר (נהוג בהוצאות רכב לעסק).
               </p>
             )}
           </div>

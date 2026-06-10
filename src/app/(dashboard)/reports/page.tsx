@@ -1794,7 +1794,7 @@ export default function ReportsPage() {
                     laborMonthClosedState ? (
                       <div className="m-[5px] p-[10px] rounded-[8px] bg-[#17DB4E]/10 border border-[#17DB4E]/30 flex flex-row-reverse items-center justify-between gap-[8px]">
                         <div className="flex flex-col gap-[2px] text-right min-w-0">
-                          <span className="text-[12px] sm:text-[13px] font-bold text-[#17DB4E]">החודש סגור — מוצגת עלות בפועל</span>
+                          <span className="text-[12px] sm:text-[13px] font-bold text-[#17DB4E]">החודש סגור - מוצגת עלות בפועל</span>
                           <span className="text-[10px] sm:text-[11px] text-white/60 leading-[1.4]">החשבוניות נכנסו לתזרים. אפשר לפתוח מחדש כדי לתקן.</span>
                         </div>
                         <button
@@ -2015,7 +2015,7 @@ export default function ReportsPage() {
       {/* Yearly revenue summary card — same visual shell as the monthly
           "סיכום הכנסות" pill (rounded blue strip with right-aligned title
           label), but each cell is one calendar month's actual revenue plus a
-          final סה"כ. No target / diff columns — just actuals across the year. */}
+          final סה"כ. No target / diff columns - just actuals across the year. */}
       {/* dir="rtl" turns the row into a true RTL flex: children in source
           order map to right→left visually. Sequence is intentionally:
           [סה"כ, ינואר…דצמבר] so סה"כ pins to the right edge (next to the
@@ -2172,7 +2172,7 @@ export default function ReportsPage() {
                                     : "text-white";
                                   const titleText =
                                     cellStatus === 'clarification' ? "יש חשבונית בבירור · לחץ לפירוט"
-                                    : cellStatus === 'unapproved' ? "הוצאה קבועה — טרם התקבל מסמך · לחץ לפירוט"
+                                    : cellStatus === 'unapproved' ? "הוצאה קבועה - טרם התקבל מסמך · לחץ לפירוט"
                                     : cellStatus === 'paid' ? "כל החשבוניות שולמו · לחץ לפירוט"
                                     : "לחץ לפירוט חשבוניות לחודש";
                                   return (

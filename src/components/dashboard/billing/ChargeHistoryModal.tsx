@@ -104,7 +104,7 @@ export function ChargeHistoryModal({
       >
         <DialogHeader>
           <DialogTitle className="text-right">
-            {customerName ? `היסטוריית חיובים — ${customerName}` : "היסטוריית חיובים"}
+            {customerName ? `היסטוריית חיובים - ${customerName}` : "היסטוריית חיובים"}
           </DialogTitle>
         </DialogHeader>
 

@@ -221,7 +221,7 @@ export default function AdminAiConversationsPage() {
           {/* Session info */}
           <div className="text-center mb-4">
             <span className="text-[11px] text-white/30 bg-white/5 px-3 py-1 rounded-full">
-              {selectedSession.title || "שיחה"} — {formatDate(selectedSession.created_at)}
+              {selectedSession.title || "שיחה"} - {formatDate(selectedSession.created_at)}
             </span>
           </div>
           {messages.map((msg) => (
@@ -322,7 +322,7 @@ export default function AdminAiConversationsPage() {
                   </div>
                   <div className="flex-1 text-right">
                     <p className="text-[14px] text-white font-medium">{usr.name}</p>
-                    <p className="text-[11px] text-white/40">{usr.email} — {usr.role === "admin" ? "אדמין" : usr.role === "owner" ? "בעלים" : "עובד"}</p>
+                    <p className="text-[11px] text-white/40">{usr.email} - {usr.role === "admin" ? "אדמין" : usr.role === "owner" ? "בעלים" : "עובד"}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-white/20 rotate-180" />
                 </button>

@@ -302,7 +302,7 @@ export default function OcrUsageAdminPage() {
       {/* Table */}
       <section className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
         <div className="flex items-center justify-between gap-[10px]">
-          <span className="text-[17px] font-bold">פירוט לפי עסק וחודש — {selectedYear}</span>
+          <span className="text-[17px] font-bold">פירוט לפי עסק וחודש - {selectedYear}</span>
           <span className="text-[12px] text-white/50">
             תא: סה״כ <span className="text-white/30">·</span> אושרו בסוגריים
           </span>
@@ -314,7 +314,7 @@ export default function OcrUsageAdminPage() {
           <div className="text-center py-[40px] text-white/50 text-[14px]">אין נתונים לשנת {selectedYear}</div>
         ) : (
           /* CSS-grid layout for header / rows / footer with identical
-             gridTemplateColumns — matches the /reports yearly table so RTL
+             gridTemplateColumns - matches the /reports yearly table so RTL
              alignment is rock-solid even when numbers vary in digit count. */
           <div className="overflow-x-auto" dir="rtl">
             <div className="min-w-[1200px] flex flex-col gap-[2px]">
@@ -516,7 +516,7 @@ function YearlyTableSkeletonInner() {
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="flex justify-center">
                 {/* Sparse cells so it doesn't look like every supplier has
-                    activity in every month — closer to the real distribution. */}
+                    activity in every month - closer to the real distribution. */}
                 {(rowIdx + i) % 3 !== 0 ? (
                   <Skeleton className="h-[12px] w-[36px] bg-white/8" />
                 ) : (

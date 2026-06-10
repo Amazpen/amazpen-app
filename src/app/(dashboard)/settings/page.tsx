@@ -415,7 +415,7 @@ export default function SettingsPage() {
           {hasChanges && (
             <p className="text-[#FFA412] text-[12px] mt-[8px] flex items-center gap-[6px]">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              יש שינויים שלא נשמרו — גללו למטה ולחצו &quot;שמור שינויים&quot;
+              יש שינויים שלא נשמרו - גללו למטה ולחצו &quot;שמור שינויים&quot;
             </p>
           )}
         </div>
@@ -487,7 +487,7 @@ export default function SettingsPage() {
                 {/* Current Password or Forgot Mode */}
                 {forgotMode ? (
                   <div className="flex flex-col gap-[6px]">
-                    <label className="text-[13px] font-medium text-white/70">אימות זהות — הזן את כתובת המייל שלך</label>
+                    <label className="text-[13px] font-medium text-white/70">אימות זהות - הזן את כתובת המייל שלך</label>
                     <Input
                       type="email"
                       value={emailConfirm}
@@ -890,7 +890,7 @@ function InstallAppSection() {
           </div>
           <div className="flex items-start gap-[10px]">
             <span className="text-[#FFA412] text-[16px] font-bold flex-shrink-0 w-[24px] text-center">3</span>
-            <span className="text-white/80 text-[14px]">לחצו <strong className="text-white">&quot;הוסף&quot;</strong> — האפליקציה תופיע במסך הבית</span>
+            <span className="text-white/80 text-[14px]">לחצו <strong className="text-white">&quot;הוסף&quot;</strong> - האפליקציה תופיע במסך הבית</span>
           </div>
         </div>
       )}

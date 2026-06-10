@@ -110,7 +110,7 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
       <DialogContent className={`bg-[#0f1535] border-[#4C526B] text-white rounded-[20px] p-[20px] ${settlementType === "custom_periods" ? "sm:max-w-[600px]" : "sm:max-w-[420px]"}`} dir="rtl">
         <DialogHeader className="border-b border-[#4C526B] pb-[14px]">
           <DialogTitle className="text-right text-[18px] font-bold text-white">
-            הגדרות תקבול — {method.name}
+            הגדרות תקבול - {method.name}
           </DialogTitle>
           <DialogDescription className="text-[12px] text-white/40 text-right">
             הגדר מתי הכסף מ{method.name} נכנס לחשבון הבנק
@@ -283,7 +283,7 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
           {settlementType === "custom_periods" && (
             <div className="flex flex-col gap-[10px]">
               <p className="text-[12px] text-white/50 text-right">
-                הגדר תקופות התחשבנות — כל תקופה עם טווח תאריכים, תאריך קבלת כסף ועמלה
+                הגדר תקופות התחשבנות - כל תקופה עם טווח תאריכים, תאריך קבלת כסף ועמלה
               </p>
 
               {/* Header */}

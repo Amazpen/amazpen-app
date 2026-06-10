@@ -1408,7 +1408,7 @@ export default function AdminGoalsPage() {
             <div className="bg-[#1A1F37] rounded-xl overflow-hidden">
               <div className="px-4 pt-4 pb-2">
                 <p className="text-[12px] text-white/50 text-right mb-2">
-                  קבע תקציב חודשי מרבי לכל ספק קניות סחורה. כשהספק יחרוג — תישלח התראה אוטומטית למייל.
+                  קבע תקציב חודשי מרבי לכל ספק קניות סחורה. כשהספק יחרוג - תישלח התראה אוטומטית למייל.
                 </p>
                 <Input
                   type="text"
@@ -1517,13 +1517,13 @@ export default function AdminGoalsPage() {
         <DialogContent className="bg-[#1A1F37] border border-[#29318A] text-white max-w-[640px]" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-right text-[18px] font-bold text-[#FFA500]">
-              חשבוניות קיימות — אישור עדכון
+              חשבוניות קיימות - אישור עדכון
             </DialogTitle>
           </DialogHeader>
           <div className="text-right space-y-3 max-h-[400px] overflow-y-auto py-2">
             <p className="text-[14px] text-white/80">
               עבור הספקים הבאים כבר קיימת חשבונית בחודש המבוקש בסכום שונה מהיעד החדש.
-              סמן רק את השורות שברצונך לעדכן — לא מסומנות יישארו על הסכום הקיים.
+              סמן רק את השורות שברצונך לעדכן - לא מסומנות יישארו על הסכום הקיים.
             </p>
             <div className="flex items-center gap-3 px-1">
               <button

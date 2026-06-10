@@ -83,7 +83,7 @@ export default function ScannedDocumentsButton({
       }
 
       setProgress({ done: 0, total: pages.length });
-      showToast(`נמצאו ${pages.length} עמודים — מריץ OCR על כל אחד...`, 'info');
+      showToast(`נמצאו ${pages.length} עמודים - מריץ OCR על כל אחד...`, 'info');
 
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -194,9 +194,9 @@ export default function ScannedDocumentsButton({
       setProgress({ done: pages.length, total: pages.length });
 
       if (failCount === 0) {
-        showToast(`${successCount} מסמכים נוצרו בהצלחה — מופיעים בתור`, 'success');
+        showToast(`${successCount} מסמכים נוצרו בהצלחה - מופיעים בתור`, 'success');
       } else if (successCount === 0) {
-        showToast(`כל ${failCount} העמודים נכשלו — נסה שוב`, 'error');
+        showToast(`כל ${failCount} העמודים נכשלו - נסה שוב`, 'error');
       } else {
         showToast(
           `${successCount} מסמכים נוצרו, ${failCount} נכשלו`,
@@ -234,7 +234,7 @@ export default function ScannedDocumentsButton({
         onClick={handleClick}
         disabled={isProcessing}
         className={`${baseClasses} ${className}`}
-        title="העלה PDF שמכיל מספר מסמכים — נריץ OCR על כל עמוד בנפרד"
+        title="העלה PDF שמכיל מספר מסמכים - נריץ OCR על כל עמוד בנפרד"
       >
         {isProcessing ? (
           <>
