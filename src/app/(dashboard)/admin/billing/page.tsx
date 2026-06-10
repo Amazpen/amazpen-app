@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CreditCard, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useDashboard } from "../../layout";
 import { useToast } from "@/components/ui/toast";
 import { AddBillingCustomerModal } from "@/components/dashboard/billing/AddBillingCustomerModal";
