@@ -131,7 +131,7 @@ export function useRealtimeSubscription({
       channel.subscribe((status) => {
         if (status === "SUBSCRIBED") {
           if (retryCountRef.current > 0) {
-            console.info(`[Realtime] Reconnected after ${retryCountRef.current} retries`);
+            console.debug(`[Realtime] Reconnected after ${retryCountRef.current} retries`);
           }
           retryCountRef.current = 0;
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -139,7 +139,7 @@ export function useRealtimeSubscription({
           const delay = Math.min(5000 * Math.pow(2, retryCountRef.current - 1), 60000);
           // Only log first 3 retries to avoid console spam
           if (retryCountRef.current <= 3) {
-            console.warn(`[Realtime] Channel ${status}, retry ${retryCountRef.current} in ${delay / 1000}s...`);
+            console.debug(`[Realtime] Channel ${status}, retry ${retryCountRef.current} in ${delay / 1000}s...`);
           }
           retryTimerRef.current = setTimeout(() => {
             if (channelRef.current) {
@@ -153,7 +153,7 @@ export function useRealtimeSubscription({
       });
     } catch {
       // WebSocket failed — retry after 10s
-      console.warn("[Realtime] WebSocket connection failed, retrying in 10s...");
+      console.debug("[Realtime] WebSocket connection failed, retrying in 10s...");
       retryTimerRef.current = setTimeout(() => {
         setRealtimeAvailable(false);
         setTimeout(() => setRealtimeAvailable(true), 100);
