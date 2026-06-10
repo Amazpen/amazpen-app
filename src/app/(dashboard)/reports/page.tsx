@@ -1475,7 +1475,7 @@ export default function ReportsPage() {
       {(isLoadingReport || (trendsData.length > 0 && trendsData.some(d => d.income > 0 || d.expenses > 0))) && (
         <section id="onboarding-reports-trends" aria-label="מגמות הכנסות מול הוצאות" className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
           <div className="flex items-center justify-between">
-            <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות (ללא מע&quot;מ) — 6 חודשים</span>
+            <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות (ללא מע&quot;מ) 6 חודשים</span>
             <div className="flex items-center gap-[12px]">
               <div className="flex items-center gap-[4px]">
                 <div className="w-[10px] h-[10px] rounded-[2px] bg-[#17DB4E]" />
