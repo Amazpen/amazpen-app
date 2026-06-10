@@ -2057,7 +2057,7 @@ export default function ReportsPage() {
             Plain flex with the title declared first puts both at natural RTL
             edges. */}
         <div className="flex items-center justify-between gap-[10px] flex-wrap">
-          <span className="text-[18px] font-bold leading-[1.4] text-right">פירוט הוצאות שנתי לפי ספק — {selectedYear}</span>
+          <span className="text-[18px] font-bold leading-[1.4] text-right">פירוט הוצאות שנתי לפי ספק {selectedYear}</span>
           <div className="flex items-center gap-[16px] shrink-0">
             <span className="text-[14px] text-white/60 ltr-num">
               סה&quot;כ הוצאות: <span className="text-white font-semibold">₪{Math.round(yearlyGrandTotal).toLocaleString("he-IL")}</span>
