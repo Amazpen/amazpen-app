@@ -132,10 +132,12 @@ export interface OCRFormData {
   // YYYY-MM-DD. When omitted the existing placeholder date is kept (matches
   // legacy single-month behaviour).
   fixed_invoice_primary_date?: string | null;
-  // Unlinked payment: when an existing payment to this supplier has no invoice yet,
-  // the reviewer can pick it to attach the freshly created invoice to that payment.
-  // Triggers a payment_invoice_links INSERT and flips the invoice to status=paid.
-  link_to_unlinked_payment_id?: string | null;
+  // Unlinked payments: when existing payments to this supplier have no invoice
+  // yet, the reviewer can pick one or more to attach the freshly created
+  // invoice to them. Each entry carries the payment's total so the approve
+  // handler can split amount_allocated without re-fetching. Triggers a
+  // payment_invoice_links INSERT per payment and flips the invoice to paid.
+  link_to_unlinked_payments?: Array<{ payment_id: string; total_amount: number }>;
   // Payment tab: link this payment to one or more open invoices.
   // Empty array = unlinked payment (legacy behaviour).
   payment_linked_invoice_ids?: string[];

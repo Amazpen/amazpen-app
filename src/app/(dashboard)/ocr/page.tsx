@@ -865,22 +865,31 @@ export default function OCRPage() {
             });
           }
 
-          // Attach a previously-unlinked payment to this fresh invoice if the
-          // reviewer picked one. Mirrors the /expenses save flow: link row +
-          // payments.invoice_id FK + flip invoice to paid.
-          if (formData.link_to_unlinked_payment_id && newInvoice) {
-            const allocated = parseFloat(formData.total_amount) || 0;
+          // Attach previously-unlinked payments to this fresh invoice if the
+          // reviewer picked any. Mirrors the /expenses save flow: link row(s) +
+          // payments.invoice_id FK + flip invoice to paid. A single payment
+          // keeps the legacy allocation (full invoice total); multiple payments
+          // mirror /payments — each covers up to its own amount, capped by
+          // what's left of the invoice.
+          const linkedPayments = formData.link_to_unlinked_payments || [];
+          if (linkedPayments.length > 0 && newInvoice) {
+            const linkedInvoiceId = newInvoice.id;
+            const invoiceTotal = parseFloat(formData.total_amount) || 0;
+            let remaining = invoiceTotal;
+            const linkRows = linkedPayments.map(p => {
+              const allocated = linkedPayments.length === 1
+                ? invoiceTotal
+                : Math.min(Number(p.total_amount) || 0, Math.max(remaining, 0));
+              remaining -= allocated;
+              return { payment_id: p.payment_id, invoice_id: linkedInvoiceId, amount_allocated: allocated };
+            });
             const [linkRes, payFkRes, invStatusRes] = await Promise.all([
-              supabase.from('payment_invoice_links').insert({
-                payment_id: formData.link_to_unlinked_payment_id,
-                invoice_id: newInvoice.id,
-                amount_allocated: allocated,
-              }),
+              supabase.from('payment_invoice_links').insert(linkRows),
               supabase
                 .from('payments')
-                .update({ invoice_id: newInvoice.id })
-                .eq('id', formData.link_to_unlinked_payment_id),
-              supabase.from('invoices').update({ status: 'paid' }).eq('id', newInvoice.id),
+                .update({ invoice_id: linkedInvoiceId })
+                .in('id', linkedPayments.map(p => p.payment_id)),
+              supabase.from('invoices').update({ status: 'paid' }).eq('id', linkedInvoiceId),
             ]);
             if (linkRes.error) console.error('[OCR Approve] payment_invoice_links insert failed:', linkRes.error);
             if (payFkRes.error) console.error('[OCR Approve] payments.invoice_id update failed:', payFkRes.error);

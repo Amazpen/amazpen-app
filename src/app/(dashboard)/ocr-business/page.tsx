@@ -678,6 +678,37 @@ export default function OCRBusinessPage() {
             });
           }
 
+          // Attach previously-unlinked payments to this fresh invoice if the
+          // reviewer picked any (same block as /ocr — the picker lives in the
+          // shared OCRForm). Link row(s) + payments.invoice_id FK + flip the
+          // invoice to paid. A single payment keeps the legacy allocation
+          // (full invoice total); multiple payments mirror /payments — each
+          // covers up to its own amount, capped by what's left of the invoice.
+          const linkedPayments = formData.link_to_unlinked_payments || [];
+          if (linkedPayments.length > 0 && newInvoice) {
+            const linkedInvoiceId = newInvoice.id;
+            const invoiceTotal = parseFloat(formData.total_amount) || 0;
+            let remaining = invoiceTotal;
+            const linkRows = linkedPayments.map(p => {
+              const allocated = linkedPayments.length === 1
+                ? invoiceTotal
+                : Math.min(Number(p.total_amount) || 0, Math.max(remaining, 0));
+              remaining -= allocated;
+              return { payment_id: p.payment_id, invoice_id: linkedInvoiceId, amount_allocated: allocated };
+            });
+            const [linkRes, payFkRes, invStatusRes] = await Promise.all([
+              supabase.from('payment_invoice_links').insert(linkRows),
+              supabase
+                .from('payments')
+                .update({ invoice_id: linkedInvoiceId })
+                .in('id', linkedPayments.map(p => p.payment_id)),
+              supabase.from('invoices').update({ status: 'paid' }).eq('id', linkedInvoiceId),
+            ]);
+            if (linkRes.error) console.error('[OCR Business Approve] payment_invoice_links insert failed:', linkRes.error);
+            if (payFkRes.error) console.error('[OCR Business Approve] payments.invoice_id update failed:', payFkRes.error);
+            if (invStatusRes.error) console.error('[OCR Business Approve] invoice paid status update failed:', invStatusRes.error);
+          }
+
           if (formData.is_paid && newInvoice && formData.payment_methods) {
             const paymentTotal = formData.payment_methods.reduce((sum, pm) => {
               return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0);

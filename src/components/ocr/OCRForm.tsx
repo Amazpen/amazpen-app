@@ -402,7 +402,10 @@ export default function OCRForm({
   type UnlinkedPayment = { id: string; payment_date: string; total_amount: number; notes: string | null };
   const [unlinkedPayments, setUnlinkedPayments] = useState<UnlinkedPayment[]>([]);
   const [showUnlinkedPayments, setShowUnlinkedPayments] = useState(false);
-  const [linkToUnlinkedPaymentId, setLinkToUnlinkedPaymentId] = useState<string | null>(null);
+  // Multi-select: one invoice can be covered by several on-account payments
+  // (e.g. two partial transfers), mirroring the multi-invoice checkboxes on
+  // the /payments side. Empty array = don't link to an existing payment.
+  const [linkToUnlinkedPaymentIds, setLinkToUnlinkedPaymentIds] = useState<string[]>([]);
 
   // Fetch open fixed-expense invoices whenever the user picks a fixed-expense supplier
   useEffect(() => {
@@ -470,7 +473,7 @@ export default function OCRForm({
     if (!supplierId || !selectedBusinessId) {
       setUnlinkedPayments([]);
       setShowUnlinkedPayments(false);
-      setLinkToUnlinkedPaymentId(null);
+      setLinkToUnlinkedPaymentIds([]);
       return;
     }
     let cancelled = false;
@@ -515,7 +518,7 @@ export default function OCRForm({
         setUnlinkedPayments([]);
         setShowUnlinkedPayments(false);
       }
-      setLinkToUnlinkedPaymentId(null);
+      setLinkToUnlinkedPaymentIds([]);
     })();
     return () => { cancelled = true; };
   }, [supplierId, selectedBusinessId]);
@@ -2572,7 +2575,14 @@ export default function OCRForm({
         fixed_invoice_primary_date: linkToFixedInvoiceId
           ? (fixedInvoiceDates[linkToFixedInvoiceId] || null)
           : undefined,
-        link_to_unlinked_payment_id: linkToUnlinkedPaymentId,
+        // Each entry carries the payment's amount so the approve handler can
+        // split amount_allocated across payments without re-fetching them.
+        link_to_unlinked_payments: linkToUnlinkedPaymentIds.length > 0
+          ? linkToUnlinkedPaymentIds.map(id => {
+              const p = unlinkedPayments.find(u => u.id === id);
+              return { payment_id: id, total_amount: p?.total_amount ?? 0 };
+            })
+          : undefined,
         line_items: lineItems.length > 0 ? lineItems : undefined,
         merged_document_ids: mergedDocuments.length > 0 ? mergedDocuments.map(d => d.id) : undefined,
         attach_to_existing_id: attachToExistingId,
@@ -3357,13 +3367,13 @@ export default function OCRForm({
           {showUnlinkedPayments && (
             <div className="flex flex-col gap-[6px] pr-[10px]">
               <span className="text-[12px] text-white/60 text-right leading-[1.4]">
-                לספק זה קיימים תשלומים שלא קושרו לאף חשבונית. בחר תשלום כדי לקשר אליו את החשבונית הנוכחית (החשבונית תסומן כשולמה).
+                לספק זה קיימים תשלומים שלא קושרו לאף חשבונית. ניתן לבחור תשלום אחד או יותר כדי לקשר אליהם את החשבונית הנוכחית (החשבונית תסומן כשולמה).
               </span>
               <Button
                 type="button"
-                onClick={() => setLinkToUnlinkedPaymentId(null)}
+                onClick={() => setLinkToUnlinkedPaymentIds([])}
                 className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
-                  linkToUnlinkedPaymentId === null
+                  linkToUnlinkedPaymentIds.length === 0
                     ? 'bg-[#4F46E5] text-white border border-white/30'
                     : 'bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80'
                 }`}
@@ -3373,29 +3383,54 @@ export default function OCRForm({
               {unlinkedPayments.map((p) => {
                 const d = new Date(p.payment_date);
                 const dateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                const isSelected = linkToUnlinkedPaymentIds.includes(p.id);
                 return (
                   <Button
                     key={p.id}
                     type="button"
-                    onClick={() => setLinkToUnlinkedPaymentId(p.id)}
+                    onClick={() => setLinkToUnlinkedPaymentIds(prev =>
+                      prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                    )}
                     className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
-                      linkToUnlinkedPaymentId === p.id
+                      isSelected
                         ? 'bg-[#4F46E5] text-white border border-white/30'
                         : 'bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80'
                     }`}
                   >
-                    <div className="flex flex-col gap-[2px]">
-                      <div className="flex items-center justify-between">
-                        <span className="ltr-num">&#8362;{p.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        <span className="ltr-num text-white/70">{dateStr}</span>
+                    <div className="flex items-center gap-[8px]">
+                      {/* Checkbox — same V style as the multi-invoice picker in /payments */}
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                        {isSelected ? (
+                          <>
+                            <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
+                            <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </>
+                        ) : (
+                          <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="none"/>
+                        )}
+                      </svg>
+                      <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="ltr-num">&#8362;{p.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="ltr-num text-white/70">{dateStr}</span>
+                        </div>
+                        {p.notes && (
+                          <span className="text-[11px] text-white/50 truncate text-right">{p.notes}</span>
+                        )}
                       </div>
-                      {p.notes && (
-                        <span className="text-[11px] text-white/50 truncate text-right">{p.notes}</span>
-                      )}
                     </div>
                   </Button>
                 );
               })}
+              {linkToUnlinkedPaymentIds.length > 0 && (
+                <span className="text-[12px] text-white/70 text-right" dir="rtl">
+                  {linkToUnlinkedPaymentIds.length === 1 ? 'נבחר תשלום אחד' : `נבחרו ${linkToUnlinkedPaymentIds.length} תשלומים`} - סה&quot;כ{' '}
+                  <span className="ltr-num">&#8362;{unlinkedPayments
+                    .filter(p => linkToUnlinkedPaymentIds.includes(p.id))
+                    .reduce((sum, p) => sum + p.total_amount, 0)
+                    .toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </span>
+              )}
             </div>
           )}
         </div>
