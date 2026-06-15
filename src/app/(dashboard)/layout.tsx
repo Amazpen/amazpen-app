@@ -73,7 +73,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/surveys", "/ocr", "/ocr-business", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/markezet-import", "/admin/payments", "/admin/commitments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans", "/admin/goals-import", "/admin/supplier-budgets", "/admin/ai-conversations", "/admin/ocr-usage", "/admin/billing"];
+const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/surveys", "/ocr", "/ocr-business", "/price-tracking", "/settings", "/ai", "/agent", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/markezet-import", "/admin/payments", "/admin/commitments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans", "/admin/goals-import", "/admin/supplier-budgets", "/admin/ai-conversations", "/admin/ocr-usage", "/admin/billing"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -97,6 +97,9 @@ const menuItems = [
   // ensures users without any selected business land on the dashboard
   // first.
   { id: 15, label: "קליטת מסמכים OCR", href: "/ocr-business", key: "ocr-business", requiresBusiness: true },
+  // דדי - דף הסוכן החדש (בבנייה). hideUnlessAdmin: מוסתר לחלוטין מלא-אדמינים
+  // (לא מוצג אפילו כ"בקרוב") עד שיהיה מוכן. requiresBusiness: דורש עסק נבחר.
+  { id: 16, label: "דדי", href: "/agent", key: "agent", hideUnlessAdmin: true, requiresBusiness: true },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
   { id: 11, label: "התנתקות", href: "#logout", key: "logout", isLogout: true },
 ];
@@ -185,6 +188,7 @@ const pageTitles: Record<string, string> = {
   "/admin/accounting-review": "בדיקה ורישום בהנה\"ח",
   "/price-tracking": "מעקב מחירי ספקים",
   "/ai": "עוזר AI",
+  "/agent": "דדי",
   "/admin/online-users": "משתמשים מחוברים",
   "/admin/day-exceptions": "חריגות ימי עסקים",
   "/admin/bonus-plans": "תכניות בונוסים ותגמול",
@@ -208,6 +212,7 @@ import {
   SquaresFourIcon as SquaresFour,
   GearSixIcon as GearSix,
   UsersThreeIcon as UsersThree,
+  RobotIcon,
 } from "@phosphor-icons/react";
 
 const PhosphorSidebarIcon = ({ Icon, active }: { Icon: React.ElementType; active?: boolean }) => (
@@ -226,6 +231,7 @@ const CashFlowIcon = ({ active }: { active?: boolean }) => <PhosphorSidebarIcon 
 const SuppliersIcon = ({ active }: { active?: boolean }) => <PhosphorSidebarIcon Icon={PackageIcon} active={active} />;
 const LogoutIcon = ({ active }: { active?: boolean }) => <PhosphorSidebarIcon Icon={SignOut} active={active} />;
 const MenuIcon = ({ active }: { active?: boolean }) => <PhosphorSidebarIcon Icon={SquaresFour} active={active} />;
+const AgentIcon = ({ active }: { active?: boolean }) => <PhosphorSidebarIcon Icon={RobotIcon} active={active} />;
 const SettingsIcon = ({ active }: { active?: boolean }) => <PhosphorSidebarIcon Icon={GearSix} active={active} />;
 const CustomersIcon = ({ active }: { active?: boolean }) => <PhosphorSidebarIcon Icon={UsersThree} active={active} />;
 
@@ -843,6 +849,9 @@ export default function DashboardLayout({
                 // viewing a service business, so navigation matches what the
                 // tenant sees.
                 .filter((item) => {
+                  // hideUnlessAdmin: fully hidden from non-admins (not even shown
+                  // as "בקרוב"). Used by the in-development "דדי" agent page.
+                  if ((item as { hideUnlessAdmin?: boolean }).hideUnlessAdmin && !isAdmin) return false;
                   if (!item.hideUnlessServiceModel) return true;
                   return selectedBusinessModels.includes("service");
                 })
@@ -879,7 +888,7 @@ export default function DashboardLayout({
                   && !allowedForBiz!.some((id) => memberBusinessIds.has(id));
                 const lockedForUser = lockedByAdmin || lockedByBiz;
 
-                const IconComponent = item.key === "settings" ? SettingsIcon : item.key === "dashboard" ? DashboardIcon : item.key === "expenses" ? ExpensesIcon : item.key === "suppliers" ? SuppliersIcon : item.key === "payments" ? PaymentsIcon : item.key === "cashflow" ? CashFlowIcon : item.key === "insights" ? InsightsIcon : item.key === "tasks" ? TasksIcon : item.key === "reports" ? ReportsIcon : item.key === "goals" ? GoalsIcon : item.key === "surveys" ? SurveysIcon : item.key === "customers" ? CustomersIcon : item.key === "ocr-business" ? ExpensesIcon : MenuIcon;
+                const IconComponent = item.key === "settings" ? SettingsIcon : item.key === "dashboard" ? DashboardIcon : item.key === "expenses" ? ExpensesIcon : item.key === "suppliers" ? SuppliersIcon : item.key === "payments" ? PaymentsIcon : item.key === "cashflow" ? CashFlowIcon : item.key === "insights" ? InsightsIcon : item.key === "tasks" ? TasksIcon : item.key === "reports" ? ReportsIcon : item.key === "goals" ? GoalsIcon : item.key === "surveys" ? SurveysIcon : item.key === "customers" ? CustomersIcon : item.key === "ocr-business" ? ExpensesIcon : item.key === "agent" ? AgentIcon : MenuIcon;
 
                 if (!pageExists || lockedForUser) {
                   return (

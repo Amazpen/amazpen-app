@@ -49,6 +49,9 @@ const dailyEntrySchema = z.object({
   labor_hours: z.number().nonnegative().optional(),
   discounts: z.number().nonnegative().optional(),
   notes: z.string().optional(),
+  // Edit support (additive; legacy callers omit these → create, as before).
+  mode: z.enum(["create", "update"]).optional(),
+  entryId: z.string().uuid().optional(),
 });
 
 function json(data: Record<string, unknown>, status = 200) {
@@ -159,7 +162,10 @@ export async function POST(request: NextRequest) {
           total_amount: d.total_amount,
           invoice_type: invoiceType,
           status: "pending",
-          data_source: "ai",
+          // "api" is an allowed value of the invoices_data_source_check constraint
+          // (manual|ocr|whatsapp|email|api|csv_import|bubble:*). The previous "ai"
+          // value violated the constraint and made every AI expense insert 500.
+          data_source: "api",
           notes: d.notes || null,
           created_by: user.id,
         })
@@ -284,6 +290,41 @@ export async function POST(request: NextRequest) {
     // daily_entry
     const d = validated as z.infer<typeof dailyEntrySchema>;
 
+    // --- EDIT path: update an existing entry (mode === "update") ---
+    if (d.mode === "update") {
+      // Resolve the target row: by entryId if given, else by date — scoped to the business.
+      let targetQuery = supabase
+        .from("daily_entries")
+        .select("id")
+        .eq("business_id", d.businessId)
+        .is("deleted_at", null);
+      targetQuery = d.entryId
+        ? targetQuery.eq("id", d.entryId)
+        : targetQuery.eq("entry_date", d.entry_date);
+      const { data: target } = await targetQuery.maybeSingle();
+
+      if (!target) {
+        return json({ error: "לא נמצא רישום יומי לעדכון" }, 404);
+      }
+
+      const { error: updateError } = await supabase
+        .from("daily_entries")
+        .update({
+          entry_date: d.entry_date,
+          total_register: d.total_register,
+          labor_cost: d.labor_cost ?? 0,
+          labor_hours: d.labor_hours ?? 0,
+          discounts: d.discounts ?? 0,
+          notes: d.notes ?? null,
+        })
+        .eq("id", target.id)
+        .eq("business_id", d.businessId);
+
+      if (updateError) throw updateError;
+      return json({ success: true, message: "רישום יומי עודכן בהצלחה", recordId: target.id, actionType: "daily_entry" });
+    }
+
+    // --- CREATE path (default / legacy) ---
     // Check duplicate
     const { data: existing } = await supabase
       .from("daily_entries")

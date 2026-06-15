@@ -106,6 +106,9 @@ export function AiActionCard({ action }: AiActionCardProps) {
           labor_hours: action.dailyEntryData.labor_hours,
           discounts: action.dailyEntryData.discounts,
           notes: action.dailyEntryData.notes,
+          // Edit support: when updating an existing entry, pass the row id + mode.
+          mode: action.dailyEntryData.mode,
+          entryId: action.dailyEntryData.entryId,
         });
       }
 
@@ -162,7 +165,11 @@ export function AiActionCard({ action }: AiActionCardProps) {
     <div className="mt-3 bg-[#1a1f4e] rounded-[10px] sm:rounded-[12px] p-3 sm:p-4 border border-[#6366f1]/30" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
-        <h4 className="text-white font-medium text-[13px] sm:text-[14px]">{ACTION_TITLES[action.actionType]}</h4>
+        <h4 className="text-white font-medium text-[13px] sm:text-[14px]">{
+          action.actionType === "daily_entry" && action.dailyEntryData?.mode === "update"
+            ? "הצעה לעדכון רישום יומי"
+            : ACTION_TITLES[action.actionType]
+        }</h4>
         <div className={`text-[10px] sm:text-[11px] flex-shrink-0 ${confidenceColor}`}>
           ביטחון: {Math.round(action.confidence * 100)}%
         </div>

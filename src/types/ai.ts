@@ -60,6 +60,10 @@ export interface AiDailyEntryData {
   labor_hours?: number;
   discounts?: number;
   notes?: string;
+  /** When updating an existing daily entry (edit), the row id + mode.
+   *  Absent / "create" = insert a new entry (default, legacy behavior). */
+  entryId?: string;
+  mode?: "create" | "update";
 }
 
 export interface AiSupplierLookup {

@@ -131,7 +131,114 @@ const toolDisplayMap: Record<string, {
     color: "text-pink-400",
     bgColor: "bg-pink-400/15",
   },
+  // --- דדי (/agent) tools ---
+  getIncome: {
+    label: "בדיקת הכנסות",
+    icon: IconChart,
+    color: "text-cyan-400",
+    bgColor: "bg-cyan-400/15",
+    getDetail: monthYearDetail,
+  },
+  getExpenses: {
+    label: "בדיקת הוצאות",
+    icon: IconCalculate,
+    color: "text-rose-400",
+    bgColor: "bg-rose-400/15",
+    getDetail: monthYearDetail,
+  },
+  getSuppliersPayable: {
+    label: "בדיקת יתרות ספקים",
+    icon: IconSearch,
+    color: "text-orange-400",
+    bgColor: "bg-orange-400/15",
+  },
+  getSupplierDetail: {
+    label: "בדיקת פרטי ספק",
+    icon: IconSearch,
+    color: "text-orange-400",
+    bgColor: "bg-orange-400/15",
+    getDetail: (input) => (input.supplierName as string) || "",
+  },
+  getPaymentsSummary: {
+    label: "בדיקת תשלומים",
+    icon: IconChart,
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-400/15",
+    getDetail: monthYearDetail,
+  },
+  getUpcomingPayments: {
+    label: "בדיקת צפי תשלומים",
+    icon: IconCalendar,
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-400/15",
+  },
+  getPaymentHistory: {
+    label: "בדיקת היסטוריית תשלומים",
+    icon: IconCalendar,
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-400/15",
+  },
+  getRecentPayments: {
+    label: "בדיקת תשלומים אחרונים",
+    icon: IconSearch,
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-400/15",
+  },
+  getCashflowForecast: {
+    label: "בדיקת תזרים מזומנים",
+    icon: IconChart,
+    color: "text-blue-400",
+    bgColor: "bg-blue-400/15",
+  },
+  getProfitLossReport: {
+    label: "בדיקת רווח והפסד",
+    icon: IconChart,
+    color: "text-violet-400",
+    bgColor: "bg-violet-400/15",
+    getDetail: monthYearDetail,
+  },
+  getGoalsVsActual: {
+    label: "בדיקת יעדים מול ביצוע",
+    icon: IconTarget,
+    color: "text-violet-400",
+    bgColor: "bg-violet-400/15",
+    getDetail: monthYearDetail,
+  },
+  getDailyEntry: {
+    label: "בדיקת רישום יומי",
+    icon: IconCalendar,
+    color: "text-cyan-400",
+    bgColor: "bg-cyan-400/15",
+    getDetail: (input) => (input.date as string) || "",
+  },
+  getDailyEntries: {
+    label: "בדיקת נתונים יומיים",
+    icon: IconCalendar,
+    color: "text-cyan-400",
+    bgColor: "bg-cyan-400/15",
+    getDetail: monthYearDetail,
+  },
+  getAnnualMetric: {
+    label: "בדיקת נתונים שנתיים",
+    icon: IconChart,
+    color: "text-blue-400",
+    bgColor: "bg-blue-400/15",
+    getDetail: (input) => {
+      const metric = input.metric as string;
+      const year = input.year as number;
+      return [metric, year].filter(Boolean).join(" ");
+    },
+  },
 };
+
+/** Shared detail formatter: shows "month/year" when the tool was given a period. */
+function monthYearDetail(input: Record<string, unknown>): string {
+  const month = input.month as number;
+  const year = input.year as number;
+  if (month && year) return `${MONTH_NAMES[month] || month}/${year}`;
+  if (month) return `${MONTH_NAMES[month] || month}`;
+  return "";
+}
 
 const defaultToolDisplay = {
   label: "",

@@ -29,12 +29,15 @@ interface AiChatContainerProps {
   allBusinesses?: BusinessOption[];
   onBusinessChange?: (id: string | undefined) => void;
   userAvatarUrl?: string | null;
+  /** Override the chat backend endpoint. Defaults to the legacy /api/ai/chat.
+   *  The new דדי page (/agent) passes /api/agent/chat to use its own brain. */
+  chatApiPath?: string;
 }
 
-export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusinessChange, userAvatarUrl }: AiChatContainerProps) {
+export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusinessChange, userAvatarUrl, chatApiPath }: AiChatContainerProps) {
   const [adminViewAsOwner, setAdminViewAsOwner] = useState(false);
   const effectiveIsAdmin = isAdmin && !adminViewAsOwner;
-  const { messages, isLoading, thinkingStatus, isLoadingHistory, isLoadingMore, hasMore, lastError, sessionId, sendMessage, clearChat, loadMore, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner);
+  const { messages, isLoading, thinkingStatus, isLoadingHistory, isLoadingMore, hasMore, lastError, sessionId, sendMessage, clearChat, loadMore, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner, chatApiPath);
   const hasMessages = messages.length > 0;
   const [isBusinessPickerOpen, setIsBusinessPickerOpen] = useState(false);
   const businessPickerRef = useRef<HTMLDivElement>(null);
