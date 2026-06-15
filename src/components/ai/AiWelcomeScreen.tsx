@@ -4,7 +4,27 @@ import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 import type { AiSuggestedQuestion } from "@/types/ai";
+
+/** Build business-specific suggestions from the selected business's named
+ *  entities (managed products, income sources) so the starter questions speak
+ *  the business's own domain ("כמה עלה לי דג סלומון?", "כמה הכנסתי במשלוח?"). */
+function buildDynamicSuggestions(
+  productNames: string[],
+  sourceNames: string[],
+): AiSuggestedQuestion[] {
+  const out: AiSuggestedQuestion[] = [];
+  for (const p of productNames) {
+    out.push({ text: `כמה עלה לי ${p} החודש?`, icon: "expenses" });
+    out.push({ text: `מה אחוז העלות של ${p} מההכנסות?`, icon: "expenses" });
+  }
+  for (const s of sourceNames) {
+    out.push({ text: `כמה הכנסתי ${s} החודש?`, icon: "revenue" });
+    out.push({ text: `מה ממוצע ההזמנה ${s}?`, icon: "revenue" });
+  }
+  return out;
+}
 
 /** 5×5 circular matrix skeleton for the large avatar — fills the whole circle */
 function AvatarMatrixSkeleton() {
@@ -97,6 +117,18 @@ const ALL_USER_SUGGESTIONS: AiSuggestedQuestion[] = [
   { text: "מה היעדים שלי החודש ואיפה אני עומד?", icon: "targets" },
   { text: "מה הפער בין היעד להכנסות בפועל?", icon: "targets" },
   { text: "מה צריך לקרות כדי שאגיע ליעד החודש?", icon: "targets" },
+  // יום-יום וניתוח לפי זמן
+  { text: "באיזה יום הייתי הכי חזק החודש ובאיזה הכי חלש?", icon: "revenue" },
+  { text: "תן לי את ההכנסות של החודש יום-יום", icon: "summary" },
+  { text: "תן לי את המכירות של כל השנה חודש-חודש", icon: "comparison" },
+  { text: "באיזה חודש הרווחתי הכי הרבה השנה?", icon: "revenue" },
+  { text: "השווה בין ההכנסות החודש לחודש שעבר", icon: "comparison" },
+  // תזרים ותשלומים קדימה
+  { text: "מתי אני צפוי להיכנס למינוס בתזרים?", icon: "targets" },
+  { text: "כמה אני צריך לשלם לספקים בקרוב?", icon: "comparison" },
+  { text: "מה התזרים שלי לחודשים הקרובים?", icon: "general" },
+  // ספקים ספציפיים
+  { text: "כמה אני חייב לכל אחד מהספקים שלי?", icon: "expenses" },
   // טיפים ועצות
   { text: "תן לי 3 פעולות שאני יכול לעשות היום כדי לשפר את הרווח", icon: "general" },
   { text: "מה הדבר הכי חשוב שצריך לשפר בעסק שלי?", icon: "general" },
@@ -181,9 +213,12 @@ interface AiWelcomeScreenProps {
   adminViewAsOwner?: boolean;
   onToggleAdminView?: () => void;
   onSuggestionClick: (text: string) => void;
+  /** Single-business mode (דדי /agent): fetch this business's named entities to
+   *  build domain-specific starter questions. */
+  businessId?: string;
 }
 
-export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, onSuggestionClick }: AiWelcomeScreenProps) {
+export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, onSuggestionClick, businessId }: AiWelcomeScreenProps) {
   const router = useRouter();
   // Start with the first 6 items (same on server and client) to avoid hydration mismatch,
   // then randomize after mount (client-only). Re-randomize whenever isAdmin changes.
@@ -195,10 +230,43 @@ export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, 
     () => true,
     () => false,
   );
-  const suggestions = useMemo<AiSuggestedQuestion[]>(
-    () => (hydrated ? pickRandom(pool, 6) : pool.slice(0, 6)),
-    [hydrated, pool],
-  );
+
+  // Business-specific starter questions (single-business / דדי mode).
+  const [dynamicSuggestions, setDynamicSuggestions] = useState<AiSuggestedQuestion[]>([]);
+  useEffect(() => {
+    if (!businessId) {
+      setDynamicSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const [products, sources] = await Promise.all([
+          supabase.from("managed_products").select("name").eq("business_id", businessId)
+            .eq("is_active", true).is("deleted_at", null).order("display_order").limit(6),
+          supabase.from("income_sources").select("name").eq("business_id", businessId)
+            .eq("is_active", true).is("deleted_at", null).order("display_order").limit(6),
+        ]);
+        if (cancelled) return;
+        const productNames = (products.data || []).map((r) => r.name as string).filter(Boolean);
+        const sourceNames = (sources.data || []).map((r) => r.name as string).filter(Boolean);
+        setDynamicSuggestions(buildDynamicSuggestions(productNames, sourceNames));
+      } catch {
+        if (!cancelled) setDynamicSuggestions([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [businessId]);
+
+  const suggestions = useMemo<AiSuggestedQuestion[]>(() => {
+    if (!hydrated) return pool.slice(0, 6);
+    // Lead with up to 2 business-specific questions, fill the rest from the pool,
+    // then shuffle so the mix feels fresh on each visit.
+    const dyn = pickRandom(dynamicSuggestions, Math.min(2, dynamicSuggestions.length));
+    const rest = pickRandom(pool, 6 - dyn.length);
+    return pickRandom([...dyn, ...rest], 6);
+  }, [hydrated, pool, dynamicSuggestions]);
   const [showImage, setShowImage] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const minTimeRef = useRef(false);

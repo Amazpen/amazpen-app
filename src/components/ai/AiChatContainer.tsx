@@ -32,9 +32,13 @@ interface AiChatContainerProps {
   /** Override the chat backend endpoint. Defaults to the legacy /api/ai/chat.
    *  The new דדי page (/agent) passes /api/agent/chat to use its own brain. */
   chatApiPath?: string;
+  /** Single-business mode (the דדי /agent page). Forces the welcome screen to
+   *  show single-business suggestions and hides the admin "all businesses"
+   *  badge/toggle, even when the user is an admin. */
+  singleBusiness?: boolean;
 }
 
-export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusinessChange, userAvatarUrl, chatApiPath }: AiChatContainerProps) {
+export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusinessChange, userAvatarUrl, chatApiPath, singleBusiness }: AiChatContainerProps) {
   const [adminViewAsOwner, setAdminViewAsOwner] = useState(false);
   const effectiveIsAdmin = isAdmin && !adminViewAsOwner;
   const { messages, isLoading, thinkingStatus, isLoadingHistory, isLoadingMore, hasMore, lastError, sessionId, sendMessage, clearChat, loadMore, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner, chatApiPath);
@@ -299,10 +303,11 @@ export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusiness
       {/* Main content area */}
       {isLoadingHistory ? (
         <AiWelcomeScreen
-          isAdmin={effectiveIsAdmin}
+          isAdmin={singleBusiness ? false : effectiveIsAdmin}
           adminViewAsOwner={adminViewAsOwner}
-          onToggleAdminView={isAdmin ? () => setAdminViewAsOwner((v) => !v) : undefined}
+          onToggleAdminView={(!singleBusiness && isAdmin) ? () => setAdminViewAsOwner((v) => !v) : undefined}
           onSuggestionClick={handleSuggestionClick}
+          businessId={singleBusiness ? businessId : undefined}
         />
       ) : hasMessages ? (
         <AiMessageList
@@ -323,10 +328,11 @@ export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusiness
         />
       ) : (
         <AiWelcomeScreen
-          isAdmin={effectiveIsAdmin}
+          isAdmin={singleBusiness ? false : effectiveIsAdmin}
           adminViewAsOwner={adminViewAsOwner}
-          onToggleAdminView={isAdmin ? () => setAdminViewAsOwner((v) => !v) : undefined}
+          onToggleAdminView={(!singleBusiness && isAdmin) ? () => setAdminViewAsOwner((v) => !v) : undefined}
           onSuggestionClick={handleSuggestionClick}
+          businessId={singleBusiness ? businessId : undefined}
         />
       )}
 

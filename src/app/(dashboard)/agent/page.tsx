@@ -64,6 +64,7 @@ export default function AgentPage() {
       businessId={businessId}
       userAvatarUrl={userAvatarUrl}
       chatApiPath="/api/agent/chat"
+      singleBusiness
     />
   );
 }
