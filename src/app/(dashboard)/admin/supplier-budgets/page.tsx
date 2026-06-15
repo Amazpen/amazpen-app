@@ -196,7 +196,6 @@ export default function SupplierBudgetsImportPage() {
         {/* Title */}
         <div className="text-center">
           <h1 className="text-[22px] font-bold text-white">ייבוא תקציבי ספקים</h1>
-          <p className="text-[14px] text-white/50 mt-1">ייבוא מקובץ Bubble: תקציבי ספקים</p>
         </div>
 
         {/* Business Selector */}
