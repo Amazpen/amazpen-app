@@ -202,44 +202,18 @@ export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, 
   const [showImage, setShowImage] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const minTimeRef = useRef(false);
-  const hapticIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const hapticStepRef = useRef(0);
-
-  // Mobile vibration helper — never vibrate on desktop
-  const canVibrateMobile = typeof window !== "undefined"
-    && ("ontouchstart" in window || navigator.maxTouchPoints > 0)
-    && typeof navigator !== "undefined" && "vibrate" in navigator;
-
-  // Matrix-synced haptic: pulsing vibration — mobile only
-  useEffect(() => {
-    if (showImage) return;
-    if (!canVibrateMobile) return;
-
-    hapticStepRef.current = 0;
-    hapticIntervalRef.current = setInterval(() => {
-      const step = hapticStepRef.current % 8;
-      if (step <= 4) {
-        try { navigator.vibrate(5 + step * 4); } catch { /* */ }
-      }
-      hapticStepRef.current++;
-    }, 180);
-
-    return () => {
-      if (hapticIntervalRef.current) {
-        clearInterval(hapticIntervalRef.current);
-        hapticIntervalRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showImage]);
+  // NOTE: the welcome screen previously fired navigator.vibrate (a matrix-synced
+  // haptic interval + completion pulses) before any user interaction. Browsers
+  // require a user gesture for vibrate, so those calls were always blocked and
+  // flooded the console with "[Intervention] Blocked call to navigator.vibrate"
+  // every 180ms. Haptics are kept where they CAN work (during streaming, after
+  // the user sends a message — see useAiChat). The welcome-screen haptics are
+  // removed entirely.
 
   useEffect(() => {
     const timer = setTimeout(() => {
       minTimeRef.current = true;
-      if (imageLoaded) {
-        setShowImage(true);
-        if (canVibrateMobile) try { navigator.vibrate([20, 40, 50]); } catch { /* */ }
-      }
+      if (imageLoaded) setShowImage(true);
     }, 2000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -247,12 +221,7 @@ export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, 
 
   const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
-    if (minTimeRef.current) {
-      setShowImage(true);
-      // Completion vibration when avatar appears
-      const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
-      if (canVibrate) navigator.vibrate([20, 40, 50]);
-    }
+    if (minTimeRef.current) setShowImage(true);
   }, []);
 
   return (
