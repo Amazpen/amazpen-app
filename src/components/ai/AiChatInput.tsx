@@ -10,66 +10,36 @@ const MAX_FILES = 10;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/avif", "application/pdf"];
 
-/** Send a file to the OCR API and return extracted text.
- *  For PDFs: first tries server-side text extraction.
- *  If that returns empty (scanned PDF), renders first page to image client-side and OCRs it. */
+/** Send a document (image or PDF) to the Mistral OCR pipeline and return the
+ *  extracted invoice fields formatted as readable Hebrew context for the agent.
+ *  Mistral Document AI handles both images and PDFs directly (no client-side
+ *  PDF rendering needed). The agent reads these fields and can propose saving
+ *  the document as an expense/payment. */
 async function ocrFile(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
-  const res = await fetch("/api/ai/ocr", { method: "POST", body: formData });
+  const res = await fetch("/api/ai/ocr-extract-mistral", { method: "POST", body: formData });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "שגיאה" }));
     throw new Error(err.error || "OCR failed");
   }
-  const data = await res.json();
+  const d = await res.json();
 
-  // If we got text, return it
-  if (data.text && data.text.trim().length > 0) return data.text;
+  const money = (n: unknown) =>
+    typeof n === "number" ? `₪${n.toLocaleString("he-IL")}` : null;
 
-  // For PDFs with no extracted text (scanned), render to image and OCR
-  if (file.type === "application/pdf") {
-    return ocrScannedPdf(file);
-  }
+  const fields: string[] = [];
+  if (d.supplier_name) fields.push(`ספק: ${d.supplier_name}`);
+  if (d.document_date) fields.push(`תאריך: ${d.document_date}`);
+  if (d.document_number) fields.push(`מספר מסמך: ${d.document_number}`);
+  if (money(d.subtotal)) fields.push(`לפני מע"מ: ${money(d.subtotal)}`);
+  if (money(d.vat_amount)) fields.push(`מע"מ: ${money(d.vat_amount)}`);
+  if (money(d.total_amount)) fields.push(`סה"כ כולל מע"מ: ${money(d.total_amount)}`);
+  if (typeof d.discount_amount === "number" && d.discount_amount !== 0)
+    fields.push(`הנחה: ${money(d.discount_amount)}`);
 
-  return "";
-}
-
-/** Render a scanned PDF's pages to images and OCR them client-side via Google Vision */
-async function ocrScannedPdf(file: File): Promise<string> {
-  const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-
-  const results: string[] = [];
-  const pagesToProcess = Math.min(pdf.numPages, 5);
-
-  for (let i = 1; i <= pagesToProcess; i++) {
-    const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 2.0 });
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    await page.render({ canvas, viewport }).promise;
-
-    // Convert canvas to blob and send as image
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/png")
-    );
-    if (!blob) continue;
-
-    const imageFile = new File([blob], `page-${i}.png`, { type: "image/png" });
-    const fd = new FormData();
-    fd.append("file", imageFile);
-    const res = await fetch("/api/ai/ocr", { method: "POST", body: fd });
-    if (res.ok) {
-      const d = await res.json();
-      if (d.text) results.push(d.text);
-    }
-  }
-
-  return results.join("\n\n").trim();
+  if (fields.length === 0) return "";
+  return `מסמך סרוק (חשבונית/קבלה) - נתונים שחולצו אוטומטית:\n${fields.join("\n")}`;
 }
 
 // Format recording duration as mm:ss
