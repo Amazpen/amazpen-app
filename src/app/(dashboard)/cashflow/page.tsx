@@ -606,6 +606,15 @@ export default function CashFlowPage() {
     if (!overrideItem || selectedBusinesses.length === 0) return;
     const amount = parseFloat(overrideAmount.replace(/,/g, "")) || 0;
 
+    // Overrides are keyed by a real payment-method-type id. Forecast/aggregate
+    // rows (retainer, customer_payment, total_register) carry a synthetic key
+    // and can't be persisted to this table (uuid column).
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(overrideItem.item.payment_method_id);
+    if (!isUuid) {
+      alert("לא ניתן לערוך שורת תחזית זו (ריטיינר / תשלום לקוח / סה\"כ קופה).");
+      return;
+    }
+
     const { error } = await supabase.from("cashflow_income_overrides").upsert({
       business_id: selectedBusinesses[0],
       settlement_date: overrideItem.date,
@@ -615,7 +624,11 @@ export default function CashFlowPage() {
       note: overrideNote || null,
     }, { onConflict: "business_id,settlement_date,payment_method_id" });
 
-    if (error) { console.error("saveOverride error:", error); return; }
+    if (error) {
+      console.error("saveOverride error:", error);
+      alert("שמירת ההכנסה נכשלה: " + (error.message || "שגיאה לא ידועה"));
+      return;
+    }
 
     setOverrideItem(null);
     setOverrideAmount("");
