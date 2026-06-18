@@ -24,13 +24,14 @@ interface Props {
   employerEstimate: number;     // markup delta (pension/NI/severance proxy)
   employeeSuppliers: EmployeeSupplier[];
   onClosed: () => void;         // refresh callback
+  isEdit?: boolean;             // true when editing an already-closed month
 }
 
 const monthNames = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 
 export function LaborMonthCloseModal({
   open, onClose, businessId, year, month,
-  salaryEstimate, employerEstimate, employeeSuppliers, onClosed,
+  salaryEstimate, employerEstimate, employeeSuppliers, onClosed, isEdit = false,
 }: Props) {
   const [lines, setLines] = useState<CloseLineState[]>([]);
   const [saving, setSaving] = useState(false);
@@ -53,6 +54,32 @@ export function LaborMonthCloseModal({
         return;
       }
 
+      // Edit mode: prefill from the saved close lines (actuals already entered).
+      if (isEdit) {
+        const res2 = await fetch(`/api/labor-close?business_id=${businessId}&year=${year}&month=${month}`);
+        const data = await res2.json().catch(() => null);
+        const saved = (data?.lines || []) as { supplier_id: string; amount: number; name: string; is_salary: boolean }[];
+        if (saved.length > 0) {
+          const salaryLine = saved.find((l) => l.is_salary);
+          const edited: CloseLineState[] = [
+            {
+              key: "salary", supplier_id: salaryId, label: "שכר עובדים",
+              estimate: Math.round(salaryEstimate),
+              amount: String(Math.round(salaryLine?.amount ?? salaryEstimate)),
+            },
+            ...saved.filter((l) => !l.is_salary).map((l, i) => ({
+              key: `sup-${l.supplier_id}-${i}`,
+              supplier_id: l.supplier_id,
+              label: l.name || (employeeSuppliers.find((s) => s.id === l.supplier_id)?.name ?? ""),
+              estimate: Math.round(l.amount),
+              amount: String(Math.round(l.amount)),
+            })),
+          ];
+          setLines(edited);
+          return;
+        }
+      }
+
       const initial: CloseLineState[] = [
         { key: "salary", supplier_id: salaryId, label: "שכר עובדים", estimate: Math.round(salaryEstimate), amount: String(Math.round(salaryEstimate)) },
         ...employeeSuppliers.map((s, i) => {
@@ -65,7 +92,7 @@ export function LaborMonthCloseModal({
       ];
       setLines(initial);
     })();
-  }, [open, businessId, salaryEstimate, employeeSuppliers]);
+  }, [open, businessId, salaryEstimate, employeeSuppliers, isEdit, year, month]);
 
   const addLine = () => {
     setLines((prev) => [...prev, { key: `extra-${prev.length}`, supplier_id: "", label: "", estimate: 0, amount: "" }]);
@@ -116,7 +143,7 @@ export function LaborMonthCloseModal({
         >
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-[17px] font-bold">
-              סגירת חודש עלות עובדים - {monthNames[month - 1]} {year}
+              {isEdit ? "עריכת" : "סגירת"} חודש עלות עובדים - {monthNames[month - 1]} {year}
             </Dialog.Title>
             <button onClick={onClose} aria-label="סגור" className="text-white/60 hover:text-white">
               <X size={20} />
@@ -173,7 +200,7 @@ export function LaborMonthCloseModal({
               disabled={saving}
               className="flex-1 bg-[#29318A] hover:bg-[#343da3] rounded-[8px] py-2.5 text-[15px] font-bold disabled:opacity-50"
             >
-              {saving ? "סוגר…" : "סגור חודש"}
+              {saving ? (isEdit ? "שומר…" : "סוגר…") : (isEdit ? "שמור שינויים" : "סגור חודש")}
             </button>
             <button onClick={onClose} className="px-4 rounded-[8px] py-2.5 text-[15px] bg-white/10 hover:bg-white/15">ביטול</button>
           </div>

@@ -173,6 +173,9 @@ export default function ReportsPage() {
   const [salaryEstimateState, setSalaryEstimateState] = useState(0);
   const [employerEstimateState, setEmployerEstimateState] = useState(0);
   const [employeeSuppliersState, setEmployeeSuppliersState] = useState<{ id: string; name: string; amount?: number }[]>([]);
+  const [laborNotes, setLaborNotes] = useState("");
+  const [laborNotesSavedValue, setLaborNotesSavedValue] = useState("");
+  const [laborNotesSaving, setLaborNotesSaving] = useState(false);
 
   // 6-month trends chart data
   const [trendsData, setTrendsData] = useState<{ month: string; income: number; expenses: number }[]>([]);
@@ -770,12 +773,17 @@ export default function ReportsPage() {
         // Employee-cost month-close state for the displayed month.
         const { data: laborCloseData } = await supabase
           .from("labor_month_close")
-          .select("business_id")
+          .select("business_id, notes")
           .in("business_id", selectedBusinesses)
           .eq("period_year", year)
           .eq("period_month", month)
           .eq("status", "closed");
         const closedBusinessIds = new Set((laborCloseData || []).map((r) => r.business_id));
+        // Notes (per business+month) — only meaningful in the single-business view.
+        const laborNotesValue =
+          selectedBusinesses.length === 1 ? ((laborCloseData?.[0]?.notes as string | null) || "") : "";
+        setLaborNotes(laborNotesValue);
+        setLaborNotesSavedValue(laborNotesValue);
         // V1: treat labor as closed only when EVERY selected business is closed.
         // Exact for single-business view; conservative (keeps estimate) for partial multi-select.
         const laborMonthClosed =
@@ -1169,8 +1177,34 @@ export default function ReportsPage() {
           const laborCostTargetPct = Number(goal?.labor_cost_target_pct || 0);
           const laborCostTarget = (laborCostTargetPct / 100) * revenueTargetBeforeVat;
 
+          // When the labor month is closed, show the ACTUAL lines the user entered
+          // in the close form — one row per employee-cost supplier (salary, pension,
+          // severance, national insurance, …) with its real amount — instead of the
+          // estimate-based virtual subcategories.
+          if (isLaborCost && laborMonthClosed) {
+            const closedSubs: SubcategoryDisplay[] = [];
+            for (const [supplierId, actual] of Array.from(supplierActuals.entries())) {
+              if (supplierExpenseTypes.get(supplierId) !== "employee_costs") continue;
+              if (!actual) continue;
+              closedSubs.push({
+                id: `__labor_actual_${supplierId}__`,
+                name: supplierNames.get(supplierId) || "ספק לא ידוע",
+                target: "—",
+                actual: formatCurrency(actual),
+                difference: "—",
+                remaining: "—",
+                remainingRaw: 0,
+                diffRaw: 0,
+                actualRaw: actual,
+                targetRaw: 0,
+                suppliers: [],
+              });
+            }
+            closedSubs.sort((a, b) => b.actualRaw - a.actualRaw);
+            subcategoriesData = closedSubs;
+          }
           // Inject virtual subcategories for labor cost: "עלות עובדים" and "שכר מנהל"
-          if (isLaborCost && (laborOnlyCost > 0 || managerOnlyCost > 0)) {
+          else if (isLaborCost && (laborOnlyCost > 0 || managerOnlyCost > 0)) {
             const laborDiff = laborCostTarget - laborOnlyCost;
             const laborRemaining = laborCostTarget > 0 ? ((laborCostTarget - laborOnlyCost) / laborCostTarget) * 100 : 0;
             const virtualSubs: SubcategoryDisplay[] = [];
@@ -1337,6 +1371,24 @@ export default function ReportsPage() {
     const json = await res.json();
     if (!res.ok) { alert(json?.error || "פתיחה מחדש נכשלה"); return; }
     window.location.reload();
+  };
+
+  const handleSaveLaborNotes = async () => {
+    setLaborNotesSaving(true);
+    const res = await fetch("/api/labor-close", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        business_id: selectedBusinesses[0],
+        year: parseInt(selectedYear),
+        month: parseInt(selectedMonth),
+        notes: laborNotes,
+      }),
+    });
+    const json = await res.json();
+    setLaborNotesSaving(false);
+    if (!res.ok) { alert(json?.error || "שמירת ההערות נכשלה"); return; }
+    setLaborNotesSavedValue(laborNotes);
   };
 
   const months = [
@@ -1639,12 +1691,13 @@ export default function ReportsPage() {
                       laborMonthClosedState ? (
                         <span
                           id="onboarding-labor-close"
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); handleReopenMonth(); }}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); handleReopenMonth(); } }}
-                          className="flex items-center gap-[3px] text-[10px] sm:text-[11px] font-bold bg-[#17DB4E]/15 text-[#17DB4E] border border-[#17DB4E]/40 rounded-full px-[8px] py-[3px] hover:bg-[#17DB4E]/25 transition-colors cursor-pointer whitespace-nowrap"
-                        >פתח מחדש</span>
+                          className="flex items-center gap-[3px] text-[10px] sm:text-[11px] font-bold bg-[#17DB4E]/15 text-[#17DB4E] border border-[#17DB4E]/40 rounded-full px-[8px] py-[3px] whitespace-nowrap"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                          מעודכן
+                        </span>
                       ) : (
                         <span
                           id="onboarding-labor-close"
@@ -1792,16 +1845,43 @@ export default function ReportsPage() {
                   ))}
                   {category.isLaborParent && selectedBusinesses.length === 1 && (
                     laborMonthClosedState ? (
-                      <div className="m-[5px] p-[10px] rounded-[8px] bg-[#17DB4E]/10 border border-[#17DB4E]/30 flex flex-row-reverse items-center justify-between gap-[8px]">
-                        <div className="flex flex-col gap-[2px] text-right min-w-0">
-                          <span className="text-[12px] sm:text-[13px] font-bold text-[#17DB4E]">החודש סגור - מוצגת עלות בפועל</span>
-                          <span className="text-[10px] sm:text-[11px] text-white/60 leading-[1.4]">החשבוניות נכנסו לתזרים. אפשר לפתוח מחדש כדי לתקן.</span>
+                      <div className="m-[5px] p-[10px] rounded-[8px] bg-[#17DB4E]/10 border border-[#17DB4E]/30 flex flex-col gap-[10px]">
+                        <div className="flex flex-row-reverse items-center justify-between gap-[8px]">
+                          <div className="flex flex-col gap-[2px] text-right min-w-0">
+                            <span className="text-[12px] sm:text-[13px] font-bold text-[#17DB4E]">החודש סגור - מוצגת עלות בפועל</span>
+                            <span className="text-[10px] sm:text-[11px] text-white/60 leading-[1.4]">החשבוניות נכנסו לתזרים. אפשר לערוך את הסכומים או לפתוח מחדש.</span>
+                          </div>
+                          <div className="shrink-0 flex flex-col items-stretch gap-[5px]">
+                            <button
+                              type="button"
+                              onClick={() => setLaborCloseOpen(true)}
+                              className="bg-[#29318A] hover:bg-[#343da3] text-white text-[12px] sm:text-[13px] font-bold rounded-[7px] px-[14px] py-[8px] whitespace-nowrap transition-colors cursor-pointer"
+                            >ערוך</button>
+                            <button
+                              type="button"
+                              onClick={() => handleReopenMonth()}
+                              className="text-[10px] sm:text-[11px] font-medium text-[#F64E60]/80 hover:text-[#F64E60] whitespace-nowrap transition-colors cursor-pointer"
+                            >פתח מחדש</button>
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleReopenMonth()}
-                          className="shrink-0 bg-transparent border border-[#F64E60]/50 text-[#F64E60] hover:bg-[#F64E60]/10 text-[12px] sm:text-[13px] font-bold rounded-[7px] px-[14px] py-[8px] whitespace-nowrap transition-colors cursor-pointer"
-                        >פתח מחדש</button>
+                        <div className="flex flex-col gap-[5px] border-t border-[#17DB4E]/20 pt-[8px]">
+                          <label className="text-[11px] sm:text-[12px] font-bold text-white/80 text-right">הערות ותזכורות</label>
+                          <textarea
+                            value={laborNotes}
+                            onChange={(e) => setLaborNotes(e.target.value)}
+                            placeholder="רשום כאן תזכורות לחודש זה (למשל: פיצויים טרם שולמו, לבדוק מול רואה החשבון)"
+                            rows={2}
+                            className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[7px] p-[8px] text-[12px] sm:text-[13px] text-white resize-y text-right placeholder:text-white/30"
+                          />
+                          <div className="flex flex-row-reverse">
+                            <button
+                              type="button"
+                              onClick={handleSaveLaborNotes}
+                              disabled={laborNotesSaving || laborNotes === laborNotesSavedValue}
+                              className="bg-[#29318A] hover:bg-[#343da3] disabled:opacity-40 disabled:cursor-default text-white text-[12px] font-bold rounded-[7px] px-[14px] py-[6px] transition-colors cursor-pointer"
+                            >{laborNotesSaving ? "שומר…" : laborNotes === laborNotesSavedValue ? "נשמר" : "שמור הערות"}</button>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="m-[5px] p-[10px] rounded-[8px] bg-[#29318A]/40 border border-[#5a63c4]/40 flex flex-row-reverse items-center justify-between gap-[8px]">
@@ -2233,6 +2313,7 @@ export default function ReportsPage() {
           salaryEstimate={salaryEstimateState}
           employerEstimate={employerEstimateState}
           employeeSuppliers={employeeSuppliersState}
+          isEdit={laborMonthClosedState}
           onClosed={() => window.location.reload()}
         />
       )}
