@@ -97,9 +97,10 @@ const menuItems = [
   // ensures users without any selected business land on the dashboard
   // first.
   { id: 15, label: "קליטת מסמכים OCR", href: "/ocr-business", key: "ocr-business", requiresBusiness: true },
-  // דדי - דף הסוכן החדש (בבנייה). hideUnlessAdmin: מוסתר לחלוטין מלא-אדמינים
-  // (לא מוצג אפילו כ"בקרוב") עד שיהיה מוכן. requiresBusiness: דורש עסק נבחר.
-  { id: 16, label: "דדי", href: "/agent", key: "agent", hideUnlessAdmin: true, requiresBusiness: true },
+  // דדי - דף הסוכן החדש (בבנייה). hidden: מוסתר לחלוטין מכולם (כולל אדמינים)
+  // עד שהסוכן יהיה מוכן להשקה. להצגה מחדש - להסיר את hidden (hideUnlessAdmin
+  // ישאיר אותו גלוי לאדמינים בלבד). requiresBusiness: דורש עסק נבחר.
+  { id: 16, label: "דדי", href: "/agent", key: "agent", hidden: true, hideUnlessAdmin: true, requiresBusiness: true },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
   { id: 11, label: "התנתקות", href: "#logout", key: "logout", isLogout: true },
 ];
@@ -849,6 +850,9 @@ export default function DashboardLayout({
                 // viewing a service business, so navigation matches what the
                 // tenant sees.
                 .filter((item) => {
+                  // hidden: fully hidden from EVERYONE (incl. admins). Used to park
+                  // the in-development "דדי" agent in the sidebar until it launches.
+                  if ((item as { hidden?: boolean }).hidden) return false;
                   // hideUnlessAdmin: fully hidden from non-admins (not even shown
                   // as "בקרוב"). Used by the in-development "דדי" agent page.
                   if ((item as { hideUnlessAdmin?: boolean }).hideUnlessAdmin && !isAdmin) return false;
