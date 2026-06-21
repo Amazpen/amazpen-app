@@ -1869,20 +1869,45 @@ export default function OCRForm({
           ? data.discount_percentage.toString()
           : ''
       );
-      setAmountBeforeVat(
-        data.subtotal !== undefined && data.subtotal !== null
-          ? data.subtotal.toString()
-          : ''
-      );
-      // OCR data is authoritative — drop any earlier user-typed total so the
-      // form displays the freshly-extracted before-VAT subtotal in forward mode.
-      setTotalWithVatInput('');
+      // Anchor the form on the document's TOTAL-INCLUDING-VAT by default.
+      // Receipts/POS slips print the gross "סה״כ כולל מע״מ" as the headline
+      // number, and the extractor reads that gross reliably even when it
+      // fumbles the subtotal/VAT split (a common failure is dumping the gross
+      // into `subtotal` with vat=0). By anchoring on the gross and back-deriving
+      // the before-VAT subtotal, the headline matches the document exactly,
+      // including any few-agorot supplier discount, with zero re-keying.
+      // Exempt / two-thirds / partial suppliers are switched back to forward
+      // mode in the supplier-match block below, where their fixed VAT applies.
+      const ocrDiscount =
+        parseFloat(
+          data.discount_amount !== undefined && data.discount_amount !== null
+            ? data.discount_amount.toString()
+            : '0'
+        ) || 0;
+      const ocrGrossTotal =
+        data.total_amount !== undefined && data.total_amount !== null
+          ? Number(data.total_amount)
+          : data.subtotal !== undefined && data.subtotal !== null
+            ? Number(data.subtotal)
+            : null;
+      if (ocrGrossTotal !== null && Number.isFinite(ocrGrossTotal) && ocrGrossTotal !== 0) {
+        // Reverse mode: gross is the anchor, before-VAT subtotal computed from
+        // it so calculatedVat + amountAfterDiscount round-trip back to the gross.
+        setTotalWithVatInput(ocrGrossTotal.toString());
+        setAmountBeforeVat((ocrGrossTotal / (1 + businessVatRate) + ocrDiscount).toFixed(2));
+      } else {
+        // No usable total — fall back to the extracted before-VAT subtotal.
+        setAmountBeforeVat(
+          data.subtotal !== undefined && data.subtotal !== null ? data.subtotal.toString() : ''
+        );
+        setTotalWithVatInput('');
+      }
+      // VAT stays on auto-calculation (partialVat reset to false above) so the
+      // displayed total equals the gross we anchored on. We still remember the
+      // OCR'd vat_amount in case the user later toggles "מע״מ חלקי" on; it's
+      // ignored for display while partialVat is off.
       if (data.vat_amount !== undefined && data.vat_amount !== null) {
         setVatAmount(data.vat_amount.toString());
-        // Default: partial VAT toggle is OFF (regular VAT). The user must
-        // explicitly toggle it ON if they want to override the calculated VAT.
-        // Never auto-enable based on OCR data — it always defaulted to ON
-        // for legitimate invoices and confused users.
       }
       // NOTE: VAT-exempt supplier override happens below, AFTER the supplier
       // is matched, because the matched supplier's vat_type trumps whatever
@@ -1999,6 +2024,12 @@ export default function OCRForm({
             : 0;
           const override = resolveSupplierVatOverride(effectiveVatType(matched), subtotalNum);
           if (override) {
+            // Two-thirds / partial VAT: the gross-anchored reverse default set
+            // above assumes a full 18% split, which is wrong for this supplier.
+            // Switch back to forward mode on the extracted before-VAT subtotal so
+            // the supplier's fixed VAT amount applies cleanly.
+            setAmountBeforeVat(subtotalNum.toString());
+            setTotalWithVatInput('');
             setPartialVat(override.partialVat);
             setVatAmount(override.vatAmount);
           } else if (matched?.vat_type === 'full' || !matched?.vat_type) {
