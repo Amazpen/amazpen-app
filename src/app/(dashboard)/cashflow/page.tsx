@@ -240,7 +240,7 @@ export default function CashFlowPage() {
         const lookbackStr = formatLocalDate(lookbackDate);
 
         // 2. Parallel queries
-        const [pmResult, paymentBreakdownResult, splitsResult, overridesResult, retainersResult, dailyEntriesResult] = await Promise.all([
+        const [pmResult, paymentBreakdownResult, splitsResult, overridesResult, retainersResult, dailyEntriesResult, laborInvoicesResult] = await Promise.all([
           supabase
             .from("payment_method_types")
             .select("*")
@@ -281,6 +281,21 @@ export default function CashFlowPage() {
             .is("deleted_at", null)
             .gte("entry_date", lookbackStr)
             .lte("entry_date", endDateStr),
+          // Pending employee-cost month-close invoices (#labor). The close flow
+          // creates pending `invoices` with NO payment_split, so the
+          // payment_splits-based forecast below can't see them. Surface them as
+          // expenses on their (user-set) due_date. The embedded payment_invoice_links
+          // let us skip any already covered by a real payment (avoid double-count)
+          // without a second round-trip.
+          supabase
+            .from("invoices")
+            .select("id, total_amount, due_date, supplier:suppliers(name), payment_invoice_links(invoice_id)")
+            .eq("business_id", businessId)
+            .not("labor_close_id", "is", null)
+            .is("deleted_at", null)
+            .neq("status", "cancelled")
+            .gte("due_date", displayStartStr)
+            .lte("due_date", endDateStr),
         ]);
 
         const paymentMethods = (pmResult.data || []) as PaymentMethodType[];
@@ -457,6 +472,31 @@ export default function CashFlowPage() {
           const existing = expensesByDate.get(dueDate) || [];
           existing.push(item);
           expensesByDate.set(dueDate, existing);
+        }
+
+        // 5b. Merge in pending labor-close invoices (employee-cost month-close).
+        // These have no payment_split, so they're invisible to the forecast
+        // above — surface each on its (user-set) due_date. Skip any that already
+        // have a linked payment (embedded payment_invoice_links): that one is
+        // covered by the payment_splits forecast, so showing both would
+        // double-count the same expense.
+        const laborInvoices = (laborInvoicesResult.data || []) as Record<string, unknown>[];
+        for (const inv of laborInvoices) {
+          const links = (inv.payment_invoice_links as unknown[] | null) || [];
+          if (links.length > 0) continue;
+          const dueDate = String(inv.due_date || "").substring(0, 10);
+          if (!dueDate) continue;
+          const supplier = inv.supplier as Record<string, unknown> | null;
+          const item: ExpenseItem = {
+            id: inv.id as string,
+            supplier_name: (supplier?.name as string) || "עלות עובדים",
+            amount: Number(inv.total_amount) || 0,
+            payment_method: "עלות עובדים",
+            due_date: dueDate,
+          };
+          const existingLabor = expensesByDate.get(dueDate) || [];
+          existingLabor.push(item);
+          expensesByDate.set(dueDate, existingLabor);
         }
 
         // 6. Build daily data for the range

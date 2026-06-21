@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     const { data: invoices } = await supabase
       .from("invoices")
-      .select("supplier_id, total_amount, supplier:suppliers(name, system_kind)")
+      .select("supplier_id, total_amount, due_date, supplier:suppliers(name, system_kind)")
       .eq("labor_close_id", closeRow.id);
 
     const lines = (invoices || []).map((inv) => {
@@ -70,6 +70,9 @@ export async function GET(request: NextRequest) {
       return {
         supplier_id: (inv as unknown as { supplier_id: string }).supplier_id,
         amount: Number((inv as unknown as { total_amount: number }).total_amount),
+        // due_date is a DATE column → PostgREST returns "YYYY-MM-DD". Used to
+        // prefill each line's payment-date field when editing a closed month.
+        due_date: ((inv as unknown as { due_date: string | null }).due_date || "").substring(0, 10) || null,
         name: supplier?.name || "",
         is_salary: supplier?.system_kind === "labor_salary",
       };

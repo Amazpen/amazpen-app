@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 
 interface EmployeeSupplier { id: string; name: string; amount?: number; }
 
@@ -11,7 +12,8 @@ interface CloseLineState {
   supplier_id: string;
   label: string;
   estimate: number;
-  amount: string; // user-entered actual
+  amount: string;   // user-entered actual
+  dueDate: string;  // YYYY-MM-DD — when this component hits the cashflow
 }
 
 interface Props {
@@ -28,6 +30,18 @@ interface Props {
 }
 
 const monthNames = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+
+// Salaries (and pension/severance deposits) are paid the FOLLOWING month, so
+// default every line's payment date to the 10th of it. year/month are 1-based,
+// so new Date(year, month, 10) already lands in the next month and rolls the
+// year over for December — and using explicit args keeps it hydration-safe.
+function defaultPaymentDate(year: number, month: number): string {
+  const d = new Date(year, month, 10);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export function LaborMonthCloseModal({
   open, onClose, businessId, year, month,
@@ -58,7 +72,8 @@ export function LaborMonthCloseModal({
       if (isEdit) {
         const res2 = await fetch(`/api/labor-close?business_id=${businessId}&year=${year}&month=${month}`);
         const data = await res2.json().catch(() => null);
-        const saved = (data?.lines || []) as { supplier_id: string; amount: number; name: string; is_salary: boolean }[];
+        const saved = (data?.lines || []) as { supplier_id: string; amount: number; name: string; is_salary: boolean; due_date: string | null }[];
+        const fallbackDate = defaultPaymentDate(year, month);
         if (saved.length > 0) {
           const salaryLine = saved.find((l) => l.is_salary);
           const edited: CloseLineState[] = [
@@ -66,6 +81,7 @@ export function LaborMonthCloseModal({
               key: "salary", supplier_id: salaryId, label: "שכר עובדים",
               estimate: Math.round(salaryEstimate),
               amount: String(Math.round(salaryLine?.amount ?? salaryEstimate)),
+              dueDate: salaryLine?.due_date || fallbackDate,
             },
             ...saved.filter((l) => !l.is_salary).map((l, i) => ({
               key: `sup-${l.supplier_id}-${i}`,
@@ -73,6 +89,7 @@ export function LaborMonthCloseModal({
               label: l.name || (employeeSuppliers.find((s) => s.id === l.supplier_id)?.name ?? ""),
               estimate: Math.round(l.amount),
               amount: String(Math.round(l.amount)),
+              dueDate: l.due_date || fallbackDate,
             })),
           ];
           setLines(edited);
@@ -80,13 +97,14 @@ export function LaborMonthCloseModal({
         }
       }
 
+      const fallbackDate = defaultPaymentDate(year, month);
       const initial: CloseLineState[] = [
-        { key: "salary", supplier_id: salaryId, label: "שכר עובדים", estimate: Math.round(salaryEstimate), amount: String(Math.round(salaryEstimate)) },
+        { key: "salary", supplier_id: salaryId, label: "שכר עובדים", estimate: Math.round(salaryEstimate), amount: String(Math.round(salaryEstimate)), dueDate: fallbackDate },
         ...employeeSuppliers.map((s, i) => {
           const existing = Math.round(s.amount || 0);
           return {
             key: `sup-${s.id}-${i}`, supplier_id: s.id, label: s.name,
-            estimate: existing, amount: String(existing),
+            estimate: existing, amount: String(existing), dueDate: fallbackDate,
           };
         }),
       ];
@@ -95,7 +113,7 @@ export function LaborMonthCloseModal({
   }, [open, businessId, salaryEstimate, employeeSuppliers, isEdit, year, month]);
 
   const addLine = () => {
-    setLines((prev) => [...prev, { key: `extra-${prev.length}`, supplier_id: "", label: "", estimate: 0, amount: "" }]);
+    setLines((prev) => [...prev, { key: `extra-${prev.length}`, supplier_id: "", label: "", estimate: 0, amount: "", dueDate: defaultPaymentDate(year, month) }]);
   };
 
   const updateLine = (key: string, patch: Partial<CloseLineState>) => {
@@ -114,7 +132,7 @@ export function LaborMonthCloseModal({
       estimate_total: estimateTotal,
       lines: lines
         .filter((l) => l.supplier_id && Number(l.amount) > 0)
-        .map((l) => ({ supplier_id: l.supplier_id, amount: Number(l.amount) })),
+        .map((l) => ({ supplier_id: l.supplier_id, amount: Number(l.amount), due_date: l.dueDate || null })),
     };
     if (payload.lines.length === 0) {
       setError("יש להזין לפחות שורה אחת עם סכום.");
@@ -151,10 +169,17 @@ export function LaborMonthCloseModal({
           </div>
 
           <div className="flex flex-col gap-2">
+            {/* Column headers — the date column drives WHEN each component lands
+                in the cashflow, so it needs to be labelled. */}
+            <div className="grid grid-cols-[minmax(0,1fr)_72px_116px] gap-2 text-[11px] text-white/40">
+              <span />
+              <span className="text-center">סכום</span>
+              <span className="text-center">תאריך תשלום</span>
+            </div>
             {lines.map((l) => (
-              <div key={l.key} className="grid grid-cols-[1fr_120px] gap-2 items-center">
+              <div key={l.key} className="grid grid-cols-[minmax(0,1fr)_72px_116px] gap-2 items-center">
                 {l.key === "salary" || l.key.startsWith("sup-") ? (
-                  <span className="text-[14px]">{l.label}</span>
+                  <span className="text-[14px] truncate">{l.label}</span>
                 ) : (
                   <select
                     value={l.supplier_id}
@@ -162,7 +187,7 @@ export function LaborMonthCloseModal({
                       const sup = employeeSuppliers.find((s) => s.id === e.target.value);
                       updateLine(l.key, { supplier_id: e.target.value, label: sup?.name || "" });
                     }}
-                    className="bg-[#252a40] rounded-[7px] px-2 py-1.5 text-[14px]"
+                    className="bg-[#252a40] rounded-[7px] px-2 py-1.5 text-[14px] min-w-0"
                   >
                     <option value="">בחר ספק…</option>
                     {employeeSuppliers.map((s) => (
@@ -176,7 +201,12 @@ export function LaborMonthCloseModal({
                   value={l.amount}
                   placeholder={l.estimate ? String(l.estimate) : "0"}
                   onChange={(e) => updateLine(l.key, { amount: e.target.value })}
-                  className="bg-[#252a40] rounded-[7px] px-2 py-1.5 text-[14px] text-left ltr-num"
+                  className="bg-[#252a40] rounded-[7px] px-2 py-1.5 text-[14px] text-left ltr-num min-w-0"
+                />
+                <DatePickerField
+                  value={l.dueDate}
+                  onChange={(v) => updateLine(l.key, { dueDate: v })}
+                  buttonClassName="h-[34px] rounded-[7px] border-[#3a4060] bg-[#252a40] text-[12px] font-medium px-1"
                 />
               </div>
             ))}
