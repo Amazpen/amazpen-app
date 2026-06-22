@@ -760,6 +760,7 @@ export default function OCRPage() {
               .from('invoices')
               .update({
                 invoice_number: formData.document_number || null,
+                allocation_number: formData.allocation_number || null,
                 invoice_date: primaryDate || formData.document_date,
                 reference_date: formData.value_date || primaryDate || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
@@ -794,6 +795,7 @@ export default function OCRPage() {
                 const exDate = extra.reference_date || null;
                 const update: Record<string, unknown> = {
                   invoice_number: formData.document_number || null,
+                  allocation_number: formData.allocation_number || null,
                   subtotal: exSubtotal,
                   vat_amount: exVat,
                   total_amount: exTotal,
@@ -826,6 +828,7 @@ export default function OCRPage() {
                 business_id: formData.business_id,
                 supplier_id: formData.supplier_id,
                 invoice_number: formData.document_number || null,
+                allocation_number: formData.allocation_number || null,
                 invoice_date: formData.document_date,
                 reference_date: formData.value_date || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
@@ -1120,6 +1123,7 @@ export default function OCRPage() {
               invoice_date: formData.document_date,
               reference_date: formData.value_date || formData.document_date,
               invoice_number: formData.document_number,
+              allocation_number: formData.allocation_number || null,
               subtotal: subtotal,
               vat_amount: vatAmount,
               total_amount: total,

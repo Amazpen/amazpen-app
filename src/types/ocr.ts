@@ -27,6 +27,7 @@ export interface OCRExtractedData {
   supplier_name?: string;
   supplier_tax_id?: string;
   document_number?: string;
+  allocation_number?: string;
   document_date?: string;
   discount_amount?: number;
   discount_percentage?: number;
@@ -95,6 +96,9 @@ export interface OCRFormData {
   document_date: string;
   value_date?: string;
   document_number: string;
+  // מספר הקצאה — Israeli Tax Authority allocation number. Captured for
+  // invoices whose total (incl VAT) is at/above the legal threshold.
+  allocation_number?: string;
   discount_amount?: string;
   discount_percentage?: string;
   amount_before_vat: string;

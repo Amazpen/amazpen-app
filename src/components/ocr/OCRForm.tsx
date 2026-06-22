@@ -17,6 +17,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 
+// מספר הקצאה (Israeli Tax Authority allocation number) is required for
+// invoices whose total INCLUDING VAT reaches this amount. The allocation-number
+// field only appears once the total crosses this threshold.
+const ALLOCATION_NUMBER_MIN_TOTAL = 5000;
+
 interface Supplier {
   id: string;
   name: string;
@@ -320,6 +325,9 @@ export default function OCRForm({
   const [valueDate, setValueDate] = useState('');
   const valueDateManuallySet = useRef(false);
   const [documentNumber, setDocumentNumber] = useState('');
+  // מספר הקצאה — only surfaced (and saved) for invoices whose total incl VAT
+  // reaches ALLOCATION_NUMBER_MIN_TOTAL. See the conditional field below.
+  const [allocationNumber, setAllocationNumber] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState('');
   const [amountBeforeVat, setAmountBeforeVat] = useState('');
@@ -1768,6 +1776,7 @@ export default function OCRForm({
       documentType, expenseType, supplierId, documentDate,
       valueDate: valueDateManuallySet.current ? valueDate : null,
       documentNumber,
+      allocationNumber,
       discountAmount, discountPercentage, amountBeforeVat, vatAmount, partialVat, notes, isPaid,
       inlinePaymentMethod, inlinePaymentDate, inlinePaymentReference, inlinePaymentNotes,
       inlinePaymentMethods,
@@ -1777,6 +1786,7 @@ export default function OCRForm({
       summaryDeliveryNotes,
     });
   }, [saveDraft, documentType, expenseType, supplierId, documentDate, valueDate, documentNumber,
+    allocationNumber,
     discountAmount, discountPercentage, amountBeforeVat, vatAmount, partialVat, notes, isPaid,
     inlinePaymentMethod, inlinePaymentDate, inlinePaymentReference, inlinePaymentNotes,
     inlinePaymentMethods,
@@ -1859,6 +1869,7 @@ export default function OCRForm({
       // Reset OCR-driven fields first so stale values from a previous document
       // don't leak through when the new document's OCR didn't extract them.
       setDocumentNumber(data.document_number || '');
+      setAllocationNumber(data.allocation_number || '');
       setDiscountAmount(
         data.discount_amount !== undefined && data.discount_amount !== null
           ? data.discount_amount.toString()
@@ -2086,6 +2097,7 @@ export default function OCRForm({
       setValueDate(today);
       valueDateManuallySet.current = false;
       setDocumentNumber('');
+      setAllocationNumber('');
       setAmountBeforeVat('');
       setVatAmount('');
       setPartialVat(false);
@@ -2136,6 +2148,7 @@ export default function OCRForm({
           valueDateManuallySet.current = true;
         }
         if (draft.documentNumber !== undefined) setDocumentNumber(draft.documentNumber as string);
+        if (draft.allocationNumber !== undefined) setAllocationNumber(draft.allocationNumber as string);
         if (draft.discountAmount !== undefined) setDiscountAmount(draft.discountAmount as string);
         if (draft.discountPercentage !== undefined) setDiscountPercentage(draft.discountPercentage as string);
         if (draft.amountBeforeVat !== undefined) setAmountBeforeVat(draft.amountBeforeVat as string);
@@ -2574,6 +2587,7 @@ export default function OCRForm({
         document_date: documentDate,
         value_date: valueDate || documentDate,
         document_number: documentNumber,
+        allocation_number: allocationNumber,
         discount_amount: discountAmount,
         discount_percentage: discountPercentage,
         amount_before_vat: amountBeforeVat,
@@ -3606,6 +3620,33 @@ export default function OCRForm({
           />
         </div>
       </div>
+
+      {/* מספר הקצאה — appears only once the total INCLUDING VAT reaches the
+          legal threshold (ALLOCATION_NUMBER_MIN_TOTAL). The total shown in the
+          field above is totalWithVatInput when the user is editing it, else the
+          derived totalWithVat — so we mirror that same value here. */}
+      {(() => {
+        const effectiveTotalInclVat = totalWithVatInput !== ''
+          ? (parseFloat(totalWithVatInput) || 0)
+          : totalWithVat;
+        if (effectiveTotalInclVat < ALLOCATION_NUMBER_MIN_TOTAL) return null;
+        return (
+          <div className="flex flex-col gap-[5px]">
+            <label className="text-[15px] font-normal text-white text-right">מספר הקצאה</label>
+            <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={allocationNumber}
+                onChange={(e) => setAllocationNumber(e.target.value)}
+                placeholder="מספר הקצאה מרשות המסים..."
+                className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+              />
+            </div>
+            <span className="text-[12px] text-white/50 text-right">נדרש לחשבוניות מעל {ALLOCATION_NUMBER_MIN_TOTAL.toLocaleString('he-IL')} ש&quot;ח כולל מע&quot;מ</span>
+          </div>
+        );
+      })()}
 
       {/* Overall invoice discount — extracted from the line-items panel so it
           remains visible even when the items table is hidden (e.g. in
