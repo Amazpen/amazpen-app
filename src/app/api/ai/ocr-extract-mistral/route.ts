@@ -184,6 +184,7 @@ const lineItemSchema = z.object({
 const invoiceSchema = z.object({
   supplier_name: z.string().nullable().describe("שם הספק/העסק שהנפיק את החשבונית"),
   document_number: z.string().nullable().describe("מספר חשבונית או תעודת משלוח"),
+  allocation_number: z.string().nullable().describe("מספר הקצאה של רשות המסים - חלץ אך ורק אם מופיע מספר צמוד לתווית 'מספר הקצאה'. אל תבלבל עם ח.פ / עוסק מורשה / תיק מע\"מ / מספר זיהוי / מספר לקוח / מספר חשבונית (כולם גם 9 ספרות). null אם השדה ריק, כתוב 'לא נדרש', או לא מופיע."),
   document_date: z.string().nullable().describe("תאריך המסמך בפורמט YYYY-MM-DD"),
   discount_amount: z.number().nullable().describe("סכום הנחה כולל על המסמך בש״ח (לא אחוז). אם מופיע רק אחוז במסמך, חשב את הסכום בש״ח."),
   discount_percentage: z.number().nullable().describe("אחוז הנחה כולל על המסמך"),
@@ -425,6 +426,7 @@ export async function POST(request: NextRequest) {
       return Response.json({
         supplier_name: null,
         document_number: null,
+        allocation_number: null,
         document_date: null,
         discount_amount: null,
         discount_percentage: null,
@@ -446,6 +448,11 @@ export async function POST(request: NextRequest) {
 חלץ את הנתונים הבאים מהטקסט של המסמך:
 - שם הספק (supplier_name)
 - מספר חשבונית/תעודה (document_number)
+- מספר הקצאה (allocation_number) - מספר שהונפק על ידי רשות המסים במודל החשבוניות. חלץ אותו **אך ורק** אם מופיע מספר צמוד לתווית "מספר הקצאה" / "אישור הקצאה" (לדוגמה: "מספר הקצאה: 127043276").
+  ⚠️ קריטי — אל תחלץ מספר הקצאה במקרים הבאים:
+  - אם השדה "מספר הקצאה" ריק (אין מספר אחריו) — גם אם צמוד אליו ח.פ / עוסק מורשה / תיק מע"מ. החזר null.
+  - אם כתוב "מספר הקצאה: לא נדרש" — החזר null.
+  - לעולם אל תבלבל מספר הקצאה עם: ח.פ, עוסק מורשה, תיק מע"מ, מספר זיהוי, מספר לקוח, או מספר החשבונית — כולם גם בני 9 ספרות ולעיתים מופיעים ממש ליד התווית "מספר הקצאה".
 - תאריך המסמך (document_date) בפורמט YYYY-MM-DD
 - הנחה על המסמך (discount_amount) - סכום ההנחה הכולל בש״ח אם מופיע. **חובה לחפש** הנחות במסמך — זה שדה קריטי.
 - אחוז הנחה (discount_percentage) - אם מופיע אחוז הנחה
@@ -662,6 +669,7 @@ ${rawText}`,
     return Response.json({
       supplier_name: extracted.supplier_name,
       document_number: extracted.document_number,
+      allocation_number: extracted.allocation_number,
       document_date: extracted.document_date,
       discount_amount: extracted.discount_amount,
       discount_percentage: extracted.discount_percentage,
