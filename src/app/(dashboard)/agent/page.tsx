@@ -22,6 +22,9 @@ export default function AgentPage() {
   // נמנע מ-hydration mismatch: בוחרים מה להציג רק אחרי mount בצד הלקוח,
   // כי selectedBusinesses נטען מ-localStorage ב-useEffect.
   const [mounted, setMounted] = useState(false);
+  // דגל mount חד-פעמי במכוון: setState ב-effect הוא בדיוק מה שנדרש כאן כדי
+  // להחליף render אחרי hydration. הכלל set-state-in-effect לא רלוונטי לדפוס הזה.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   if (!mounted) return null;

@@ -99,7 +99,7 @@ export function useConfirmDialog() {
           </AlertDialog>
         )
       },
-    [state, handleClose, handleConfirm]
+    [state, handleClose, handleConfirm, handleSecondary]
   )
 
   return { confirm, ConfirmDialog: ConfirmDialogComponent }
