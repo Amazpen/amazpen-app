@@ -3191,21 +3191,38 @@ function PaymentsPageInner() {
   };
 
   // Delete payment (soft delete)
-  const handleDeletePayment = async (paymentId: string) => {
+  // Delete a payment and revert every invoice it paid back to "ממתין".
+  // opts.thenEdit: after the delete+revert, jump to the expense edit screen for
+  // the payment's primary linked invoice so the user can fix it and re-pay
+  // (the "מחק וערוך" path). Invoice IDs are read from the DB (not React state)
+  // so the revert never misses a linked invoice.
+  const handleDeletePayment = async (paymentId: string, opts: { thenEdit?: boolean } = {}) => {
     const supabase = createClient();
     try {
-      // recentPaymentsData.id is `${paymentId}-${splitId}` for split rows; match
-      // on paymentId so the linkedInvoiceId revert path actually finds the row.
-      const payment = recentPaymentsData.find(p => p.paymentId === paymentId);
-
-      // Collect all invoice IDs linked to this payment (both direct FK and N:M links)
+      // Collect all invoice IDs linked to this payment (direct FK + N:M links),
+      // read straight from the DB so the revert is reliable. Track the primary
+      // invoice (direct FK first, else first link) for the "מחק וערוך" jump.
       const invoiceIdsToRevert = new Set<string>();
-      if (payment?.linkedInvoiceId) invoiceIdsToRevert.add(payment.linkedInvoiceId);
+      let primaryInvoiceId: string | null = null;
+
+      const { data: paymentRow } = await supabase
+        .from("payments")
+        .select("invoice_id")
+        .eq("id", paymentId)
+        .maybeSingle();
+      if (paymentRow?.invoice_id) {
+        invoiceIdsToRevert.add(paymentRow.invoice_id);
+        primaryInvoiceId = paymentRow.invoice_id;
+      }
+
       const { data: links } = await supabase
         .from("payment_invoice_links")
         .select("invoice_id")
         .eq("payment_id", paymentId);
-      if (links) for (const l of links) if (l.invoice_id) invoiceIdsToRevert.add(l.invoice_id);
+      if (links) for (const l of links) if (l.invoice_id) {
+        invoiceIdsToRevert.add(l.invoice_id);
+        if (!primaryInvoiceId) primaryInvoiceId = l.invoice_id;
+      }
 
       // Hard delete - remove FK children first, then payment
       await supabase.from("payment_splits").delete().eq("payment_id", paymentId);
@@ -3231,8 +3248,23 @@ function PaymentsPageInner() {
       // Optimistic remove so the card vanishes right away. Match on paymentId
       // because `id` is the split-suffixed composite key.
       setRecentPaymentsData(prev => prev.filter(p => p.paymentId !== paymentId));
-      showToast("התשלום נמחק בהצלחה", "success");
       setExpandedPaymentId(null);
+
+      // "מחק וערוך": open the expense edit screen for the primary invoice
+      // (now back to "ממתין"), returning here on close. Falls back to a plain
+      // delete when the payment had no linked invoice (on-account payment).
+      if (opts.thenEdit) {
+        if (primaryInvoiceId) {
+          showToast("התשלום נמחק - פותח את ההוצאה לעריכה", "success");
+          router.push(`/expenses?edit=${primaryInvoiceId}&returnTo=payments`);
+          return;
+        }
+        showToast("התשלום נמחק (אין חשבונית מקושרת לעריכה)", "info");
+        setRefreshTrigger(t => t + 1);
+        return;
+      }
+
+      showToast("התשלום נמחק בהצלחה", "success");
       setRefreshTrigger(t => t + 1);
     } catch (error) {
       console.error("Error deleting payment:", error);
@@ -4810,9 +4842,18 @@ function PaymentsPageInner() {
                           <Button
                             type="button"
                             onClick={() => {
-                              confirm("האם למחוק את התשלום?", () => {
-                                handleDeletePayment(payment.paymentId);
-                              });
+                              confirm(
+                                "מחיקת התשלום תחזיר את החשבונית/ות המקושרות לסטטוס \"ממתין לתשלום\". אפשר גם למחוק ולפתוח מיד את ההוצאה לעריכה.",
+                                () => handleDeletePayment(payment.paymentId, { thenEdit: true }),
+                                "מחיקת תשלום",
+                                {
+                                  confirmLabel: "מחק וערוך",
+                                  secondary: {
+                                    label: "מחק בלבד",
+                                    onClick: () => handleDeletePayment(payment.paymentId),
+                                  },
+                                },
+                              );
                             }}
                             className="w-[20px] h-[20px] text-white opacity-70 hover:text-[#F64E60] transition-opacity cursor-pointer"
                             title="מחיקה"
