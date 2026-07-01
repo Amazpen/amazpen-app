@@ -1532,7 +1532,7 @@ export default function SuppliersPage() {
     // from the breakdown even though the user sees the payment on the card.
     const { data: paymentsInMonth } = await supabase
       .from("payments")
-      .select("total_amount")
+      .select("id, invoice_id, total_amount")
       .eq("supplier_id", supplier.id)
       .eq("business_id", supplier.business_id)
       .is("deleted_at", null)
@@ -1540,6 +1540,28 @@ export default function SuppliersPage() {
       .lte("payment_date", endIsoIL);
     const paymentsInMonthTotal = (paymentsInMonth || [])
       .reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
+
+    // Truly-unlinked payments recorded this month = payments with no invoice_id
+    // FK AND no payment_invoice_links row. These never flip any invoice to
+    // status='paid', so the invoice-status monthlyPaid computed below misses
+    // them entirely — the payment shows on the top card's "סה\"כ תשלום" but ₪0
+    // in every month's "שולם" column (the reported bug). Credit them to their
+    // payment_date month. Because they are tied to no invoice, they CANNOT
+    // double-count the paid-status-invoice sum (verified in production: for
+    // consolidated suppliers, paid-invoice total + unlinked-payment total
+    // reconciles exactly to the sum of all payments).
+    const unlinkedInMonthCandidates = (paymentsInMonth || []).filter((p) => !p.invoice_id);
+    let unlinkedPaidInMonth = 0;
+    if (unlinkedInMonthCandidates.length > 0) {
+      const { data: monthLinks } = await supabase
+        .from("payment_invoice_links")
+        .select("payment_id")
+        .in("payment_id", unlinkedInMonthCandidates.map((p) => p.id));
+      const linkedInMonthIds = new Set((monthLinks || []).map((l) => l.payment_id));
+      unlinkedPaidInMonth = unlinkedInMonthCandidates
+        .filter((p) => !linkedInMonthIds.has(p.id))
+        .reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
+    }
 
     // "שולם" by invoice status: every invoice whose status is 'paid' counts
     // toward the month of the invoice (its own month), regardless of when the
@@ -1571,6 +1593,10 @@ export default function SuppliersPage() {
     monthlyPaid = (monthlyInvoices || [])
       .filter((inv) => inv.status === "paid")
       .reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
+    // Plus standalone/unlinked payments recorded this month (see above): real
+    // money paid to the supplier that is tied to no invoice, so it would
+    // otherwise be invisible in the breakdown while inflating the card total.
+    monthlyPaid += unlinkedPaidInMonth;
 
     let expectedPaymentDate: string | null = null;
     if (supplier.payment_terms_days) {
@@ -1684,11 +1710,29 @@ export default function SuppliersPage() {
       // Fetch total payments for this supplier
       const { data: paymentsData } = await supabase
         .from("payments")
-        .select("total_amount, payment_date")
+        .select("id, invoice_id, total_amount, payment_date")
         .eq("supplier_id", supplier.id)
         .is("deleted_at", null);
 
       const totalPaid = paymentsData?.reduce((sum, pay) => sum + Number(pay.total_amount), 0) || 0;
+
+      // Truly-unlinked payments (no invoice_id FK AND no payment_invoice_links
+      // row) never flipped an invoice to status='paid', so the invoices they
+      // settled are still counted in openInvoicesTotal. Credit them against the
+      // open balance so "יתרה לתשלום" reflects money actually paid — matches the
+      // per-month treatment in fetchMonthlyData.
+      const unlinkedCandidates = (paymentsData || []).filter((p) => !p.invoice_id);
+      let unlinkedPaymentsTotal = 0;
+      if (unlinkedCandidates.length > 0) {
+        const { data: candidateLinks } = await supabase
+          .from("payment_invoice_links")
+          .select("payment_id")
+          .in("payment_id", unlinkedCandidates.map((p) => p.id));
+        const linkedIds = new Set((candidateLinks || []).map((l) => l.payment_id));
+        unlinkedPaymentsTotal = unlinkedCandidates
+          .filter((p) => !linkedIds.has(p.id))
+          .reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
+      }
 
       // Fetch monthly data for current month
       const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
@@ -1762,8 +1806,13 @@ export default function SuppliersPage() {
       // Advance = payments in excess of all purchases (e.g. prepayment to a supplier without an invoice yet).
       // Negative balance means we've overpaid (the supplier effectively owes us the service).
       let displayTotalPurchases = totalPurchases;
+      // Credit the greater of (unlinked payments) or (overpayment beyond all
+      // purchases) against the open balance. `advance` alone missed unlinked
+      // payments that sit within the purchase total (the reported bug); using
+      // the precise unlinked figure fixes it while the max() preserves the old
+      // advance behaviour for the rare linked-overpayment case.
       const advance = Math.max(0, totalPaid - totalPurchases);
-      let displayRemainingBalance = openInvoicesTotal - advance;
+      let displayRemainingBalance = openInvoicesTotal - Math.max(unlinkedPaymentsTotal, advance);
 
       if (supplier.has_previous_obligations && supplier.obligation_total_amount) {
         displayTotalPurchases = supplier.obligation_total_amount;
@@ -2046,7 +2095,7 @@ export default function SuppliersPage() {
           .is("invoice_id", null),
         supabase
           .from("payments")
-          .select("total_amount, payment_date")
+          .select("id, invoice_id, total_amount, payment_date")
           .eq("supplier_id", selectedSupplier.id)
           .is("deleted_at", null),
       ]);
@@ -2057,9 +2106,25 @@ export default function SuppliersPage() {
           .reduce((s, i) => s + Number(i.total_amount), 0) || 0) + dnSum;
       const totalPaid = paymentsData?.reduce((s, p) => s + Number(p.total_amount), 0) || 0;
 
+      // Truly-unlinked payments (no invoice_id FK, no payment_invoice_links row)
+      // credited against the open balance — mirrors handleOpenSupplierDetail so
+      // the pill stays correct after a realtime refresh.
+      const unlinkedCandidates = (paymentsData || []).filter((p) => !p.invoice_id);
+      let unlinkedPaymentsTotal = 0;
+      if (unlinkedCandidates.length > 0) {
+        const { data: candidateLinks } = await supabase
+          .from("payment_invoice_links")
+          .select("payment_id")
+          .in("payment_id", unlinkedCandidates.map((p) => p.id));
+        const linkedIds = new Set((candidateLinks || []).map((l) => l.payment_id));
+        unlinkedPaymentsTotal = unlinkedCandidates
+          .filter((p) => !linkedIds.has(p.id))
+          .reduce((s, p) => s + (Number(p.total_amount) || 0), 0);
+      }
+
       let displayTotalPurchases = invSum + dnSum;
       const advance = Math.max(0, totalPaid - displayTotalPurchases);
-      let displayRemainingBalance = openInvoicesTotal - advance;
+      let displayRemainingBalance = openInvoicesTotal - Math.max(unlinkedPaymentsTotal, advance);
       if (selectedSupplier.has_previous_obligations && selectedSupplier.obligation_total_amount) {
         displayTotalPurchases = selectedSupplier.obligation_total_amount;
         displayRemainingBalance = selectedSupplier.obligation_total_amount - totalPaid;
