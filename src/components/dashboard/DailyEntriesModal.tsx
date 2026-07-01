@@ -739,18 +739,24 @@ export function DailyEntriesModal({
         .eq("business_id", businessId)
         .eq("is_active", true)
         .is("deleted_at", null),
-      // 10. Monthly invoices for food cost / current expenses
+      // 10. Monthly invoices for food cost / current expenses.
+      // Use reference_date + invoice_type filter to mirror the P&L report
+      // (reports/page.tsx) exactly, so the profit shown here matches דוח רווח והפסד.
+      // reference_date is the accounting month; a "שוטף+30" invoice dated this month
+      // but referenced to next month must NOT count here (and its fixed-expense budget
+      // fills in via the fallback below), just like the report.
       supabase
         .from("invoices")
-        .select("subtotal, suppliers!inner(expense_type)")
+        .select("subtotal, supplier_id, suppliers!inner(expense_type)")
         .eq("business_id", businessId)
-        .gte("invoice_date", firstOfMonth)
-        .lte("invoice_date", lastOfMonth)
+        .in("invoice_type", ["current", "goods", "employees"])
+        .gte("reference_date", firstOfMonth)
+        .lte("reference_date", lastOfMonth)
         .is("deleted_at", null),
       // 10b. Monthly unlinked delivery notes (count toward food cost once, invoice takes over when linked)
       supabase
         .from("delivery_notes")
-        .select("subtotal, suppliers!inner(expense_type)")
+        .select("subtotal, supplier_id, suppliers!inner(expense_type)")
         .eq("business_id", businessId)
         .gte("delivery_date", firstOfMonth)
         .lte("delivery_date", lastOfMonth)
@@ -760,14 +766,16 @@ export function DailyEntriesModal({
         .from("business_schedule")
         .select("day_of_week, day_factor")
         .eq("business_id", businessId),
-      // 12. Current expenses supplier budgets total
+      // 12. Supplier budgets for the month (current + goods). Feeds both the
+      // current-expenses target AND the fixed-expense fallback: a fixed-expense
+      // supplier that has a budget but no invoice this month counts its budget as
+      // an expense — mirrors the P&L report so the profit here matches it.
       supabase
         .from("supplier_budgets")
-        .select("budget_amount, suppliers!inner(expense_type)")
+        .select("budget_amount, supplier_id, suppliers!inner(expense_type, is_fixed_expense)")
         .eq("business_id", businessId)
         .eq("year", year)
         .eq("month", month)
-        .eq("suppliers.expense_type", "current_expenses")
         .is("deleted_at", null),
       // 13. Open payments - payment splits with due_date > entry date
       supabase
@@ -908,9 +916,13 @@ export function DailyEntriesModal({
     const managerDailyCost = workDaysInMonth > 0 ? managerSalary / workDaysInMonth : 0;
     const markupPct = goalData?.markup_percentage != null ? Number(goalData.markup_percentage) : (Number(businessData?.markup_percentage) || 1);
 
-    // Sum current expenses supplier budgets
+    // Sum current expenses supplier budgets (query now also returns goods budgets,
+    // so filter to current_expenses for the target).
     const currentExpensesBudgetTotal = (currentExpBudgetData || []).reduce(
-      (sum: number, b: Record<string, unknown>) => sum + (Number(b.budget_amount) || 0), 0
+      (sum: number, b: Record<string, unknown>) => {
+        const sup = b.suppliers as { expense_type?: string } | null;
+        return sup?.expense_type === "current_expenses" ? sum + (Number(b.budget_amount) || 0) : sum;
+      }, 0
     );
 
     setGoalsData({
@@ -976,6 +988,27 @@ export function DailyEntriesModal({
     (monthlyDeliveryNotes || []).forEach((dn: Record<string, unknown>) => {
       const supplier = dn.suppliers as { expense_type: string } | null;
       if (supplier?.expense_type === "goods_purchases") monthFoodCost += (Number(dn.subtotal) || 0);
+      else if (supplier?.expense_type === "current_expenses") monthCurrentExpenses += (Number(dn.subtotal) || 0);
+    });
+    // Fixed-expense fallback: a supplier marked is_fixed_expense that has a budget
+    // this month but no invoice/delivery note yet counts its budget as an expense —
+    // exactly like the P&L report (reports/page.tsx:977-985), so the profit shown in
+    // this summary matches דוח רווח והפסד.
+    const suppliersWithActuals = new Set<string>();
+    (monthlyInvoices || []).forEach((inv: Record<string, unknown>) => {
+      if (inv.supplier_id) suppliersWithActuals.add(inv.supplier_id as string);
+    });
+    (monthlyDeliveryNotes || []).forEach((dn: Record<string, unknown>) => {
+      if (dn.supplier_id) suppliersWithActuals.add(dn.supplier_id as string);
+    });
+    (currentExpBudgetData || []).forEach((b: Record<string, unknown>) => {
+      const sup = b.suppliers as { expense_type?: string; is_fixed_expense?: boolean } | null;
+      const supplierId = b.supplier_id as string | null;
+      const budgetAmount = Number(b.budget_amount) || 0;
+      if (!sup?.is_fixed_expense || budgetAmount <= 0 || !supplierId) return;
+      if (suppliersWithActuals.has(supplierId)) return;
+      if (sup.expense_type === "current_expenses") monthCurrentExpenses += budgetAmount;
+      else if (sup.expense_type === "goods_purchases") monthFoodCost += budgetAmount;
     });
     const foodCostPct = monthIncomeBeforeVat > 0 ? (monthFoodCost / monthIncomeBeforeVat) * 100 : 0;
     const currentExpensesPct = monthIncomeBeforeVat > 0 ? (monthCurrentExpenses / monthIncomeBeforeVat) * 100 : 0;

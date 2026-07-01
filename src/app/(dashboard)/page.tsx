@@ -1519,7 +1519,26 @@ export default function DashboardPage() {
       const totalGoodsPurchases = (goodsInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
 
       // Calculate total current expenses
-      const totalCurrentExpenses = (currentExpensesInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
+      const totalCurrentExpensesInvoiced = (currentExpensesInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
+      // Fixed-expense fallback: a supplier marked is_fixed_expense that has a budget
+      // this month but no invoice yet counts its budget as an expense — mirrors the
+      // P&L report (reports/page.tsx:977-985) so the dashboard/daily-push profit
+      // matches דוח רווח והפסד. Note: currentExpensesBudgets covers ALL current-expense
+      // suppliers (used for the target), so restrict the fallback to is_fixed_expense.
+      const currentExpensesInvoicedSupplierIds = new Set(
+        (currentExpensesInvoices || []).map(inv => inv.supplier_id)
+      );
+      const trulyFixedExpenseSupplierIdSet = new Set(
+        ((currentExpensesSuppliers || []) as Array<{ id: string; is_fixed_expense: boolean | null }>)
+          .filter(s => s.is_fixed_expense)
+          .map(s => s.id)
+      );
+      const currentExpensesFixedFallback = (currentExpensesBudgets || []).reduce((sum, b) => {
+        if (!trulyFixedExpenseSupplierIdSet.has(b.supplier_id)) return sum;
+        if (currentExpensesInvoicedSupplierIds.has(b.supplier_id)) return sum;
+        return sum + (Number(b.budget_amount) || 0);
+      }, 0);
+      const totalCurrentExpenses = totalCurrentExpensesInvoiced + currentExpensesFixedFallback;
 
       // Calculate totals from entries (if any)
       const totalIncome = (entries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
