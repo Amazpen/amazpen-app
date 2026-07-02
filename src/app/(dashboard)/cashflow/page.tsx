@@ -460,6 +460,13 @@ export default function CashFlowPage() {
         for (const split of (splitsResult.data || []) as Record<string, unknown>[]) {
           const dueDate = split.due_date as string;
           if (!dueDate) continue;
+          // Skip "חברות הקפה" (credit/settlement companies, e.g. Wolt) expenses.
+          // Their fee is already netted out of the income side (the settlement
+          // pays us net), so counting it again as an outflow double-counts it in
+          // the cashflow. Both code variants exist in the data: credit_company
+          // (OCR form) and credit_companies (expenses/payments UI).
+          const splitPm = (split.payment_method as string) || "";
+          if (splitPm === "credit_company" || splitPm === "credit_companies") continue;
           const payment = split.payments as unknown as Record<string, unknown>;
           const supplier = payment?.suppliers as unknown as Record<string, unknown>;
           const item: ExpenseItem = {

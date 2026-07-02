@@ -281,6 +281,11 @@ export async function getCashflowForecast(
   for (const split of (splitsResult.data || []) as Array<Record<string, unknown>>) {
     const dueDate = split.due_date as string;
     if (!dueDate) continue;
+    // Skip "חברות הקפה" (credit/settlement companies, e.g. Wolt) expenses — their
+    // fee is already netted out of the income side, so counting it as an outflow
+    // double-counts it. Both code variants exist: credit_company / credit_companies.
+    const splitPm = (split.payment_method as string) || "";
+    if (splitPm === "credit_company" || splitPm === "credit_companies") continue;
     const amount = Number(split.amount) || 0;
     expensesByDate.set(dueDate, (expensesByDate.get(dueDate) || 0) + amount);
   }
