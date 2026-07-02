@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calculateSettledIncome, type SettledIncome } from "@/lib/cashflow/settlement";
+import { applyIncomeOverrides, buildOverrideMap } from "@/lib/cashflow/overrides";
 import type { PaymentMethodType, CashflowSettings } from "@/types";
 
 // ============================================================================
@@ -448,12 +449,10 @@ export default function CashFlowPage() {
           settledMap.set(entryDate, existing);
         }
 
-        // 4. Apply overrides
-        const overrides = overridesResult.data || [];
-        const overrideMap = new Map<string, number>(); // key: "date|payment_method_id" → override_amount
-        for (const ov of overrides) {
-          overrideMap.set(`${ov.settlement_date}|${ov.payment_method_id}`, Number(ov.override_amount));
-        }
+        // 4. Apply overrides — keyed per original entry day (several entry days
+        // of the same method can settle on the same bank day; an edit to one
+        // must not touch its siblings).
+        const overrideMap = buildOverrideMap(overridesResult.data || []);
 
         // 5. Build expense map by due_date
         const expensesByDate = new Map<string, ExpenseItem[]>();
@@ -516,15 +515,7 @@ export default function CashFlowPage() {
           const dateStr = formatLocalDate(d);
 
           // Income: get settled items for this date, apply overrides
-          let incomeItems = settledMap.get(dateStr) || [];
-          incomeItems = incomeItems.map((item) => {
-            const overrideKey = `${dateStr}|${item.payment_method_id}`;
-            if (overrideMap.has(overrideKey)) {
-              const overrideAmt = overrideMap.get(overrideKey)!;
-              return { ...item, net_amount: overrideAmt, fee_amount: item.gross_amount - overrideAmt };
-            }
-            return item;
-          });
+          let incomeItems = applyIncomeOverrides(settledMap.get(dateStr) || [], overrideMap, dateStr);
 
           // Add retainer forecast income (#36)
           const retainerItems = retainerByDate.get(dateStr) || [];
@@ -666,10 +657,11 @@ export default function CashFlowPage() {
       business_id: selectedBusinesses[0],
       settlement_date: overrideItem.date,
       payment_method_id: overrideItem.item.payment_method_id,
+      original_entry_date: overrideItem.item.original_entry_date,
       original_amount: overrideItem.item.gross_amount,
       override_amount: amount,
       note: overrideNote || null,
-    }, { onConflict: "business_id,settlement_date,payment_method_id" });
+    }, { onConflict: "business_id,settlement_date,payment_method_id,original_entry_date" });
 
     if (error) {
       console.error("saveOverride error:", error);
@@ -1003,7 +995,7 @@ export default function CashFlowPage() {
                                             onClick={() => {
                                               setOverrideItem({ date: day.date, item: g.items[0] });
                                               setOverrideAmount(String(Math.round(g.items[0].net_amount)));
-                                              setOverrideNote("");
+                                              setOverrideNote(g.items[0].override_note || "");
                                             }}
                                             className="flex items-center justify-between w-full py-[4px] hover:bg-white/5 rounded px-[4px] transition-colors"
                                           >
@@ -1025,7 +1017,7 @@ export default function CashFlowPage() {
                                                 onClick={() => {
                                                   setOverrideItem({ date: day.date, item });
                                                   setOverrideAmount(String(Math.round(item.net_amount)));
-                                                  setOverrideNote("");
+                                                  setOverrideNote(item.override_note || "");
                                                 }}
                                                 className="flex items-center justify-between w-full py-[3px] hover:bg-white/5 px-[20px] transition-colors"
                                               >

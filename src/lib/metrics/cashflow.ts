@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatLocalDate } from "./dates";
 import { calculateSettledIncome, type SettledIncome } from "@/lib/cashflow/settlement";
+import { applyIncomeOverrides, buildOverrideMap, type IncomeOverrideRow } from "@/lib/cashflow/overrides";
 import type { PaymentMethodType } from "@/types";
 import type { CashflowDay, CashflowForecast } from "./types";
 
@@ -266,15 +267,9 @@ export async function getCashflowForecast(
     settledMap.set(entryDate, existing);
   }
 
-  // Overrides (page.tsx 436-441)
-  const overrides = overridesResult.data || [];
-  const overrideMap = new Map<string, number>(); // "date|payment_method_id" → override_amount
-  for (const ov of overrides as Array<Record<string, unknown>>) {
-    overrideMap.set(
-      `${ov.settlement_date as string}|${ov.payment_method_id as string}`,
-      Number(ov.override_amount)
-    );
-  }
+  // Overrides (page.tsx 436-441) — keyed per original entry day so an edit to
+  // one entry day never touches siblings settling on the same bank day.
+  const overrideMap = buildOverrideMap((overridesResult.data || []) as IncomeOverrideRow[]);
 
   // Expense map by due_date (page.tsx 443-460)
   const expensesByDate = new Map<string, number>();
@@ -303,15 +298,7 @@ export async function getCashflowForecast(
     const dateStr = formatLocalDate(d);
 
     // Income: settled items + overrides
-    let incomeItems = settledMap.get(dateStr) || [];
-    incomeItems = incomeItems.map((item) => {
-      const overrideKey = `${dateStr}|${item.payment_method_id}`;
-      if (overrideMap.has(overrideKey)) {
-        const overrideAmt = overrideMap.get(overrideKey)!;
-        return { ...item, net_amount: overrideAmt, fee_amount: item.gross_amount - overrideAmt };
-      }
-      return item;
-    });
+    let incomeItems = applyIncomeOverrides(settledMap.get(dateStr) || [], overrideMap, dateStr);
 
     // Retainer forecast income
     const retainerItems = retainerByDate.get(dateStr) || [];

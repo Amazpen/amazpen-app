@@ -14,6 +14,7 @@ export interface SettledIncome {
   gross_amount: number;
   fee_amount: number;
   net_amount: number; // gross - fee
+  override_note?: string | null; // note from cashflow_income_overrides, when overridden
 }
 
 interface SettlementRules {

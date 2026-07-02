@@ -190,7 +190,8 @@ document_url/notes TEXT | is_active BOOLEAN | timestamps + soft delete
 `id` UUID PK | `business_id` FK→businesses | `opening_balance` NUMERIC DEFAULT 0 | `opening_date` DATE DEFAULT CURRENT_DATE | timestamps
 
 ### 39. `cashflow_income_overrides` - דריסות הכנסה בתזרים
-`id` UUID PK | `business_id` FK→businesses | `settlement_date` DATE NOT NULL | `payment_method_id` UUID NOT NULL | `original_amount/override_amount` NUMERIC DEFAULT 0 | `note` TEXT | `created_by` FK→profiles | `created_at`
+`id` UUID PK | `business_id` FK→businesses | `settlement_date` DATE NOT NULL | `payment_method_id` UUID NOT NULL | `original_entry_date` DATE NOT NULL | `original_amount/override_amount` NUMERIC DEFAULT 0 | `note` TEXT | `created_by` FK→profiles | `created_at`
+UNIQUE (business_id, settlement_date, payment_method_id, original_entry_date) - דריסה פר יום-מקור, לא פר יום-פירעון
 
 ---
 
