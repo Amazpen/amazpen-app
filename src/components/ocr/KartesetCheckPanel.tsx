@@ -367,7 +367,14 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
           הסימון נשמר אוטומטית - בפעם הבאה תראה מה כבר אישרת.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_140px_100px] gap-[8px]">
+        {/* Container-safe layout: this panel lives inside the narrow OCR
+            sidebar, so we must NOT rely on viewport `sm:` breakpoints (they
+            key off the wide screen and forced a 4-col grid whose fixed
+            columns overflowed the sidebar, clipping the "טען" button off the
+            left edge). Stack supplier full-width, dates in a 2-col row, and
+            keep the load button on its own full-width row so it is always
+            visible regardless of container width. */}
+        <div className="flex flex-col gap-[8px]">
           {/* Supplier */}
           <div className="flex flex-col gap-[4px]">
             <label className="text-[12px] text-white/70">שם הספק</label>
@@ -384,40 +391,40 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
             </Select>
           </div>
 
-          {/* Date from */}
-          <div className="flex flex-col gap-[4px]">
-            <label className="text-[12px] text-white/70">מתאריך</label>
-            <DatePickerField
-              value={dateFrom}
-              onChange={setDateFrom}
-              placeholder="מתאריך"
-              className="bg-transparent border border-[#727BA0] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white"
-            />
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-[8px]">
+            {/* Date from */}
+            <div className="flex flex-col gap-[4px] min-w-0">
+              <label className="text-[12px] text-white/70">מתאריך</label>
+              <DatePickerField
+                value={dateFrom}
+                onChange={setDateFrom}
+                placeholder="מתאריך"
+                className="bg-transparent border border-[#727BA0] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white"
+              />
+            </div>
+
+            {/* Date to */}
+            <div className="flex flex-col gap-[4px] min-w-0">
+              <label className="text-[12px] text-white/70">עד תאריך</label>
+              <DatePickerField
+                value={dateTo}
+                onChange={setDateTo}
+                placeholder="עד תאריך"
+                className="bg-transparent border border-[#727BA0] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white"
+              />
+            </div>
           </div>
 
-          {/* Date to */}
-          <div className="flex flex-col gap-[4px]">
-            <label className="text-[12px] text-white/70">עד תאריך</label>
-            <DatePickerField
-              value={dateTo}
-              onChange={setDateTo}
-              placeholder="עד תאריך"
-              className="bg-transparent border border-[#727BA0] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white"
-            />
-          </div>
-
-          {/* Load button */}
-          <div className="flex flex-col gap-[4px]">
-            <label className="text-[12px] text-transparent">.</label>
-            <Button
-              type="button"
-              onClick={fetchRows}
-              disabled={!supplierId || isLoading}
-              className="bg-[#29318A] hover:bg-[#3D44A0] text-white text-[14px] font-semibold rounded-[8px] h-[40px] transition-colors disabled:opacity-50"
-            >
-              {isLoading ? "טוען..." : "טען"}
-            </Button>
-          </div>
+          {/* Load button — full width, own row, never clipped */}
+          <Button
+            type="button"
+            onClick={fetchRows}
+            disabled={!supplierId || isLoading}
+            className="w-full bg-[#29318A] hover:bg-[#3D44A0] text-white text-[14px] font-semibold rounded-[8px] h-[40px] transition-colors disabled:opacity-50"
+          >
+            {isLoading ? "טוען..." : "טען"}
+          </Button>
         </div>
       </div>
 
