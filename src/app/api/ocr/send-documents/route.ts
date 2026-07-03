@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import JSZip from 'jszip'
+import { timingSafeEqualStr } from '@/lib/apiAuth'
 
 /**
  * OCR Document Email Sender — Cron endpoint (weekly + monthly batches).
@@ -50,9 +51,9 @@ interface BusinessRow {
 }
 
 export async function POST(request: NextRequest) {
-  // Cron secret protection
+  // Cron secret protection (timing-safe; also rejects when CRON_SECRET is unset)
   const cronSecret = request.headers.get('x-cron-secret')
-  if (cronSecret !== process.env.CRON_SECRET) {
+  if (!cronSecret || !timingSafeEqualStr(cronSecret, process.env.CRON_SECRET || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -27,6 +27,9 @@ const nextConfig: NextConfig = {
   // Output standalone for Docker deployment
   output: 'standalone',
 
+  // Don't advertise the framework (minor recon hardening)
+  poweredByHeader: false,
+
   // Version skew protection — auto-reloads clients with stale JS chunks
   deploymentId: DEPLOYMENT_ID,
 
@@ -36,6 +39,20 @@ const nextConfig: NextConfig = {
   // Ensure sw.js and manifest.json are never cached by proxies/CDN
   async headers() {
     return [
+      {
+        // Global security headers (safe, non-CSP set). A full enforcing
+        // Content-Security-Policy is intentionally NOT added here — it needs a
+        // dedicated testing pass against inline scripts, Supabase, streaming
+        // and the service worker before it can be enabled without breaking the app.
+        source: '/(.*)',
+        headers: [
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'geolocation=(), microphone=()' },
+        ],
+      },
       {
         source: '/sw.js',
         headers: [

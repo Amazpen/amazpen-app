@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyCronAuth } from "@/lib/apiAuth";
 
 /**
  * Missing Invoices API — returns fixed-expense suppliers that have OPEN
@@ -18,6 +19,9 @@ import { createClient } from "@supabase/supabase-js";
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyCronAuth(request);
+    if (!auth.valid) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const businessId = searchParams.get("business_id");
 

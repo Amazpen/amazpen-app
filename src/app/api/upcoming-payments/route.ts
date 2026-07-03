@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyCronAuth } from "@/lib/apiAuth";
 
 /**
  * Upcoming Payments API — returns payment splits due in the next 7 days for a business.
@@ -10,6 +11,9 @@ import { createClient } from "@supabase/supabase-js";
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyCronAuth(request);
+    if (!auth.valid) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const businessId = searchParams.get("business_id");
 

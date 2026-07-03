@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { timingSafeEqualStr } from '@/lib/apiAuth'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const webpush = require('web-push')
 
 export async function POST(request: NextRequest) {
-  // Auth: require admin or internal caller (cron secret)
+  // Auth: require admin or internal caller (cron secret; timing-safe)
   const cronSecret = request.headers.get('x-cron-secret')
-  const isInternalCall = cronSecret && cronSecret === process.env.CRON_SECRET
+  const isInternalCall = !!cronSecret && timingSafeEqualStr(cronSecret, process.env.CRON_SECRET || '')
 
   if (!isInternalCall) {
     const serverSupabase = await createServerClient()
