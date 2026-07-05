@@ -11,6 +11,10 @@ import { verifyCronAuth } from "@/lib/apiAuth";
  * Scope: only suppliers flagged is_fixed_expense.
  * Not-closed = (no invoice_number) OR (no attached image).
  * Grouped BY MONTH (newest first — looking backwards, never forward).
+ * The CURRENT month is excluded entirely (David 2026-07-05): fixed bills like
+ * electricity/gas can't have arrived yet, so a July email covers up to June.
+ * The "supplier with no invoice at all" check therefore runs on the PREVIOUS
+ * month, not the current one.
  *
  * Query params: business_id
  * Returns: {
@@ -127,9 +131,15 @@ export async function GET(request: NextRequest) {
     };
     const byMonth = new Map<string, { ym: string; label: string; amount: number; invoices: Inv[] }>();
 
+    // Exclude the current month (and anything future-dated) — the email only
+    // looks at closed months, so in July it reports up to June.
+    const now = new Date();
+    const curYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
     for (const inv of incomplete) {
       const dateStr = inv.invoice_date ? String(inv.invoice_date).slice(0, 10) : "";
       const ym = dateStr ? dateStr.slice(0, 7) : "0000-00";
+      if (ym >= curYm) continue;
       const label = dateStr
         ? `${HEBREW_MONTHS[parseInt(dateStr.slice(5, 7), 10) - 1]} ${dateStr.slice(0, 4)}`
         : "ללא תאריך";
@@ -151,15 +161,17 @@ export async function GET(request: NextRequest) {
       byMonth.set(ym, entry);
     }
 
-    // Current month: fixed-expense suppliers that have NO invoice yet are also
-    // "not closed" (the monthly expense hasn't been entered at all). Add them
-    // under the current month with the expected monthly amount.
-    const now = new Date();
-    const curYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const curLabel = `${HEBREW_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
-    const suppliersWithCurMonthInvoice = new Set(
+    // Previous month: fixed-expense suppliers that have NO invoice at all for
+    // the last CLOSED month are also "not closed" (the monthly expense hasn't
+    // been entered). Add them under the previous month with the expected
+    // monthly amount. (Used to run on the current month — removed per David:
+    // current-month bills like electricity/gas simply haven't arrived yet.)
+    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevYm = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+    const prevLabel = `${HEBREW_MONTHS[prevDate.getMonth()]} ${prevDate.getFullYear()}`;
+    const suppliersWithPrevMonthInvoice = new Set(
       (invoiceRows || [])
-        .filter((inv) => inv.invoice_date && String(inv.invoice_date).slice(0, 7) === curYm)
+        .filter((inv) => inv.invoice_date && String(inv.invoice_date).slice(0, 7) === prevYm)
         .map((inv) => inv.supplier_id as string)
     );
     for (const s of fixedSuppliers) {
@@ -168,14 +180,14 @@ export async function GET(request: NextRequest) {
       if (s.created_at) {
         const c = new Date(s.created_at);
         if (
-          c.getFullYear() > now.getFullYear() ||
-          (c.getFullYear() === now.getFullYear() && c.getMonth() > now.getMonth())
+          c.getFullYear() > prevDate.getFullYear() ||
+          (c.getFullYear() === prevDate.getFullYear() && c.getMonth() > prevDate.getMonth())
         ) {
-          continue; // supplier created after the current month
+          continue; // supplier created after the previous month
         }
       }
-      if (suppliersWithCurMonthInvoice.has(s.id)) continue; // already has a record this month
-      const entry = byMonth.get(curYm) || { ym: curYm, label: curLabel, amount: 0, invoices: [] };
+      if (suppliersWithPrevMonthInvoice.has(s.id)) continue; // already has a record that month
+      const entry = byMonth.get(prevYm) || { ym: prevYm, label: prevLabel, amount: 0, invoices: [] };
       entry.amount += monthly;
       entry.invoices.push({
         supplier: s.name,
@@ -186,7 +198,7 @@ export async function GET(request: NextRequest) {
         date: "",
         amount: Math.round(monthly * 100) / 100,
       });
-      byMonth.set(curYm, entry);
+      byMonth.set(prevYm, entry);
     }
 
     const months = Array.from(byMonth.values())
