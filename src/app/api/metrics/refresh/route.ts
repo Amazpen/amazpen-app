@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getPriceResolver } from "@/lib/managedProductPrices";
 import { NextRequest } from "next/server";
 
 // ---------------------------------------------------------------------------
@@ -318,10 +319,12 @@ async function computeAndStoreMetrics(
       }
     }
 
+    // Price of THIS month (monthly price table → walk back → current unit_cost)
+    const priceResolver = await getPriceResolver(adminSb, [bizId]);
     mpData = managedProducts.map(
       (p: { id: string; name: string; unit_cost: number; target_pct: number }) => {
         const qty = usageMap.get(p.id) || 0;
-        const cost = qty * (Number(p.unit_cost) || 0);
+        const cost = qty * priceResolver(p.id, year, month, Number(p.unit_cost) || 0);
         const pct = incomeBeforeVat > 0 ? (cost / incomeBeforeVat) * 100 : 0;
         const targetPct = Number(p.target_pct) || 0;
         const diffPct = targetPct > 0 ? pct - targetPct : 0;

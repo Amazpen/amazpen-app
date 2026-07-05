@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { entryDateToYearMonth, getPriceResolver } from "@/lib/managedProductPrices";
 import { formatLocalDate } from "./dates";
 import type {
   CogsMetric,
@@ -465,31 +466,46 @@ export async function getExpenseMetrics(
   // Managed products (page.tsx 1853-1870, 2249-2293 — current period only)
   // ========================================================================
   const entryIds = entries.map((e) => e.id);
-  const productUsageResult =
+  const [productUsageResult, priceResolver] = await Promise.all([
     entryIds.length > 0
-      ? await supabase
+      ? supabase
           .from("daily_product_usage")
-          .select("daily_entry_id, product_id, quantity, unit_cost_at_time")
+          .select("daily_entry_id, product_id, quantity")
           .in("daily_entry_id", entryIds)
-      : {
-          data: [] as Array<{ product_id: string; quantity: number | null }>,
-        };
+      : Promise.resolve({
+          data: [] as Array<{ daily_entry_id: string; product_id: string; quantity: number | null }>,
+        }),
+    getPriceResolver(supabase, selectedBusinesses),
+  ]);
 
   const productUsageData =
-    (productUsageResult.data as Array<{ product_id: string; quantity: number | null }> | null) ||
-    [];
+    (productUsageResult.data as Array<{
+      daily_entry_id: string;
+      product_id: string;
+      quantity: number | null;
+    }> | null) || [];
+
+  // Monthly price resolution: quantity × the price of the entry's month
+  // (managed_product_monthly_prices → walk back → current unit_cost).
+  const entryMonthById = new Map<string, { year: number; month: number }>();
+  entries.forEach((e) => entryMonthById.set(e.id, entryDateToYearMonth(e.entry_date)));
+  const currentCostById = new Map<string, number>();
+  allManagedProducts.forEach((p) => currentCostById.set(p.id, Number(p.unit_cost) || 0));
 
   const productQuantities: Record<string, number> = {};
+  const productCosts: Record<string, number> = {};
   productUsageData.forEach((p) => {
     const quantity = Number(p.quantity) || 0;
-    if (!productQuantities[p.product_id]) productQuantities[p.product_id] = 0;
-    productQuantities[p.product_id] += quantity;
+    const ym = entryMonthById.get(p.daily_entry_id) || { year: targetYear, month: targetMonth };
+    const price = priceResolver(p.product_id, ym.year, ym.month, currentCostById.get(p.product_id) || 0);
+    productQuantities[p.product_id] = (productQuantities[p.product_id] || 0) + quantity;
+    productCosts[p.product_id] = (productCosts[p.product_id] || 0) + quantity * price;
   });
 
   const managedProducts: ManagedProductMetric[] = allManagedProducts.map((product) => {
     const unitCost = Number(product.unit_cost) || 0;
     const totalQuantity = productQuantities[product.id] || 0;
-    const totalCost = unitCost * totalQuantity;
+    const totalCost = productCosts[product.id] || 0;
     const currentPct = incomeBeforeVat > 0 ? (totalCost / incomeBeforeVat) * 100 : 0;
     return {
       id: product.id,

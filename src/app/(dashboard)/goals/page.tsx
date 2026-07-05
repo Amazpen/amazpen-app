@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
+import { getPriceResolver } from "@/lib/managedProductPrices";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -600,9 +601,9 @@ export default function GoalsPage() {
             .order("name"),
           entryIds.length > 0 ? supabase
             .from("daily_product_usage")
-            .select("product_id, quantity, unit_cost_at_time")
+            .select("product_id, quantity")
             .in("daily_entry_id", entryIds)
-          : Promise.resolve({ data: [] as { product_id: string; quantity: number; unit_cost_at_time: number }[] }),
+          : Promise.resolve({ data: [] as { product_id: string; quantity: number }[] }),
         ]);
 
         const { data: breakdownData } = breakdownResult;
@@ -647,13 +648,18 @@ export default function GoalsPage() {
         // ============================================
         // 9. Build managed product KPI items (target %)
         // ============================================
-        // Aggregate product usage: total cost per product
+        // Aggregate product usage: total cost per product, priced with the
+        // selected month's resolved price (monthly table → walk back → current unit_cost)
+        const priceResolver = await getPriceResolver(supabase, selectedBusinesses);
+        const currentCostById = new Map<string, number>();
+        (managedProductsData || []).forEach(p => currentCostById.set(p.id, Number(p.unit_cost) || 0));
         const productCostAgg: Record<string, number> = {};
         (productUsageData || []).forEach(pu => {
           if (!productCostAgg[pu.product_id]) {
             productCostAgg[pu.product_id] = 0;
           }
-          productCostAgg[pu.product_id] += (Number(pu.quantity) || 0) * (Number(pu.unit_cost_at_time) || 0);
+          const price = priceResolver(pu.product_id, year, month, currentCostById.get(pu.product_id) || 0);
+          productCostAgg[pu.product_id] += (Number(pu.quantity) || 0) * price;
         });
 
         const managedProductItems: GoalItem[] = (managedProductsData || [])

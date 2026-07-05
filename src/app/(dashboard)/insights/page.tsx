@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
+import { getPriceResolver } from "@/lib/managedProductPrices";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ChartLineUpIcon as ChartLineUp, ReceiptIcon as Receipt, UsersThreeIcon as UsersThree, PackageIcon as Package, ArrowsLeftRightIcon as ArrowsLeftRight, GearSixIcon as GearSix, TrophyIcon as Trophy } from "@phosphor-icons/react";
 
@@ -410,6 +411,8 @@ export default function InsightsPage() {
       // Filter receipt data and product usage by entry IDs
       const bizReceipts = (receiptData || []).filter((r) => entryIds.includes(r.daily_entry_id));
       const bizProducts = (productUsage || []).filter((p) => entryIds.includes(p.daily_entry_id));
+      // Managed-product prices resolved for the current month (monthly table → walk back → current unit_cost)
+      const priceResolver = await getPriceResolver(supabase, businessIds);
 
       // ====================================================================
       // PACE PROJECTIONS — every insight that compares actuals to a
@@ -948,7 +951,7 @@ export default function InsightsPage() {
           if (!prod) continue;
           if (!prodAgg[pu.product_id]) prodAgg[pu.product_id] = { name: prod.name, totalCost: 0, totalQty: 0, unit: prod.unit || "", targetPct: Number(prod.target_pct) || 0 };
           const qty = Number(pu.quantity) || 0;
-          const cost = Number(pu.unit_cost_at_time) || Number(prod.unit_cost) || 0;
+          const cost = priceResolver(pu.product_id, currentYear, currentMonth, Number(prod.unit_cost) || 0);
           prodAgg[pu.product_id].totalCost += qty * cost;
           prodAgg[pu.product_id].totalQty += qty;
         }

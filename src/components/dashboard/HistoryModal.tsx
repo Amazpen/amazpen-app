@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
+import { getPriceResolver } from "@/lib/managedProductPrices";
 import { ChevronDown, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -783,8 +784,10 @@ export function HistoryModal({
         const businessData = businessDataResult.data || [];
         const defaultVatPct = businessData.reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max(businessData.length, 1);
         const vatDivisor = defaultVatPct > 0 ? 1 + defaultVatPct : 1;
-        const unitCost = Number(product?.unit_cost) || 0;
+        const currentUnitCost = Number(product?.unit_cost) || 0;
         const targetPct = Number(product?.target_pct) || 0;
+        // Per-month price resolution (monthly table → walk back → current unit_cost)
+        const priceResolver = await getPriceResolver(supabase, businessIds);
 
         const entryIds = entries.map(e => e.id);
         const prevEntryIds = prevEntries.map(e => e.id);
@@ -835,13 +838,13 @@ export function HistoryModal({
 
         for (let m = 1; m <= 12; m++) {
           const quantity = usageByMonth[m] || 0;
-          const cost = quantity * unitCost;
+          const cost = quantity * priceResolver(sourceId, year, m, currentUnitCost);
           const income = incomeByMonth[m] || 0;
           const incomeBeforeVat = income / vatDivisor;
           const costPct = incomeBeforeVat > 0 ? (cost / incomeBeforeVat) * 100 : 0;
 
           const prevQuantity = prevUsageByMonth[m] || 0;
-          const prevCost = prevQuantity * unitCost;
+          const prevCost = prevQuantity * priceResolver(sourceId, prevYear, m, currentUnitCost);
           const prevIncome = prevIncomeByMonth[m] || 0;
           const prevIncomeBeforeVat = prevIncome / vatDivisor;
           const prevCostPct = prevIncomeBeforeVat > 0 ? (prevCost / prevIncomeBeforeVat) * 100 : 0;

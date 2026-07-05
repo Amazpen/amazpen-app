@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { entryDateToYearMonth, getPriceResolver } from "@/lib/managedProductPrices";
 import { Loader2, X } from "lucide-react";
 import {
   Sheet,
@@ -914,7 +915,11 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         }
       }
 
-      // Save managed products usage
+      // Save managed products usage — stamp the price of the ENTRY's month
+      // (monthly price table → walk back → current unit_cost), so saving an
+      // old day gets that month's price and not today's.
+      const priceResolver = await getPriceResolver(supabase, [businessId]);
+      const entryYm = entryDateToYearMonth(formData.entry_date);
       for (const product of managedProducts) {
         const usage = productUsage[product.id];
         if (usage) {
@@ -934,7 +939,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                 received_quantity: receivedQty,
                 closing_stock: closingStock,
                 quantity: quantityUsed,
-                unit_cost_at_time: product.unit_cost,
+                unit_cost_at_time: priceResolver(product.id, entryYm.year, entryYm.month, Number(product.unit_cost) || 0),
               });
 
             if (usageError) throw usageError;

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { entryDateToYearMonth, getPriceResolver } from "@/lib/managedProductPrices";
 import { formatLocalDate } from "./dates";
 import type { GoalsVsActual, GoalsRow, MetricsDateRange } from "./types";
 
@@ -57,6 +58,7 @@ type InvoiceRow = {
 };
 type DailyEntryRow = {
   id: string;
+  entry_date: string;
   total_register: number | null;
   labor_cost: number | null;
   day_factor: number | null;
@@ -98,9 +100,9 @@ type ManagedProductRow = {
   target_pct: number | null;
 };
 type ProductUsageRow = {
+  daily_entry_id: string;
   product_id: string;
   quantity: number | null;
-  unit_cost_at_time: number | null;
 };
 
 /**
@@ -349,7 +351,7 @@ export async function getGoalsVsActual(
     await Promise.all([
       supabase
         .from("daily_entries")
-        .select("id, total_register, labor_cost, day_factor")
+        .select("id, entry_date, total_register, labor_cost, day_factor")
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
         .gte("entry_date", startDate)
@@ -506,7 +508,7 @@ export async function getGoalsVsActual(
     entryIds.length > 0
       ? supabase
           .from("daily_product_usage")
-          .select("product_id, quantity, unit_cost_at_time")
+          .select("daily_entry_id, product_id, quantity")
           .in("daily_entry_id", entryIds)
       : Promise.resolve({ data: [] as ProductUsageRow[] }),
   ]);
@@ -591,11 +593,19 @@ export async function getGoalsVsActual(
   });
 
   // page.tsx 651-672, 703: managed product target % rows (expense)
+  // Cost = quantity × the monthly-resolved price of the entry's month.
+  const priceResolver = await getPriceResolver(supabase, selectedBusinesses);
+  const entryMonthById = new Map<string, { year: number; month: number }>();
+  dailyEntries.forEach((e) => entryMonthById.set(e.id, entryDateToYearMonth(e.entry_date)));
+  const currentCostById = new Map<string, number>();
+  managedProductsData.forEach((p) => currentCostById.set(p.id, Number(p.unit_cost) || 0));
   const productCostAgg: Record<string, number> = {};
   productUsageData.forEach((pu) => {
+    const ym = entryMonthById.get(pu.daily_entry_id);
+    if (!ym) return;
+    const price = priceResolver(pu.product_id, ym.year, ym.month, currentCostById.get(pu.product_id) || 0);
     if (!productCostAgg[pu.product_id]) productCostAgg[pu.product_id] = 0;
-    productCostAgg[pu.product_id] +=
-      (Number(pu.quantity) || 0) * (Number(pu.unit_cost_at_time) || 0);
+    productCostAgg[pu.product_id] += (Number(pu.quantity) || 0) * price;
   });
   managedProductsData.forEach((product) => {
     const actualCost = productCostAgg[product.id] || 0;

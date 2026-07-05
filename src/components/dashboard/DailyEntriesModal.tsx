@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { entryDateToYearMonth, getPriceResolver } from "@/lib/managedProductPrices";
 import { Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
@@ -609,7 +610,11 @@ export function DailyEntriesModal({
         }
       }
 
-      // Save managed products usage
+      // Save managed products usage — stamp the price of the ENTRY's month
+      // (monthly price table → walk back → current unit_cost), so editing an
+      // old day never re-stamps it with today's price.
+      const priceResolver = await getPriceResolver(supabase, [businessId]);
+      const entryYm = entryDateToYearMonth(editFormData.entry_date);
       for (const product of managedProducts) {
         const usage = productUsageForm[product.id];
         if (usage) {
@@ -629,7 +634,7 @@ export function DailyEntriesModal({
                 received_quantity: receivedQty,
                 closing_stock: closingStock,
                 quantity: quantityUsed,
-                unit_cost_at_time: product.unit_cost,
+                unit_cost_at_time: priceResolver(product.id, entryYm.year, entryYm.month, Number(product.unit_cost) || 0),
               });
 
             if (usageError) throw usageError;
@@ -843,6 +848,15 @@ export function DailyEntriesModal({
       finalIncomeSourceGoals = isg || [];
     }
 
+    // Monthly-resolved product prices for the viewed month
+    // (monthly price table → walk back → current unit_cost)
+    const priceResolver = await getPriceResolver(supabase, [businessId]);
+    const currentCostById = new Map<string, number>();
+    (managedProductsData || []).forEach((p: { id: string; unit_cost?: number | null }) => {
+      currentCostById.set(p.id, Number(p.unit_cost) || 0);
+    });
+    const monthPrice = (pid: string) => priceResolver(pid, year, month, currentCostById.get(pid) || 0);
+
     // Build entry details (Section 1)
     const incomeBreakdown: IncomeBreakdown[] = (breakdownData || []).map((b: Record<string, unknown>) => ({
       income_source_id: b.income_source_id as string,
@@ -856,7 +870,7 @@ export function DailyEntriesModal({
       product_name: (p.managed_products as { name: string; unit: string })?.name || "לא ידוע",
       quantity: Number(p.quantity) || 0,
       unit: (p.managed_products as { name: string; unit: string })?.unit || "",
-      unit_cost: Number(p.unit_cost_at_time) || 0,
+      unit_cost: monthPrice(p.product_id as string),
       opening_stock: Number(p.opening_stock) || 0,
       received_quantity: Number(p.received_quantity) || 0,
       closing_stock: Number(p.closing_stock) || 0,
@@ -970,7 +984,7 @@ export function DailyEntriesModal({
       if (!monthEntryIds.has(p.daily_entry_id as string)) return;
       const pid = p.product_id as string;
       if (!productCosts[pid]) productCosts[pid] = { totalCost: 0, costPct: 0 };
-      productCosts[pid].totalCost += (Number(p.quantity) || 0) * (Number(p.unit_cost_at_time) || 0);
+      productCosts[pid].totalCost += (Number(p.quantity) || 0) * monthPrice(pid);
     });
     Object.entries(productCosts).forEach(([, v]) => {
       v.costPct = monthIncomeBeforeVat > 0 ? (v.totalCost / monthIncomeBeforeVat) * 100 : 0;

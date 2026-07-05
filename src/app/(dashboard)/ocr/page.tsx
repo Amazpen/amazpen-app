@@ -12,6 +12,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '../layout';
 import { createClient } from '@/lib/supabase/client';
+import { entryDateToYearMonth, getPriceResolver } from '@/lib/managedProductPrices';
 import DocumentViewer from '@/components/ocr/DocumentViewer';
 import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
@@ -1258,6 +1259,9 @@ export default function OCRPage() {
           }
 
           if (formData.daily_product_usage && formData.daily_managed_products) {
+            // Stamp the price of the ENTRY's month (monthly table → walk back → current unit_cost)
+            const priceResolver = await getPriceResolver(supabase, [formData.business_id]);
+            const entryYm = entryDateToYearMonth(formData.daily_entry_date || '');
             for (const product of formData.daily_managed_products) {
               const usage = formData.daily_product_usage[product.id];
               if (usage) {
@@ -1273,7 +1277,7 @@ export default function OCRPage() {
                     received_quantity: receivedQty,
                     closing_stock: closingStock,
                     quantity: quantityUsed,
-                    unit_cost_at_time: product.unit_cost,
+                    unit_cost_at_time: priceResolver(product.id, entryYm.year, entryYm.month, Number(product.unit_cost) || 0),
                   });
                   await supabase.from('managed_products').update({ current_stock: closingStock }).eq('id', product.id);
                 }

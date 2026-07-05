@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getPriceResolver } from "@/lib/managedProductPrices";
 
 /**
  * Weekly Summary API — returns all metrics for a business in a given month.
@@ -170,14 +171,21 @@ export async function GET(request: NextRequest) {
       .filter(inv => inv.invoice_type === "goods")
       .reduce((s, inv) => s + (Number(inv.subtotal) || 0), 0);
 
+    // Cost = quantity × the report month's resolved price (monthly table → walk back → current unit_cost)
+    const priceResolver = await getPriceResolver(supabase, [businessId]);
+    const mpCurrentCost = new Map<string, number>();
+    managedProducts.forEach((p) => mpCurrentCost.set(p.id, Number(p.unit_cost) || 0));
+    const monthPrice = (productId: string) =>
+      priceResolver(productId, year, month, mpCurrentCost.get(productId) || 0);
+
     let productUsageCost = 0;
     if (entryIds.length > 0) {
       const { data: usageData } = await supabase
         .from("daily_product_usage")
-        .select("quantity, unit_cost_at_time")
+        .select("product_id, quantity")
         .in("daily_entry_id", entryIds);
       productUsageCost = (usageData || []).reduce((s, u) =>
-        s + (Number(u.quantity) || 0) * (Number(u.unit_cost_at_time) || 0), 0);
+        s + (Number(u.quantity) || 0) * monthPrice(u.product_id), 0);
     }
 
     const totalFoodCost = goodsInvoicesTotal + productUsageCost;
@@ -194,11 +202,12 @@ export async function GET(request: NextRequest) {
       if (entryIds.length > 0) {
         const { data: mpUsage } = await supabase
           .from("daily_product_usage")
-          .select("quantity, unit_cost_at_time")
+          .select("quantity")
           .in("daily_entry_id", entryIds)
           .eq("product_id", mp.id);
+        const mpMonthPrice = monthPrice(mp.id);
         mpCost = (mpUsage || []).reduce((s, u) =>
-          s + (Number(u.quantity) || 0) * (Number(u.unit_cost_at_time) || 0), 0);
+          s + (Number(u.quantity) || 0) * mpMonthPrice, 0);
       }
       const mpActualPct = totalRevenueNoVat > 0 ? (mpCost / totalRevenueNoVat) * 100 : 0;
       const mpDiffPct = mpActualPct - targetPct;

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyCronAuth } from "@/lib/apiAuth";
+import { entryDateToYearMonth, getPriceResolver } from "@/lib/managedProductPrices";
 
 /**
  * Business Summary Report API — mirrors dashboard calculations 1:1.
@@ -383,21 +384,28 @@ export async function GET(request: NextRequest) {
       target_pct: number | null;
       display_order: number | null;
     }>;
-    let productQuantities: Record<string, number> = {};
+    // Cost = quantity × monthly-resolved price of each entry's month
+    // (managed_product_monthly_prices → walk back → current unit_cost).
+    const priceResolver = await getPriceResolver(supabase, [businessId]);
+    const entryMonthById = new Map<string, { year: number; month: number }>();
+    entries.forEach((e) => entryMonthById.set(e.id, entryDateToYearMonth(e.entry_date)));
+    const productCosts: Record<string, number> = {};
     if (entryIds.length > 0 && managedProducts.length > 0) {
+      const currentCostById = new Map<string, number>();
+      managedProducts.forEach((p) => currentCostById.set(p.id, Number(p.unit_cost) || 0));
       const { data: usageRows } = await supabase
         .from("daily_product_usage")
-        .select("product_id, quantity")
+        .select("daily_entry_id, product_id, quantity")
         .in("daily_entry_id", entryIds);
-      productQuantities = (usageRows || []).reduce<Record<string, number>>((acc, u) => {
-        acc[u.product_id] = (acc[u.product_id] || 0) + (Number(u.quantity) || 0);
-        return acc;
-      }, {});
+      (usageRows || []).forEach((u) => {
+        const qty = Number(u.quantity) || 0;
+        const ym = entryMonthById.get(u.daily_entry_id) || { year, month };
+        const price = priceResolver(u.product_id, ym.year, ym.month, currentCostById.get(u.product_id) || 0);
+        productCosts[u.product_id] = (productCosts[u.product_id] || 0) + qty * price;
+      });
     }
     const managedProductsReport = managedProducts.map((p) => {
-      const unitCost = Number(p.unit_cost) || 0;
-      const quantity = productQuantities[p.id] || 0;
-      const totalCost = unitCost * quantity;
+      const totalCost = productCosts[p.id] || 0;
       const actualPct = incomeBeforeVat > 0 ? (totalCost / incomeBeforeVat) * 100 : 0;
       const targetPct = Number(p.target_pct) || 0;
       const diffPct = actualPct - targetPct;

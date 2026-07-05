@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { entryDateToYearMonth, getPriceResolver } from "@/lib/managedProductPrices";
 import {
   getPendingEntries,
   getPendingCount,
@@ -102,8 +103,27 @@ export function useOfflineSync(): UseOfflineSyncResult {
         }
       }
 
-      // Save product usage
-      for (const [productId, usage] of Object.entries(productUsage)) {
+      // Save product usage — stamp the entry-month's resolved price
+      // (was hardcoded 0, which made snapshot-based reports count these days as free)
+      const usageEntries = Object.entries(productUsage);
+      const hasUsage = usageEntries.some(([, usage]) =>
+        (parseFloat(usage.opening_stock) || 0) > 0 ||
+        (parseFloat(usage.received_quantity) || 0) > 0 ||
+        (parseFloat(usage.closing_stock) || 0) > 0
+      );
+      let stampPrice: (productId: string) => number = () => 0;
+      if (hasUsage) {
+        const [priceResolver, productsResult] = await Promise.all([
+          getPriceResolver(supabase, [entry.businessId]),
+          supabase.from("managed_products").select("id, unit_cost").eq("business_id", entry.businessId),
+        ]);
+        const currentCostById = new Map<string, number>(
+          (productsResult.data || []).map((p: { id: string; unit_cost: number | null }) => [p.id, Number(p.unit_cost) || 0])
+        );
+        const ym = entryDateToYearMonth(formData.entry_date || "");
+        stampPrice = (productId) => priceResolver(productId, ym.year, ym.month, currentCostById.get(productId) || 0);
+      }
+      for (const [productId, usage] of usageEntries) {
         const openingStock = parseFloat(usage.opening_stock) || 0;
         const receivedQty = parseFloat(usage.received_quantity) || 0;
         const closingStock = parseFloat(usage.closing_stock) || 0;
@@ -116,7 +136,7 @@ export function useOfflineSync(): UseOfflineSyncResult {
             received_quantity: receivedQty,
             closing_stock: closingStock,
             quantity: quantityUsed,
-            unit_cost_at_time: 0,
+            unit_cost_at_time: stampPrice(productId),
           });
           // Update current stock
           await supabase

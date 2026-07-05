@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getPriceResolver } from "@/lib/managedProductPrices";
 import { NextRequest } from "next/server";
 import { streamText, tool, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -2215,19 +2216,20 @@ async function computeMonthlySummary(
          AND deleted_at IS NULL`
     );
     const ids = Array.isArray(entryIds) ? entryIds.map((r: { id: string }) => r.id) : [];
+    // Price of THIS month (monthly price table → walk back → current unit_cost) — same as dashboard
+    const priceResolver = await getPriceResolver(sb, [bizId]);
 
     for (const mp of managedProducts) {
       let totalCost = 0;
       if (ids.length > 0) {
         const idList = ids.map((r) => `'${r}'`).join(",");
-        // Use SUM(quantity) × current unit_cost — same as dashboard (metrics/refresh)
         const { data: usageAgg } = await execReadOnlyQuery(sb,
           `SELECT COALESCE(SUM(quantity), 0) as total_qty
            FROM public.daily_product_usage
            WHERE daily_entry_id IN (${idList}) AND product_id = '${mp.id}'`
         );
         const totalQty = Array.isArray(usageAgg) && usageAgg[0] ? Number(usageAgg[0].total_qty) || 0 : 0;
-        totalCost = totalQty * (Number(mp.unit_cost) || 0);
+        totalCost = totalQty * priceResolver(mp.id, year, month, Number(mp.unit_cost) || 0);
       }
       const pct = incomeBeforeVat > 0 ? (totalCost / incomeBeforeVat) * 100 : 0;
       const tPct = mp.target_pct != null ? Number(mp.target_pct) : null;

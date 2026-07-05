@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Papa from "papaparse";
 import { createClient } from "@/lib/supabase/client";
+import { entryDateToYearMonth, getPriceResolver } from "@/lib/managedProductPrices";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
@@ -440,12 +441,18 @@ export default function AdminDailyEntriesPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Stamp each imported day with ITS month's resolved price
+      // (monthly price table → walk back → current unit_cost), so backfilling
+      // an old month gets that month's price and not today's.
+      const priceResolver = await getPriceResolver(supabase, [selectedBusinessId]);
+
       let imported = 0;
       let skipped = 0;
       let filled = 0; // count of days where we only filled missing product usage
 
       for (let i = 0; i < csvEntries.length; i++) {
         const entry = csvEntries[i];
+        const entryYm = entryDateToYearMonth(entry.entry_date);
         const isDuplicate = duplicateDates.has(entry.entry_date);
 
         setImportProgress(`מייבא ${i + 1}/${csvEntries.length}...`);
@@ -496,7 +503,7 @@ export default function AdminDailyEntriesPage() {
                 received_quantity: received,
                 closing_stock: closing,
                 quantity: quantityUsed,
-                unit_cost_at_time: product.unit_cost,
+                unit_cost_at_time: priceResolver(product.id, entryYm.year, entryYm.month, Number(product.unit_cost) || 0),
               });
               if (error) {
                 console.error("Product usage insert error:", error);
@@ -641,7 +648,7 @@ export default function AdminDailyEntriesPage() {
               received_quantity: received,
               closing_stock: closing,
               quantity: quantityUsed,
-              unit_cost_at_time: managedProducts[j].unit_cost,
+              unit_cost_at_time: priceResolver(managedProducts[j].id, entryYm.year, entryYm.month, Number(managedProducts[j].unit_cost) || 0),
             });
             if (error) console.error("Product usage insert error:", error);
           }

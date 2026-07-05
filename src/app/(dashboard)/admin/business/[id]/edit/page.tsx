@@ -139,6 +139,14 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [managerSalaryByMonth, setManagerSalaryByMonth] = useState<Record<string, number>>({});
   const [originalManagerSalaryByMonth, setOriginalManagerSalaryByMonth] = useState<Record<string, number>>({});
   const [clearedManagerSalaryKeys, setClearedManagerSalaryKeys] = useState<Set<string>>(new Set());
+  // Per-month managed-product price overrides: { "productId:YYYY-M": ₪ }.
+  // Same explicit-diff + clearedKeys semantics as markup/vat/salary.
+  const [productPriceByMonth, setProductPriceByMonth] = useState<Record<string, number>>({});
+  const [originalProductPriceByMonth, setOriginalProductPriceByMonth] = useState<Record<string, number>>({});
+  const [clearedProductPriceKeys, setClearedProductPriceKeys] = useState<Set<string>>(new Set());
+  // unit_cost per product as loaded from DB — used to anchor price history
+  // (past months keep the OLD price) when the main price field changes.
+  const [originalProductCosts, setOriginalProductCosts] = useState<Record<string, number>>({});
 
   // Step 2: Business Schedule
   const [schedule, setSchedule] = useState<Record<number, string>>({
@@ -432,7 +440,22 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       if (productData) {
         setManagedProducts(productData.map(p => ({ id: p.id, name: p.name, unit: p.unit, unitCost: p.unit_cost })));
+        const costMap: Record<string, number> = {};
+        productData.forEach(p => { costMap[p.id] = Number(p.unit_cost) || 0; });
+        setOriginalProductCosts(costMap);
       }
+
+      // Fetch per-month managed-product price overrides
+      const { data: productPriceData } = await supabase
+        .from("managed_product_monthly_prices")
+        .select("product_id, year, month, unit_cost")
+        .eq("business_id", businessId);
+      const productPriceMap: Record<string, number> = {};
+      (productPriceData || []).forEach((r) => {
+        productPriceMap[`${r.product_id}:${r.year}-${r.month}`] = Number(r.unit_cost) || 0;
+      });
+      setProductPriceByMonth(productPriceMap);
+      setOriginalProductPriceByMonth({ ...productPriceMap });
 
       // Fetch team members
       const { data: memberData } = await supabase
@@ -1381,6 +1404,78 @@ export default function EditBusinessPage({ params }: PageProps) {
             display_order: existingCount + idx,
           }))
         );
+      }
+
+      // 8b. Managed-product monthly prices.
+      // (i) Explicit per-month grid diffs — upsert; explicit clear deletes the row.
+      // (ii) History anchoring when a main price changes: pin the CURRENT month to
+      //      the NEW price, and if the product has no explicit row before this
+      //      month, anchor 2024-01 with the OLD price. The reports' walk-back
+      //      resolution then keeps every past month at the old price.
+      {
+        const nowP = new Date();
+        const curPY = nowP.getFullYear();
+        const curPM = nowP.getMonth() + 1;
+
+        type PriceRow = { business_id: string; product_id: string; year: number; month: number; unit_cost: number };
+        const priceUpserts = new Map<string, PriceRow>();
+        const priceDeletes: { product_id: string; year: number; month: number }[] = [];
+
+        const priceKeys = new Set<string>([
+          ...Object.keys(productPriceByMonth),
+          ...Object.keys(originalProductPriceByMonth),
+        ]);
+        priceKeys.forEach((key) => {
+          const newVal = productPriceByMonth[key];
+          const oldVal = originalProductPriceByMonth[key];
+          if (newVal === oldVal) return;
+          const [productId, ym] = key.split(":");
+          if (!productId || productId.startsWith("_new_") || !ym) return;
+          const [yStr, mStr] = ym.split("-");
+          const year = Number(yStr);
+          const month = Number(mStr);
+          if (newVal != null) {
+            priceUpserts.set(key, { business_id: businessId, product_id: productId, year, month, unit_cost: newVal });
+          } else if (clearedProductPriceKeys.has(key)) {
+            priceDeletes.push({ product_id: productId, year, month });
+          }
+        });
+
+        for (const p of existingProducts) {
+          if (!p.id) continue;
+          const oldCost = originalProductCosts[p.id];
+          const newCost = Number(p.unitCost) || 0;
+          if (oldCost === undefined || oldCost === newCost) continue;
+          const curKey = `${p.id}:${curPY}-${curPM}`;
+          if (!priceUpserts.has(curKey) && productPriceByMonth[curKey] == null) {
+            priceUpserts.set(curKey, { business_id: businessId, product_id: p.id, year: curPY, month: curPM, unit_cost: newCost });
+          }
+          const hasEarlierExplicit = Array.from(priceKeys).concat(Array.from(priceUpserts.keys())).some((k) => {
+            if (!k.startsWith(`${p.id}:`)) return false;
+            if (productPriceByMonth[k] == null && !priceUpserts.has(k)) return false;
+            const [yStr, mStr] = k.split(":")[1].split("-");
+            return Number(yStr) * 12 + Number(mStr) < curPY * 12 + curPM;
+          });
+          if (!hasEarlierExplicit && oldCost > 0) {
+            const anchorKey = `${p.id}:2024-1`;
+            priceUpserts.set(anchorKey, { business_id: businessId, product_id: p.id, year: 2024, month: 1, unit_cost: oldCost });
+          }
+        }
+
+        if (priceUpserts.size > 0) {
+          const { error: priceUpsertError } = await supabase
+            .from("managed_product_monthly_prices")
+            .upsert(Array.from(priceUpserts.values()), { onConflict: "product_id,year,month" });
+          if (priceUpsertError) throw priceUpsertError;
+        }
+        for (const d of priceDeletes) {
+          await supabase
+            .from("managed_product_monthly_prices")
+            .delete()
+            .eq("product_id", d.product_id)
+            .eq("year", d.year)
+            .eq("month", d.month);
+        }
       }
 
       // 9. Update payment methods — only deactivate explicit removals.
@@ -2678,6 +2773,130 @@ export default function EditBusinessPage({ params }: PageProps) {
         {managedProducts.length === 0 && (
           <span className="text-[12px] text-white/30">אין מוצרים מנוהלים</span>
         )}
+
+        {/* Per-month product prices — same UX as the salary/markup/VAT table.
+            Empty cell inherits from the previous month (shown as placeholder),
+            an explicit value wins, × clears the month. */}
+        {managedProducts.filter(p => p.id && !p.id.startsWith('_new_')).length > 0 && (() => {
+          const priceProducts = managedProducts.filter(p => p.id && !p.id.startsWith('_new_'));
+          const rows: { year: number; month: number; label: string }[] = [];
+          const nowG = new Date();
+          for (let i = 0; i < 12; i++) {
+            const d = new Date(nowG.getFullYear(), nowG.getMonth() - i, 1);
+            rows.push({ year: d.getFullYear(), month: d.getMonth() + 1, label: `${HEBREW_MONTHS[d.getMonth()]} ${d.getFullYear()}` });
+          }
+          const inheritedPrice = (pid: string, year: number, month: number, fallback: number): number => {
+            let y = year, mm = month - 1;
+            if (mm < 1) { mm = 12; y -= 1; }
+            for (let i = 0; i < 36; i++) {
+              const v = productPriceByMonth[`${pid}:${y}-${mm}`];
+              if (v != null) return v;
+              mm -= 1;
+              if (mm < 1) { mm = 12; y -= 1; }
+            }
+            return fallback;
+          };
+          const clearPrice = (key: string) => {
+            setProductPriceByMonth((prev) => {
+              if (!(key in prev)) return prev;
+              const next = { ...prev };
+              delete next[key];
+              return next;
+            });
+            if (originalProductPriceByMonth[key] != null) {
+              setClearedProductPriceKeys((prev) => {
+                if (prev.has(key)) return prev;
+                const next = new Set(prev);
+                next.add(key);
+                return next;
+              });
+            }
+          };
+          return (
+            <div dir="rtl" className="mt-[12px] flex flex-col gap-[10px] p-[12px] bg-[#1a1f3a]/30 rounded-[10px] border border-[#727BA0]">
+              <div className="flex flex-col gap-[4px] text-right">
+                <span className="text-[14px] font-medium text-white">מחיר ליחידה לפי חודש</span>
+                <span className="text-[11px] text-white/60 leading-[1.5]">
+                  ערך ריק בחודש מסוים = משתמש בערך של החודש הקודם. שינוי המחיר הראשי למעלה חל מהחודש הנוכחי והלאה - חודשים קודמים שומרים את המחיר הישן.
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <div style={{ minWidth: `${140 + priceProducts.length * 110}px` }}>
+                  <div dir="rtl" style={{ direction: 'rtl', display: 'grid', gridTemplateColumns: `140px repeat(${priceProducts.length}, minmax(100px, 1fr))`, gap: '14px' }} className="items-center pb-[6px] border-b border-[#4C526B]/40">
+                    <span className="text-[11px] text-white/50 text-center">חודש</span>
+                    {priceProducts.map(p => (
+                      <span key={p.id} className="text-[11px] text-white/50 text-center">{p.name} (₪ ל{p.unit})</span>
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-[6px] mt-[6px]">
+                    {rows.map((r) => (
+                      <div key={`${r.year}-${r.month}`} dir="rtl" style={{ direction: 'rtl', display: 'grid', gridTemplateColumns: `140px repeat(${priceProducts.length}, minmax(100px, 1fr))`, gap: '14px' }} className="items-center">
+                        <span className="text-[12px] text-white/80 text-center">{r.label}</span>
+                        {priceProducts.map((p) => {
+                          const key = `${p.id}:${r.year}-${r.month}`;
+                          const explicit = productPriceByMonth[key];
+                          const hasExplicit = explicit != null;
+                          const inherited = inheritedPrice(p.id!, r.year, r.month, Number(p.unitCost) || 0);
+                          return (
+                            <div key={key} className={`relative border rounded-[8px] h-[38px] flex items-center ${hasExplicit ? "border-white bg-[#1a1f3a]" : "border-[#727BA0]"}`}>
+                              <span className="text-white/50 text-[12px] pr-[8px]">₪</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={hasExplicit ? explicit : ""}
+                                placeholder={String(inherited)}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setProductPriceByMonth((prev) => {
+                                    const next = { ...prev };
+                                    if (val === "") {
+                                      delete next[key];
+                                    } else {
+                                      const num = parseFloat(val);
+                                      if (!Number.isNaN(num)) next[key] = num;
+                                    }
+                                    return next;
+                                  });
+                                  if (val === "" && originalProductPriceByMonth[key] != null) {
+                                    setClearedProductPriceKeys((prev) => {
+                                      if (prev.has(key)) return prev;
+                                      const next = new Set(prev);
+                                      next.add(key);
+                                      return next;
+                                    });
+                                  } else if (val !== "" && clearedProductPriceKeys.has(key)) {
+                                    setClearedProductPriceKeys((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(key);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                className={`w-full h-full bg-transparent text-white text-[13px] text-center border-none outline-none px-[6px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${hasExplicit ? "pl-[26px]" : ""}`}
+                              />
+                              {hasExplicit && (
+                                <button
+                                  type="button"
+                                  onClick={() => clearPrice(key)}
+                                  aria-label="אפס לחודש זה"
+                                  title="אפס לחודש זה"
+                                  className="absolute left-[4px] top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-full bg-[#F64E60]/20 hover:bg-[#F64E60]/40 text-[#F64E60] flex items-center justify-center text-[14px] leading-none transition"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {incomeSources.length === 0 && (

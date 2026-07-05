@@ -10,6 +10,7 @@ import { HistoryModal } from "@/components/dashboard/HistoryModal";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DashboardHelpButton } from "@/components/onboarding/DashboardHelpButton";
 import { createClient } from "@/lib/supabase/client";
+import { getPriceResolver } from "@/lib/managedProductPrices";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -786,10 +787,11 @@ export default function DashboardPage() {
         </div>`;
       };
 
-      // Today's managed products data
+      // Today's managed products data — priced with this month's resolved price
+      const todayPriceResolver = await getPriceResolver(supabase, selectedBusinesses);
       const todayMpData = (allManagedProducts || []).map((p: { id: string; name: string; unit_cost: number; target_pct: number | null }) => {
         const qty = todayProductQuantities[p.id] || 0;
-        const cost = qty * (Number(p.unit_cost) || 0);
+        const cost = qty * todayPriceResolver(p.id, today.getFullYear(), today.getMonth() + 1, Number(p.unit_cost) || 0);
         const pct = todayIncomeBeforeVat > 0 && cost > 0 ? (cost / todayIncomeBeforeVat) * 100 : 0;
         const diff = p.target_pct ? pct - p.target_pct : 0;
         return { name: p.name, pct, qty: Math.round(qty), targetPct: p.target_pct, diff };
@@ -1873,11 +1875,17 @@ export default function DashboardPage() {
       const { data: productUsageData } = entryIds.length > 0
         ? await supabase
             .from("daily_product_usage")
-            .select("daily_entry_id, product_id, quantity, unit_cost_at_time")
+            .select("daily_entry_id, product_id, quantity")
             .in("daily_entry_id", entryIds)
         : { data: [] };
 
-      // Aggregate quantity by product (we'll calculate cost using current unit_cost from managed_products)
+      // Monthly price resolution (managed_product_monthly_prices → walk back → current unit_cost).
+      // Each period is costed with ITS month's price, so a price change never rewrites history.
+      const priceResolver = await getPriceResolver(supabase, selectedBusinesses);
+      const prevMonthYM = targetMonth === 1 ? { year: targetYear - 1, month: 12 } : { year: targetYear, month: targetMonth - 1 };
+      const prevYearYM = { year: targetYear - 1, month: targetMonth };
+
+      // Aggregate quantity by product
       const productQuantities: Record<string, number> = {};
 
       (productUsageData || []).forEach(p => {
@@ -2266,7 +2274,9 @@ export default function DashboardPage() {
 
       // Update managed products summary with prev month/year data
       const updatedProductsList: ManagedProductSummary[] = (allManagedProducts || []).map(product => {
-        const unitCost = Number(product.unit_cost) || 0;
+        const currentUnitCost = Number(product.unit_cost) || 0;
+        // Each period costed with its own month's resolved price
+        const unitCost = priceResolver(product.id, targetYear, targetMonth, currentUnitCost);
 
         // Current period
         const totalQuantity = productQuantities[product.id] || 0;
@@ -2275,13 +2285,13 @@ export default function DashboardPage() {
 
         // Previous month
         const prevMonthQuantity = prevMonthProductQuantities[product.id] || 0;
-        const prevMonthCost = unitCost * prevMonthQuantity;
+        const prevMonthCost = priceResolver(product.id, prevMonthYM.year, prevMonthYM.month, currentUnitCost) * prevMonthQuantity;
         const prevMonthPct = prevMonthIncomeBeforeVat > 0 && prevMonthQuantity > 0 ? (prevMonthCost / prevMonthIncomeBeforeVat) * 100 : null;
         const prevMonthChange = prevMonthPct !== null ? currentPct - prevMonthPct : 0;
 
         // Previous year
         const prevYearQuantity = prevYearProductQuantities[product.id] || 0;
-        const prevYearCost = unitCost * prevYearQuantity;
+        const prevYearCost = priceResolver(product.id, prevYearYM.year, prevYearYM.month, currentUnitCost) * prevYearQuantity;
         let prevYearPct = prevYearIncomeBeforeVat > 0 && prevYearQuantity > 0 ? (prevYearCost / prevYearIncomeBeforeVat) * 100 : null;
         let prevYearChange = prevYearPct !== null ? currentPct - prevYearPct : 0;
         // Fallback to monthly_summaries if no live data
@@ -2609,11 +2619,11 @@ export default function DashboardPage() {
           target: Math.round(avgLaborTargetPct * 10) / 10,
         });
 
-        // 4. Managed product chart
+        // 4. Managed product chart — each month costed with its own resolved price
         if (firstProduct) {
           const monthProductUsage = relevantProductUsage.filter(p => monthEntryIds.has(p.daily_entry_id));
           const monthQuantity = monthProductUsage.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
-          const unitCost = Number(firstProduct.unit_cost) || 0;
+          const unitCost = priceResolver(firstProduct.id, monthDate.getFullYear(), monthDate.getMonth() + 1, Number(firstProduct.unit_cost) || 0);
           const monthActualCost = unitCost * monthQuantity;
           const targetPct = Number(firstProduct.target_pct) || 0;
           const monthTargetCost = (targetPct / 100) * monthIncomeBeforeVat;
@@ -2761,7 +2771,7 @@ export default function DashboardPage() {
             dayEntryIds.forEach(eid => {
               dayQuantity += (prodUsageByEntry[eid]?.[firstManagedProduct.id]) || 0;
             });
-            const unitCost = Number(firstManagedProduct.unit_cost) || 0;
+            const unitCost = priceResolver(firstManagedProduct.id, targetYear, targetMonth, Number(firstManagedProduct.unit_cost) || 0);
             const dayActualCost = unitCost * dayQuantity;
             const targetPct = Number(firstManagedProduct.target_pct) || 0;
             const dayTargetCost = (targetPct / 100) * dayIncomeBeforeVat;

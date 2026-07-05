@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/apiAuth';
+import { entryDateToYearMonth, getPriceResolver } from '@/lib/managedProductPrices';
 
 const BASE_FIELDS = [
   'total_register',
@@ -161,6 +162,16 @@ export async function POST(request: NextRequest) {
 
     // Insert product usage if provided
     if (product_usage && Array.isArray(product_usage) && product_usage.length > 0) {
+      // Default price = the ENTRY month's resolved price (monthly table → walk
+      // back → current unit_cost). An explicit unit_cost_at_time in the payload wins.
+      const [priceResolver, productsResult] = await Promise.all([
+        getPriceResolver(supabase, [business_id]),
+        supabase.from('managed_products').select('id, unit_cost').eq('business_id', business_id),
+      ]);
+      const currentCostById = new Map<string, number>(
+        (productsResult.data || []).map((p: { id: string; unit_cost: number | null }) => [p.id, Number(p.unit_cost) || 0])
+      );
+      const ym = entryDateToYearMonth(entry_date);
       const usageRows = product_usage.map((item: {
         product_id: string;
         opening_stock?: number;
@@ -175,7 +186,8 @@ export async function POST(request: NextRequest) {
         received_quantity: item.received_quantity || 0,
         closing_stock: item.closing_stock || 0,
         quantity: item.quantity || 0,
-        unit_cost_at_time: item.unit_cost_at_time || 0,
+        unit_cost_at_time: item.unit_cost_at_time
+          || priceResolver(item.product_id, ym.year, ym.month, currentCostById.get(item.product_id) || 0),
       }));
 
       const { error: usageError } = await supabase
