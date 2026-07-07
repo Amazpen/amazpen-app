@@ -737,10 +737,12 @@ export function DailyEntriesModal({
       Promise.resolve({ data: [] as Record<string, unknown>[] }),
       // 8. Income source goals - placeholder, fetched after goals
       Promise.resolve({ data: [] as { income_source_id: string; avg_ticket_target: number }[] }),
-      // 9. Managed products with target_pct
+      // 9. Managed products with target_pct + unit_cost (unit_cost feeds the
+      // price resolver's fallback; without it monthPrice() falls back to 0 and
+      // every managed-product % renders 0% for businesses with no monthly-price rows).
       supabase
         .from("managed_products")
-        .select("id, target_pct")
+        .select("id, target_pct, unit_cost")
         .eq("business_id", businessId)
         .eq("is_active", true)
         .is("deleted_at", null),
