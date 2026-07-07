@@ -97,9 +97,9 @@ const menuItems = [
   // ensures users without any selected business land on the dashboard
   // first.
   { id: 15, label: "קליטת מסמכים OCR", href: "/ocr-business", key: "ocr-business", requiresBusiness: true },
-  // דדי - דף הסוכן החדש (בבנייה). hideUnlessAdmin: מוסתר לחלוטין מלא-אדמינים
-  // (לא מוצג אפילו כ"בקרוב") - גלוי לאדמינים בלבד. requiresBusiness: דורש עסק נבחר.
-  { id: 16, label: "דדי", href: "/agent", key: "agent", hideUnlessAdmin: true, requiresBusiness: true },
+  // דדי - דף הסוכן החדש (בבנייה). מוסתר לחלוטין כרגע מהתפריט הצדדי - לכולם.
+  // הסוכן מוצג כעת רק דרך כפתור ה-AI בהדר (אדמין בלבד). להחזרה - בטל את ההערה.
+  // { id: 16, label: "דדי", href: "/agent", key: "agent", hideUnlessAdmin: true, requiresBusiness: true },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
   { id: 11, label: "התנתקות", href: "#logout", key: "logout", isLogout: true },
 ];
@@ -1283,8 +1283,8 @@ export default function DashboardLayout({
               )}
             </div>
 
-            {/* AI Button — hidden for everyone for now */}
-            {false && (
+            {/* AI Button — admin only. הסוכן (עוזר AI) גלוי לאדמינים בלבד. */}
+            {isAdmin && (
               <Link href="/ai" onClick={() => { if (pathname !== "/ai") localStorage.setItem("ai_page_context", pathname); }} className="px-[6px] sm:px-[12px] min-w-[42px] sm:min-w-[60px] flex-shrink-0 text-center bg-[#29318A] rounded-[7px] text-white text-[11px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center">
                 AI
               </Link>
