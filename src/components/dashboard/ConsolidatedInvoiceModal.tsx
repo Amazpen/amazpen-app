@@ -258,14 +258,17 @@ export function ConsolidatedInvoiceModal({
       const supabase = createClient();
       const { data: inv } = await supabase
         .from("invoices")
-        .select("id, business_id, supplier_id, invoice_date, invoice_number, subtotal, vat_amount, total_amount, status, notes, attachment_url")
+        .select("id, business_id, supplier_id, invoice_date, reference_date, invoice_number, subtotal, vat_amount, total_amount, status, notes, attachment_url")
         .eq("id", editInvoiceId)
         .maybeSingle();
       if (cancelled || !inv) return;
 
       setSelectedBusinessId(inv.business_id || "");
       setSelectedSupplierId(inv.supplier_id || "");
-      setInvoiceDate(inv.invoice_date ? String(inv.invoice_date).slice(0, 10) : "");
+      // Prefer reference_date (the date the expenses list shows). Falls back to
+      // invoice_date for rows created before the two columns were kept in sync.
+      const displayDate = inv.reference_date || inv.invoice_date;
+      setInvoiceDate(displayDate ? String(displayDate).slice(0, 10) : "");
       setInvoiceNumber(inv.invoice_number || "");
       setTotalAmount(inv.total_amount != null ? String(inv.total_amount) : "");
       // status === 'pending' was saved when isClosed === 'yes', 'needs_review' when 'no'.
@@ -538,6 +541,10 @@ export function ConsolidatedInvoiceModal({
             business_id: selectedBusinessId,
             supplier_id: selectedSupplierId,
             invoice_date: invoiceDate,
+            // reference_date is the accounting date the expenses list actually
+            // displays (reference_date || invoice_date). Keep it in sync with
+            // invoice_date, otherwise editing the date silently reverts in the UI.
+            reference_date: invoiceDate,
             invoice_number: invoiceNumber.trim(),
             subtotal,
             vat_amount: vatAmount,
@@ -591,6 +598,7 @@ export function ConsolidatedInvoiceModal({
             business_id: selectedBusinessId,
             supplier_id: selectedSupplierId,
             invoice_date: invoiceDate,
+            reference_date: invoiceDate,
             invoice_number: invoiceNumber.trim(),
             subtotal,
             vat_amount: vatAmount,
