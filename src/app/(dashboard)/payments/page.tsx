@@ -2152,8 +2152,13 @@ function PaymentsPageInner() {
         const computedPaid = paidByInvoice.get(inv.id);
         const paid = computedPaid != null ? computedPaid : (Number(inv.amount_paid) || 0);
         const balance = total - paid;
-        // Skip fully-paid invoices (use 0.01 epsilon to ignore rounding crumbs)
-        if (balance < 0.01) continue;
+        // Skip settled rows (0.01 epsilon ignores rounding crumbs). A credit
+        // note (זיכוי) carries a negative total_amount, so its balance is
+        // negative while it is still OPEN — it must stay in the report and net
+        // against the supplier's invoices, exactly like the "הוספת תשלום"
+        // invoice picker shows it. Only skip it once it has been applied.
+        const isCreditNote = total < 0;
+        if (isCreditNote ? Math.abs(balance) < 0.01 : balance < 0.01) continue;
 
         const supplier = inv.supplier;
         const supplierName = supplier?.name || "לא ידוע";
