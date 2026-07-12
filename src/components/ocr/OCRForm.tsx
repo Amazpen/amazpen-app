@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { OCRDocument, OCRFormData, DocumentType, ExpenseType, OCRLineItem } from '@/types/ocr';
 import KartesetCheckPanel from '@/components/ocr/KartesetCheckPanel';
+import { PartialPaymentModal, type PartialModalInvoice } from './PartialPaymentModal';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { createClient } from '@/lib/supabase/client';
@@ -611,11 +612,13 @@ export default function OCRForm({
   }, [showInvoiceAttachPicker, selectedBusinessId, supplierId]);
 
   // Payment tab — open invoices for linking (mirrors payments/page.tsx)
-  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string; clarification_reason: string | null; notes: string | null };
+  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string; clarification_reason: string | null; notes: string | null; amount_paid: number };
   const [paymentOpenInvoices, setPaymentOpenInvoices] = useState<PaymentOpenInvoice[]>([]);
   const [paymentSelectedInvoiceIds, setPaymentSelectedInvoiceIds] = useState<Set<string>>(new Set());
   const [paymentExpandedMonths, setPaymentExpandedMonths] = useState<Set<string>>(new Set());
   const [paymentIsLoadingInvoices, setPaymentIsLoadingInvoices] = useState(false);
+  const [showPartialModal, setShowPartialModal] = useState(false);
+  const [isPartialPayment, setIsPartialPayment] = useState(false);
 
   // Update an invoice's status inline from the open-invoices list. Mirrors
   // the status select in /expenses so the user has the same three choices
@@ -667,6 +670,7 @@ export default function OCRForm({
       setPaymentOpenInvoices([]);
       setPaymentSelectedInvoiceIds(new Set());
       setPaymentExpandedMonths(new Set());
+      setIsPartialPayment(false);
       return;
     }
     let cancelled = false;
@@ -675,10 +679,10 @@ export default function OCRForm({
       const supabase = createClient();
       const { data } = await supabase
         .from('invoices')
-        .select('id, invoice_number, invoice_date, total_amount, status, clarification_reason, notes')
+        .select('id, invoice_number, invoice_date, total_amount, status, clarification_reason, notes, amount_paid')
         .eq('business_id', selectedBusinessId)
         .eq('supplier_id', paymentTabSupplierId)
-        .in('status', ['pending', 'clarification'])
+        .in('status', ['pending', 'clarification', 'partial'])
         .is('deleted_at', null)
         .order('invoice_date', { ascending: false });
       if (cancelled) return;
@@ -690,9 +694,11 @@ export default function OCRForm({
         status: inv.status as string,
         clarification_reason: (inv.clarification_reason as string) || null,
         notes: (inv.notes as string) || null,
+        amount_paid: Number(inv.amount_paid) || 0,
       }));
       setPaymentOpenInvoices(mapped);
       setPaymentSelectedInvoiceIds(new Set());
+      setIsPartialPayment(false);
       // Auto-expand the most recent month so the user sees at least one invoice
       if (mapped.length > 0) {
         setPaymentExpandedMonths(new Set([getMonthYearKey(mapped[0].invoice_date)]));
@@ -2498,6 +2504,7 @@ export default function OCRForm({
         payment_notes: paymentTabNotes,
         payment_methods: paymentMethods,
         payment_linked_invoice_ids: Array.from(paymentSelectedInvoiceIds),
+        is_partial_payment: isPartialPayment,
         merged_document_ids: mergedDocuments.length > 0 ? mergedDocuments.map(d => d.id) : undefined,
       };
       clearDraft();
@@ -4595,17 +4602,50 @@ export default function OCRForm({
       {paymentTabSupplierId && (
         <div className="flex flex-col gap-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
           {/* Label on the right (DOM order first inside dir="rtl"),
-              selection summary on the left. */}
-          <div className="flex items-center justify-between">
+              selection summary + partial-payment button on the left. */}
+          <div className="flex items-center justify-between gap-[8px]">
             <label className="text-[15px] font-medium text-white">
               חשבוניות פתוחות ({paymentOpenInvoices.length})
             </label>
-            <span className="text-[13px] text-white/60 ltr-num">
-              {paymentSelectedInvoiceIds.size > 0 && (
-                <>נבחרו {paymentSelectedInvoiceIds.size} - &#8362;{paymentSelectedInvoicesTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
-              )}
-            </span>
+            <div className="flex items-center gap-[10px]">
+              <span className="text-[13px] text-white/60 ltr-num">
+                {paymentSelectedInvoiceIds.size > 0 && (
+                  <>נבחרו {paymentSelectedInvoiceIds.size} - &#8362;{paymentSelectedInvoicesTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+                )}
+              </span>
+              <button
+                type="button"
+                disabled={paymentSelectedInvoiceIds.size === 0}
+                onClick={() => setShowPartialModal(true)}
+                className="text-[12px] px-[10px] py-[5px] rounded-[8px] bg-[#FFC107]/15 text-[#FFC107] border border-[#FFC107]/40 disabled:opacity-40"
+              >
+                תשלום חלקי
+              </button>
+            </div>
           </div>
+
+          <PartialPaymentModal
+            open={showPartialModal}
+            onClose={() => setShowPartialModal(false)}
+            initialAmount={paymentSelectedInvoicesTotal}
+            invoices={paymentOpenInvoices
+              .filter((i) => paymentSelectedInvoiceIds.has(i.id))
+              .map<PartialModalInvoice>((i) => ({
+                id: i.id,
+                invoice_number: i.invoice_number,
+                invoice_date: i.invoice_date,
+                total_amount: i.total_amount,
+                balance: i.total_amount - (i.amount_paid || 0),
+              }))}
+            onConfirm={({ paymentAmount, selectedInvoiceIds }) => {
+              setPaymentSelectedInvoiceIds(new Set(selectedInvoiceIds));
+              setIsPartialPayment(true);
+              setPaymentMethods((prev) =>
+                prev.map((pm, i) => (i === 0 ? { ...pm, amount: paymentAmount.toFixed(2) } : pm))
+              );
+              setShowPartialModal(false);
+            }}
+          />
 
           {paymentIsLoadingInvoices ? (
             <div className="flex justify-center py-[15px]">
@@ -4714,6 +4754,11 @@ export default function OCRForm({
                                   <span className="text-[14px] text-white font-medium ltr-num">
                                     &#8362;{inv.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </span>
+                                  {inv.status === 'partial' && (
+                                    <span className="text-[10px] text-[#FFC107] ltr-num">
+                                      תשלום חלקי · נותר &#8362;{(inv.total_amount - (inv.amount_paid || 0)).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex flex-col items-end">
                                   <span className="text-[14px] text-white">{inv.invoice_number || '(ללא מספר)'}</span>

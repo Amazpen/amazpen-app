@@ -145,6 +145,10 @@ export interface OCRFormData {
   // Payment tab: link this payment to one or more open invoices.
   // Empty array = unlinked payment (legacy behaviour).
   payment_linked_invoice_ids?: string[];
+  // Payment tab: when true, the approve handler runs exact FIFO partial-payment
+  // allocation (close oldest in full, leave one 'partial') instead of the
+  // regular ₪5-tolerance paid-marking.
+  is_partial_payment?: boolean;
   // Line items for price tracking
   line_items?: OCRLineItem[];
   // Daily entry (רישום יומי) fields
