@@ -3246,7 +3246,9 @@ function PaymentsPageInner() {
           supabase.from("payment_invoice_links").select("payment_id", { count: "exact", head: true }).eq("invoice_id", invId),
         ]);
         if ((directCount || 0) === 0 && (linkCount || 0) === 0) {
-          await supabase.from("invoices").update({ status: "pending" }).eq("id", invId);
+          // Reset amount_paid too — a reverted 'partial' invoice carries a
+          // stale amount_paid that would otherwise skew the OCR remaining display.
+          await supabase.from("invoices").update({ status: "pending", amount_paid: 0 }).eq("id", invId);
         }
       }
 
