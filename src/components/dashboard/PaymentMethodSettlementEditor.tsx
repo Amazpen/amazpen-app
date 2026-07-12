@@ -32,6 +32,19 @@ const settlementTypeLabels: Record<SettlementType, string> = {
 
 const dayOfWeekLabels = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
+// Month offset for custom periods: 0 = same month, 1 = next month, 2+ = N months later.
+// The resolver (lib/cashflow/settlement.ts) just adds the offset to the month, so any
+// value works — this list controls what the user can pick.
+const MONTH_OFFSET_OPTIONS = [0, 1, 2, 3, 4, 5, 6];
+
+// Label for the dropdown option (matches David's wording: "עוד N חודשים").
+const monthOffsetLabel = (offset: number): string =>
+  offset === 0 ? "אותו החודש" : offset === 1 ? "החודש הבא" : `עוד ${offset} חודשים`;
+
+// Label used inside the summary sentence ("...נכנסות ב-8 בחודש שאחרי").
+const monthOffsetSummaryLabel = (offset: number): string =>
+  offset === 0 ? "באותו חודש" : offset === 1 ? "בחודש שאחרי" : `בעוד ${offset} חודשים`;
+
 const DEFAULT_PERIOD: SettlementPeriod = {
   range_start: 1,
   range_end: 7,
@@ -334,8 +347,11 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-[#0f1535] border-[#4C526B]">
-                      <SelectItem value="0" className="text-white text-[12px]">אותו חודש</SelectItem>
-                      <SelectItem value="1" className="text-white text-[12px]">החודש הבא</SelectItem>
+                      {MONTH_OFFSET_OPTIONS.map((offset) => (
+                        <SelectItem key={offset} value={String(offset)} className="text-white text-[12px]">
+                          {monthOffsetLabel(offset)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Input
@@ -386,7 +402,7 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
                 <p className="text-[11px] text-white/40 text-right mb-[4px]">סיכום תקופות:</p>
                 {periods.map((p, i) => {
                   const offset = p.settlement_month_offset ?? 1;
-                  const monthLabel = offset === 0 ? "באותו חודש" : "בחודש שאחרי";
+                  const monthLabel = monthOffsetSummaryLabel(offset);
                   return (
                     <p key={i} className="text-[12px] text-white/70 text-right">
                       {i + 1}. הכנסות מ-{p.range_start} עד {p.range_end} ← נכנסות ב-{p.settlement_date} {monthLabel}
