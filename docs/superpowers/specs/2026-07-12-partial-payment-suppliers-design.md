@@ -34,21 +34,32 @@ Rejected: **B** (amount_paid-only, no links — requires rewriting the report) a
 
 ## Architecture
 
-### Shared component: `PartialPaymentModal`
-A single calculation modal, opened from **two** entry points:
-1. **Payment screen, by supplier** — pick a supplier → see all their open invoices.
-2. **"ממתינים לתשלום" report** — select invoices via existing multi-select → "תשלום חלקי" button.
+### Single entry point: the OCR screen
+The "תשלום חלקי" button lives **only** in the OCRForm **payment tab** — the place the
+user actually works: scan a payment confirmation, pick a supplier, select open invoices,
+enter the amount paid. No button on the payments screen or the pending-payments report
+(those screens still *display* the `partial` status, but do not initiate it).
 
-Both feed the same open-invoice list and the same save logic.
+The button opens a calculation modal `PartialPaymentModal` seeded from the OCR payment
+tab's already-selected supplier + invoices + amount.
 
-### Modal contents
+### Modal contents (the "מסך חישוב")
 - Open invoices of the supplier, sorted **oldest → newest**, each with a checkbox
   (default: all checked). Unchecking = the manual-override the user asked for.
 - Three figures: **סכום החשבוניות שנבחרו** | **סכום התשלום** (input) | **נותר לתשלום**
   (= selected − paid).
 - Live preview: which invoices close in full, and which single invoice becomes
   "תשלום חלקי" (yellow) with its remaining balance.
-- Payment method + date fields (required — cashflow reads `payment_splits.due_date`).
+- Payment method + date come from the OCR payment tab (already collected there; cashflow
+  reads `payment_splits.due_date`).
+
+### Where the save logic lands
+The FIFO allocation + `partial` marking replaces the current min-allocation + ₪5 fuzzy
+paid-marking, and must be applied in **both** OCR approve handlers (they are duplicated):
+- `src/app/(dashboard)/ocr/page.tsx` (~:1001-1099)
+- `src/app/(dashboard)/ocr-business/page.tsx` (~:817-910)
+
+Extract the allocation into one shared helper so both handlers call identical logic.
 
 ## Allocation logic (on save)
 
