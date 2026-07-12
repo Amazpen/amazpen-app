@@ -43,6 +43,7 @@ import { uploadFile } from '@/lib/uploadFile';
 import { OcrBusinessHelpButton } from '@/components/onboarding/OcrBusinessHelpButton';
 import { useToast } from "@/components/ui/toast";
 import ScannedDocumentsButton from '@/components/ocr/ScannedDocumentsButton';
+import { applyPartialPaymentAllocation } from '@/lib/payments/applyPartialPaymentAllocation';
 
 interface Business {
   id: string;
@@ -823,7 +824,7 @@ export default function OCRBusinessPage() {
               supplier_id: formData.supplier_id,
               payment_date: formData.document_date,
               total_amount: totalAmount,
-              invoice_id: selectedInvoicesArr.length === 1 ? selectedInvoicesArr[0] : null,
+              invoice_id: formData.is_partial_payment ? null : (selectedInvoicesArr.length === 1 ? selectedInvoicesArr[0] : null),
               notes: formData.payment_notes || formData.notes || null,
               created_by: user?.id || null,
               receipt_url: ocrImageUrl,
@@ -878,6 +879,14 @@ export default function OCRBusinessPage() {
             }
           }
 
+          if (formData.is_partial_payment && selectedInvoicesArr.length > 0) {
+            // Exact FIFO partial allocation: close oldest in full, leave one 'partial'.
+            await applyPartialPaymentAllocation(supabase, {
+              paymentId: newPayment.id,
+              invoiceIds: selectedInvoicesArr,
+              paymentAmount: totalAmount,
+            });
+          } else {
           if (selectedInvoicesArr.length > 1) {
             const { data: invDetails } = await supabase
               .from('invoices')
@@ -924,6 +933,7 @@ export default function OCRBusinessPage() {
                 }
               }
             }
+          }
           }
 
         } else if (formData.document_type === 'summary') {
