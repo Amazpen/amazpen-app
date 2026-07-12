@@ -3778,7 +3778,7 @@ function PaymentsPageInner() {
           .select("id, invoice_number, invoice_date, total_amount, status, approval_status, attachment_url, notes")
           .eq("supplier_id", selectedSupplier)
           .in("business_id", selectedBusinesses)
-          .in("status", ["pending", "clarification"])
+          .in("status", ["pending", "clarification", "partial"])
           .is("deleted_at", null)
           .order("invoice_date", { ascending: false });
 
@@ -5523,6 +5523,7 @@ function PaymentsPageInner() {
                                           ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                           {inv.status === "paid" && <span className="text-[10px] text-green-400 mr-[3px]">(שולם)</span>}
                                           {inv.status === "clarification" && <span className="text-[10px] text-[#FFA500] mr-[3px]">(בבירור)</span>}
+                                          {inv.status === "partial" && <span className="text-[10px] text-[#FFC107] mr-[3px]">(תשלום חלקי)</span>}
                                           {inv.approval_status === "pending_review" && inv.status !== "clarification" && <span className="text-[10px] text-[#bc76ff] mr-[3px]">(בבדיקה)</span>}
                                         </span>
                                       <div className="flex items-center justify-center gap-[5px]" onClick={(e) => e.stopPropagation()}>

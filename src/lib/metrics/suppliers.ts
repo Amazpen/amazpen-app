@@ -327,6 +327,7 @@ export async function getSupplierDetail(
       subtotal: number | null;
       total_amount: number | null;
       status: string;
+      amount_paid: number | null;
       invoice_date: string | null;
     }> | null) || [];
   const allDns =
@@ -339,8 +340,12 @@ export async function getSupplierDetail(
   // page.tsx 1678-1682 — open balance = open invoices (pending/clarification) + unlinked DNs
   const openInvoicesTotal =
     allInvoices
-      .filter((inv) => inv.status === "pending" || inv.status === "clarification")
-      .reduce((sum, inv) => sum + Number(inv.total_amount), 0) + dnsPurchasesSum;
+      .filter((inv) => inv.status === "pending" || inv.status === "clarification" || inv.status === "partial")
+      .reduce((sum, inv) => {
+        const total = Number(inv.total_amount) || 0;
+        const remaining = inv.status === "partial" ? total - (Number(inv.amount_paid) || 0) : total;
+        return sum + remaining;
+      }, 0) + dnsPurchasesSum;
 
   // page.tsx 1685-1691 — total paid
   const { data: paymentsData } = await supabase
