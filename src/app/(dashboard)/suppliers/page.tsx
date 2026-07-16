@@ -1454,7 +1454,7 @@ export default function SuppliersPage() {
     // 1. Fetch invoices for this supplier IN THIS BUSINESS for the month (by invoice_date, not reference_date — matches what the user sees)
     const { data: monthlyInvoices } = await supabase
       .from("invoices")
-      .select("id, total_amount, status")
+      .select("id, total_amount, status, amount_paid")
       .eq("supplier_id", supplier.id)
       .eq("business_id", supplier.business_id)
       .is("deleted_at", null)
@@ -1591,8 +1591,15 @@ export default function SuppliersPage() {
     // what the user requested after seeing אפר/מאי 2026 show "שולם" for
     // invoices that are clearly still ממתין/ת.משלוח.
     monthlyPaid = (monthlyInvoices || [])
-      .filter((inv) => inv.status === "paid")
-      .reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
+      .reduce((sum, inv) => {
+        // Fully-paid invoice → its whole total counts toward its month.
+        if (inv.status === "paid") return sum + (Number(inv.total_amount) || 0);
+        // Partially-paid invoice (תשלום חלקי) → only the amount actually paid so
+        // far. Without this the partial payment shows on the top card total and
+        // in the pending report but is invisible in this month's "שולם" column.
+        if (inv.status === "partial") return sum + (Number(inv.amount_paid) || 0);
+        return sum;
+      }, 0);
     // Plus standalone/unlinked payments recorded this month (see above): real
     // money paid to the supplier that is tied to no invoice, so it would
     // otherwise be invisible in the breakdown while inflating the card total.
@@ -1703,8 +1710,16 @@ export default function SuppliersPage() {
       // (matches the monthly breakdown row's "יתרה" column).
       const openInvoicesTotal =
         (invoicesData
-          ?.filter((inv) => inv.status === "pending" || inv.status === "clarification")
-          .reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0)
+          ?.filter((inv) => inv.status === "pending" || inv.status === "clarification" || inv.status === "partial")
+          .reduce((sum, inv) => {
+            // Partial invoices (תשלום חלקי) are still open for their unpaid
+            // remainder — count total minus what was already paid, not the
+            // whole invoice (and not ₪0 by excluding them, the previous bug
+            // that dropped the remaining balance from "יתרה לתשלום").
+            const total = Number(inv.total_amount) || 0;
+            const remaining = inv.status === "partial" ? total - (Number(inv.amount_paid) || 0) : total;
+            return sum + remaining;
+          }, 0) || 0)
         + dnsPurchasesSum;
 
       // Fetch total payments for this supplier

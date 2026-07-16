@@ -228,7 +228,7 @@ async function fetchMonthlyData(
   // page.tsx 1455-1462 — invoices in month by invoice_date
   const { data: monthlyInvoices } = await supabase
     .from("invoices")
-    .select("id, total_amount, status")
+    .select("id, total_amount, status, amount_paid")
     .eq("supplier_id", supplier.id)
     .eq("business_id", supplier.business_id)
     .is("deleted_at", null)
@@ -245,7 +245,7 @@ async function fetchMonthlyData(
     .gte("delivery_date", startIsoIL)
     .lte("delivery_date", endIsoIL);
 
-  const invoices = (monthlyInvoices as Array<{ id: string; total_amount: number | null; status: string }> | null) || [];
+  const invoices = (monthlyInvoices as Array<{ id: string; total_amount: number | null; status: string; amount_paid: number | null }> | null) || [];
   const dns = (monthlyDNs as Array<{ id: string; total_amount: number | null }> | null) || [];
 
   // page.tsx 1477-1479
@@ -267,10 +267,15 @@ async function fetchMonthlyData(
     0
   );
 
-  // page.tsx 1571-1573 — monthlyPaid = sum of this month's paid-status invoices
-  const monthlyPaid = invoices
-    .filter((inv) => inv.status === "paid")
-    .reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
+  // page.tsx 1593-1600 — monthlyPaid = paid-status invoices (full total) plus
+  // partial-status invoices (amount_paid only). A תשלום חלקי leaves the invoice
+  // at status='partial'; counting only 'paid' would drop the amount actually
+  // paid from the month's "שולם" while it still shows in total_paid.
+  const monthlyPaid = invoices.reduce((sum, inv) => {
+    if (inv.status === "paid") return sum + (Number(inv.total_amount) || 0);
+    if (inv.status === "partial") return sum + (Number(inv.amount_paid) || 0);
+    return sum;
+  }, 0);
 
   return { monthlyPurchases, monthlyPaid, paymentsInMonthTotal };
 }
