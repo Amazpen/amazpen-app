@@ -111,6 +111,7 @@ interface InvoiceDisplay {
   amount: number;
   amountWithVat: number;
   amountBeforeVat: number;
+  amountPaid?: number;
   status: string;
   enteredBy: string;
   entryDate: string;
@@ -707,6 +708,7 @@ function ExpensesPageInner() {
               amount: Number(inv.total_amount),
               amountWithVat: Number(inv.total_amount),
               amountBeforeVat: Number(inv.subtotal),
+              amountPaid: Number(inv.amount_paid) || 0,
               status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
               statusRaw: inv.status || "pending",
               enteredBy: inv.creator?.full_name || "מערכת",
@@ -1837,6 +1839,7 @@ function ExpensesPageInner() {
         amount: Number(inv.total_amount),
         amountWithVat: Number(inv.total_amount),
         amountBeforeVat: Number(inv.subtotal),
+        amountPaid: Number(inv.amount_paid) || 0,
         status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
         statusRaw: inv.status || "pending",
         enteredBy: inv.creator?.full_name || "מערכת",
@@ -4383,6 +4386,7 @@ function ExpensesPageInner() {
         amount: Number(inv.total_amount),
         amountWithVat: Number(inv.total_amount),
         amountBeforeVat: Number(inv.subtotal),
+        amountPaid: Number(inv.amount_paid) || 0,
         status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
         statusRaw: inv.status || "pending",
         enteredBy: inv.creator?.full_name || "מערכת",
@@ -5289,6 +5293,11 @@ function ExpensesPageInner() {
                         זיכוי
                       </span>
                     )}
+                    {invoice.statusRaw === 'partial' && (
+                      <span className="text-[9px] font-bold px-[8px] py-[1px] rounded-full bg-[#FFC107] text-black whitespace-nowrap leading-tight">
+                        ש.חלקית
+                      </span>
+                    )}
                     {invoice.isConsolidated && (
                       <span className="text-[9px] font-bold px-[8px] py-[1px] rounded-full bg-[#FFB84D] text-black whitespace-nowrap leading-tight">
                         מרכזת
@@ -5523,7 +5532,19 @@ function ExpensesPageInner() {
                       )}
 
                       {/* Details Grid */}
-                      <div className="flex flex-row-reverse items-center justify-between px-[7px]">
+                      <div className="flex flex-row-reverse flex-wrap items-center justify-between gap-y-[10px] px-[7px]">
+                        {invoice.statusRaw === 'partial' && (
+                          <>
+                            <div className="flex flex-col items-center">
+                              <span className="text-[14px] text-[#979797]">שולם</span>
+                              <span className="text-[14px] text-[#0BB783] ltr-num">₪{(invoice.amountPaid ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <span className="text-[14px] text-[#979797]">נותר לתשלום</span>
+                              <span className="text-[14px] text-[#FFC107] ltr-num">₪{(invoice.amountWithVat - (invoice.amountPaid ?? 0)).toLocaleString()}</span>
+                            </div>
+                          </>
+                        )}
                         <div className="flex flex-col items-center">
                           <span className="text-[14px] text-[#979797]">סכום כולל מע&quot;מ</span>
                           <span className="text-[14px] text-white ltr-num">₪{invoice.amountWithVat.toLocaleString()}</span>

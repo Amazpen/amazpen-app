@@ -710,11 +710,16 @@ export default function OCRForm({
     return () => { cancelled = true; };
   }, [paymentTabSupplierId, selectedBusinessId]);
 
-  // When invoices are selected, auto-sync the payment amount to match the total
+  // When invoices are selected, auto-sync the payment amount to match the total.
+  // For a partially-paid invoice we net against what was already paid, so the
+  // auto-filled amount is the REMAINING balance (נותר) — matching how the
+  // pending-payments report treats a partial, not the full original total.
   const paymentSelectedInvoicesTotal = useMemo(() => {
     return paymentOpenInvoices
       .filter(inv => paymentSelectedInvoiceIds.has(inv.id))
-      .reduce((sum, inv) => sum + inv.total_amount, 0);
+      .reduce((sum, inv) => sum + (inv.status === 'partial'
+        ? inv.total_amount - (inv.amount_paid || 0)
+        : inv.total_amount), 0);
   }, [paymentOpenInvoices, paymentSelectedInvoiceIds]);
 
   // Track previous selection so we only auto-fill the amount when the user
