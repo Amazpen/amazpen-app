@@ -2357,6 +2357,17 @@ export default function OCRForm({
     return () => window.removeEventListener('keydown', handleKey);
   }, [showCalculator, calcInput]);
 
+  // "בדיקת כרטסת" save action. Unlike the document tabs, this must NOT intake
+  // the statement as an invoice/payment (that created a duplicate expense on the
+  // amount). The row-level ✓ marks are already persisted to karteset_checked_at
+  // by KartesetCheckPanel (and surface as "כרטסת נבדקה" in ניהול תשלומים); here
+  // we only move the statement document itself to the archive so it leaves the
+  // pending queue.
+  const handleKartesetArchive = () => {
+    if (!document) return;
+    onReject(document.id, 'כרטסת נבדקה - הועבר לארכיון');
+  };
+
   const handleSubmit = () => {
     if (!selectedBusinessId) {
       alert('נא לבחור עסק');
@@ -5853,15 +5864,17 @@ export default function OCRForm({
           <Button
             id="onboarding-ocr-approve"
             type="button"
-            onClick={handleSubmit}
-            disabled={isLoading || (documentType === 'summary' && (!selectedBusinessId || !summarySupplierId || !summaryInvoiceNumber || !summaryTotalAmount || !summaryIsClosed)) || (documentType === 'daily_entry' && (!selectedBusinessId || !dailyEntryDate))}
+            onClick={activeView === 'karteset_check' ? handleKartesetArchive : handleSubmit}
+            disabled={isLoading || (activeView === 'karteset_check' && !document) || (documentType === 'summary' && (!selectedBusinessId || !summarySupplierId || !summaryInvoiceNumber || !summaryTotalAmount || !summaryIsClosed)) || (documentType === 'daily_entry' && (!selectedBusinessId || !dailyEntryDate))}
             className={`flex-1 h-[44px] text-white text-[15px] font-semibold rounded-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              documentType === 'summary' || documentType === 'daily_entry'
+              activeView === 'karteset_check'
+                ? 'bg-emerald-500 hover:bg-emerald-600'
+                : documentType === 'summary' || documentType === 'daily_entry'
                 ? 'bg-gradient-to-r from-[#0075FF] to-[#00D4FF]'
                 : 'bg-[#22c55e] hover:bg-[#16a34a]'
             }`}
           >
-            {isLoading ? 'שומר...' : documentType === 'summary' || documentType === 'daily_entry' ? 'שמירה' : 'אישור וקליטה'}
+            {isLoading ? 'שומר...' : activeView === 'karteset_check' ? 'שמור וארכב כרטסת' : documentType === 'summary' || documentType === 'daily_entry' ? 'שמירה' : 'אישור וקליטה'}
           </Button>
           <Button
             type="button"

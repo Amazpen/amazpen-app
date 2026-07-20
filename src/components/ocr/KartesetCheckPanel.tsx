@@ -317,7 +317,10 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
     for (const r of rows) {
       if (r.kind === "invoice") invoicesSum += r.total;
       else paymentsSum += r.total;
-      if (r.isChecked) checkedSum += r.total;
+      // Checked total is a running ledger balance: invoices add (what we owe),
+      // payments (תשלום שיצא) subtract (what we already paid). A statement is a
+      // debit/credit reconciliation, so a payment must reduce the marked total.
+      if (r.isChecked) checkedSum += r.kind === "invoice" ? r.total : -r.total;
       else uncheckedCount++;
     }
     return { invoicesSum, paymentsSum, balance: invoicesSum - paymentsSum, checkedSum, uncheckedCount };
