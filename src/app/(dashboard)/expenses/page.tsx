@@ -8475,7 +8475,7 @@ function ExpensesPageInner() {
       {/* Fullscreen Document Viewer Popup */}
       {viewerDocUrl && typeof window !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
+          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 pointer-events-auto"
           onClick={(e) => { e.stopPropagation(); closeViewer(); }}
           onPointerDown={(e) => e.stopPropagation()}
         >
