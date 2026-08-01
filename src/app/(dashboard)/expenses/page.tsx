@@ -8302,13 +8302,15 @@ function ExpensesPageInner() {
 
             {/* Invoices Table */}
             <div className="flex flex-col">
-              {/* Table Header */}
-              <div className="flex items-center justify-between border-b border-white/25 pb-[8px] px-[5px]">
-                <span className="text-[14px] font-medium text-white text-right" style={{ width: 81, maxWidth: 81 }}>תאריך</span>
-                <span className="text-[14px] font-medium text-white text-center" style={{ width: 66, maxWidth: 66 }}>מספר חשבונית</span>
-                <span className="text-[14px] font-medium text-white text-center" style={{ width: 65, maxWidth: 65 }}>סכום לפני מע&quot;מ</span>
-                <span className="text-[14px] font-medium text-white text-center" style={{ width: 60, maxWidth: 60 }}>סטטוס</span>
-                <span className="text-[14px] font-medium text-white text-center" style={{ width: 105, maxWidth: 105 }}>אפשרויות</span>
+              {/* Table Header — grid (fr units) so the 6 columns divide
+                  proportionally and stay aligned with the rows below. */}
+              <div className="grid grid-cols-[0.95fr_1.15fr_1fr_1fr_0.9fr_1.15fr] gap-[4px] items-center border-b border-white/25 pb-[8px] px-[5px]">
+                <span className="text-[14px] font-medium text-white text-right">תאריך</span>
+                <span className="text-[14px] font-medium text-white text-center">מספר חשבונית</span>
+                <span className="text-[14px] font-medium text-white text-center">סכום לפני מע&quot;מ</span>
+                <span className="text-[14px] font-medium text-white text-center">סכום כולל מע&quot;מ</span>
+                <span className="text-[14px] font-medium text-white text-center">סטטוס</span>
+                <span className="text-[14px] font-medium text-white text-center">אפשרויות</span>
               </div>
 
               {/* Table Rows */}
@@ -8322,16 +8324,17 @@ function ExpensesPageInner() {
                 </div>
               ) : (
                 breakdownSupplierInvoices.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between px-[5px] py-[10px] border-b border-white/5">
-                    <div className="flex flex-col text-right" style={{ width: 81, maxWidth: 81 }}>
+                  <div key={inv.id} className="grid grid-cols-[0.95fr_1.15fr_1fr_1fr_0.9fr_1.15fr] gap-[4px] items-center px-[5px] py-[10px] border-b border-white/5">
+                    <div className="flex flex-col text-right min-w-0">
                       <span className="text-[14px] text-white ltr-num">{inv.date}</span>
                       {inv.referenceDate && inv.invoiceDate && inv.referenceDate !== inv.invoiceDate && (
                         <span className="text-[10px] text-white/40 ltr-num">חשבונית: {inv.invoiceDate}</span>
                       )}
                     </div>
-                    <span className="text-[14px] text-white text-center ltr-num" style={{ width: 66, maxWidth: 66 }}>{inv.reference || "-"}</span>
-                    <span className="text-[14px] text-white text-center ltr-num" style={{ width: 65, maxWidth: 65 }}>₪{inv.amountBeforeVat.toLocaleString()}</span>
-                    <span className="text-[12px] text-center ltr-num" style={{ width: 60, maxWidth: 60 }}>
+                    <span className="text-[14px] text-white text-center ltr-num min-w-0 truncate">{inv.reference || "-"}</span>
+                    <span className="text-[13px] text-white text-center ltr-num min-w-0">₪{inv.amountBeforeVat.toLocaleString()}</span>
+                    <span className="text-[13px] text-white text-center ltr-num min-w-0">₪{Number(inv.amountWithVat || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-[12px] text-center ltr-num min-w-0">
                       {inv.approval_status === 'pending_review' ? (
                         <button
                           className="text-[10px] font-bold px-[7px] py-[3px] rounded-full bg-white/20 text-white/60 hover:bg-green-500 hover:text-white transition-colors whitespace-nowrap"
@@ -8358,7 +8361,7 @@ function ExpensesPageInner() {
                         </span>
                       )}
                     </span>
-                    <div className="flex items-center justify-center gap-[4px]" style={{ width: 105, maxWidth: 105 }}>
+                    <div className="flex items-center justify-center gap-[4px] min-w-0">
                       {((inv.notes && inv.notes.trim()) || (inv.clarificationReason && inv.clarificationReason.trim())) && (
                         <Popover>
                           <PopoverTrigger asChild>

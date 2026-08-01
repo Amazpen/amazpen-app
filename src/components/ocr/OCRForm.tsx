@@ -181,6 +181,24 @@ function getMonthYearLabel(key: string): string {
   return `${HEBREW_MONTH_NAMES[parseInt(month, 10) - 1]}, ${year}`;
 }
 
+// invoices.attachment_url holds either a single URL string or a JSON array of
+// URLs (multi-page docs). Same parser as /expenses and /payments.
+function parseAttachmentUrls(raw: string | null): string[] {
+  if (!raw) return [];
+  if (raw.startsWith('[')) {
+    try { return JSON.parse(raw).filter((u: unknown) => typeof u === 'string' && u); } catch { return []; }
+  }
+  return [raw];
+}
+
+function isPdfUrl(url: string): boolean {
+  try {
+    return new URL(url).pathname.toLowerCase().endsWith('.pdf');
+  } catch {
+    return url.toLowerCase().includes('.pdf');
+  }
+}
+
 function groupByMonth<T extends { [k: string]: unknown }>(items: T[], dateField: keyof T): Array<[string, T[]]> {
   const groups = new Map<string, T[]>();
   for (const item of items) {
@@ -612,7 +630,7 @@ export default function OCRForm({
   }, [showInvoiceAttachPicker, selectedBusinessId, supplierId]);
 
   // Payment tab — open invoices for linking (mirrors payments/page.tsx)
-  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string; clarification_reason: string | null; notes: string | null; amount_paid: number };
+  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string; clarification_reason: string | null; notes: string | null; amount_paid: number; attachment_urls: string[] };
   const [paymentOpenInvoices, setPaymentOpenInvoices] = useState<PaymentOpenInvoice[]>([]);
   const [paymentSelectedInvoiceIds, setPaymentSelectedInvoiceIds] = useState<Set<string>>(new Set());
   const [paymentExpandedMonths, setPaymentExpandedMonths] = useState<Set<string>>(new Set());
@@ -679,7 +697,7 @@ export default function OCRForm({
       const supabase = createClient();
       const { data } = await supabase
         .from('invoices')
-        .select('id, invoice_number, invoice_date, total_amount, status, clarification_reason, notes, amount_paid')
+        .select('id, invoice_number, invoice_date, total_amount, status, clarification_reason, notes, amount_paid, attachment_url')
         .eq('business_id', selectedBusinessId)
         .eq('supplier_id', paymentTabSupplierId)
         .in('status', ['pending', 'clarification', 'partial'])
@@ -695,6 +713,7 @@ export default function OCRForm({
         clarification_reason: (inv.clarification_reason as string) || null,
         notes: (inv.notes as string) || null,
         amount_paid: Number(inv.amount_paid) || 0,
+        attachment_urls: parseAttachmentUrls((inv.attachment_url as string) || null),
       }));
       setPaymentOpenInvoices(mapped);
       setPaymentSelectedInvoiceIds(new Set());
@@ -4744,6 +4763,11 @@ export default function OCRForm({
                               : 'rounded-[10px] border border-[#727BA0]/40 bg-[#1a1f42] hover:border-white/20 overflow-hidden';
                           return (
                             <div key={inv.id} className={`flex flex-col ${outerClasses}`}>
+                              {/* Row = selection button + a document-preview button.
+                                  The preview button lives OUTSIDE the selection button
+                                  (buttons can't nest) and sits at the row's left edge
+                                  (last DOM child in RTL). */}
+                              <div className="flex items-stretch">
                               <button
                                 type="button"
                                 disabled={disabled}
@@ -4755,7 +4779,7 @@ export default function OCRForm({
                                     return next;
                                   });
                                 }}
-                                className={`flex items-center justify-between p-[10px] transition-colors ${
+                                className={`flex-1 min-w-0 flex items-center justify-between p-[10px] transition-colors ${
                                   disabled ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:bg-white/[0.03]'
                                 }`}
                               >
@@ -4783,6 +4807,37 @@ export default function OCRForm({
                                   </span>
                                 </div>
                               </button>
+                              {inv.attachment_urls.length > 0 && (
+                                <button
+                                  type="button"
+                                  title={inv.attachment_urls.length > 1 ? `צפייה במסמך (${inv.attachment_urls.length} דפים)` : 'צפייה במסמך'}
+                                  aria-label="צפייה במסמך"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const url = inv.attachment_urls[0];
+                                    // PDFs open in a new tab (the inline lightbox is <img>-only);
+                                    // images use the existing full-screen preview overlay.
+                                    if (isPdfUrl(url)) {
+                                      window.open(url, '_blank', 'noopener,noreferrer');
+                                    } else {
+                                      setMergePreviewUrl(url);
+                                    }
+                                  }}
+                                  className="relative flex-shrink-0 px-[10px] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors border-s border-white/[0.06]"
+                                >
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <polyline points="21 15 16 10 5 21"/>
+                                  </svg>
+                                  {inv.attachment_urls.length > 1 && (
+                                    <span className="absolute top-[4px] end-[2px] min-w-[14px] h-[14px] px-[3px] rounded-full bg-[#29318A] text-white text-[9px] font-bold flex items-center justify-center ltr-num leading-none">
+                                      {inv.attachment_urls.length}
+                                    </span>
+                                  )}
+                                </button>
+                              )}
+                              </div>
 
                               {disabled && (
                                 <div className="flex items-start gap-[8px] px-[10px] py-[8px] bg-[#F59E0B]/10 border-t border-[#F59E0B]/25" dir="rtl">
