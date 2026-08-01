@@ -112,6 +112,10 @@ interface InvoiceDisplay {
   amountWithVat: number;
   amountBeforeVat: number;
   amountPaid?: number;
+  // Actually-paid amount resolved from payment links + direct payment FK
+  // (invoices.amount_paid alone under-reports — only the partial flow writes it).
+  // Populated by the supplier-breakdown fetch; drives its שולם/נותר columns.
+  paidComputed?: number;
   status: string;
   enteredBy: string;
   entryDate: string;
@@ -4349,8 +4353,8 @@ function ExpensesPageInner() {
             *,
             supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
             creator:profiles!invoices_created_by_fkey(full_name),
-            payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
-            payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, notes, deleted_at, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+            payment_invoice_links(amount_allocated, payment:payments(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
           `)
           .in("business_id", selectedBusinesses)
           .eq("supplier_id", supplierId)
@@ -4374,6 +4378,35 @@ function ExpensesPageInner() {
           .order("delivery_date", { ascending: false }),
       ]);
 
+      // What was ACTUALLY paid per invoice. invoices.amount_paid is only written
+      // by the partial-payment flow — a normal payment lives in
+      // payment_invoice_links.amount_allocated (N:M) or the direct
+      // payments.invoice_id FK. Same rule as the "ממתינים לתשלום" report, so the
+      // שולם/נותר columns here agree with /payments.
+      const computePaid = (inv: {
+        amount_paid?: number | string | null;
+        payments?: { id: string; total_amount: number | string | null; deleted_at: string | null }[] | null;
+        payment_invoice_links?: { amount_allocated: number | string | null; payment: { id: string } | null }[] | null;
+      }): number => {
+        let paid = 0;
+        let sawAny = false;
+        const countedPaymentIds = new Set<string>();
+        for (const link of inv.payment_invoice_links || []) {
+          const amt = Number(link.amount_allocated) || 0;
+          if (amt === 0) continue;
+          paid += amt;
+          sawAny = true;
+          if (link.payment?.id) countedPaymentIds.add(link.payment.id);
+        }
+        for (const p of inv.payments || []) {
+          if (p.deleted_at) continue;
+          if (countedPaymentIds.has(p.id)) continue; // already counted via a link
+          paid += Number(p.total_amount) || 0;
+          sawAny = true;
+        }
+        return sawAny ? paid : (Number(inv.amount_paid) || 0);
+      };
+
       const displayInvoices: InvoiceDisplay[] = (invoicesData || []).map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => {
         // Display by value-date (reference_date) when present; fall back to invoice_date
         const primaryDate = inv.reference_date || inv.invoice_date;
@@ -4387,6 +4420,7 @@ function ExpensesPageInner() {
         amountWithVat: Number(inv.total_amount),
         amountBeforeVat: Number(inv.subtotal),
         amountPaid: Number(inv.amount_paid) || 0,
+        paidComputed: computePaid(inv as unknown as Parameters<typeof computePaid>[0]),
         status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
         statusRaw: inv.status || "pending",
         enteredBy: inv.creator?.full_name || "מערכת",
@@ -8300,17 +8334,21 @@ function ExpensesPageInner() {
               );
             })()}
 
-            {/* Invoices Table */}
-            <div className="flex flex-col">
-              {/* Table Header — grid (fr units) so the 6 columns divide
+            {/* Invoices Table — 8 columns, so it scrolls sideways on narrow
+                screens instead of squashing the numbers. */}
+            <div className="overflow-x-auto">
+            <div className="flex flex-col min-w-[720px]">
+              {/* Table Header — grid (fr units) so the columns divide
                   proportionally and stay aligned with the rows below. */}
-              <div className="grid grid-cols-[0.95fr_1.15fr_1fr_1fr_0.9fr_1.15fr] gap-[4px] items-center border-b border-white/25 pb-[8px] px-[5px]">
-                <span className="text-[14px] font-medium text-white text-right">תאריך</span>
-                <span className="text-[14px] font-medium text-white text-center">מספר חשבונית</span>
-                <span className="text-[14px] font-medium text-white text-center">סכום לפני מע&quot;מ</span>
-                <span className="text-[14px] font-medium text-white text-center">סכום כולל מע&quot;מ</span>
-                <span className="text-[14px] font-medium text-white text-center">סטטוס</span>
-                <span className="text-[14px] font-medium text-white text-center">אפשרויות</span>
+              <div className="grid grid-cols-[0.9fr_1.1fr_0.95fr_0.95fr_0.9fr_0.95fr_0.85fr_1.05fr] gap-[4px] items-center border-b border-white/25 pb-[8px] px-[5px]">
+                <span className="text-[13px] font-medium text-white text-right">תאריך</span>
+                <span className="text-[13px] font-medium text-white text-center">מספר חשבונית</span>
+                <span className="text-[13px] font-medium text-white text-center">סכום לפני מע&quot;מ</span>
+                <span className="text-[13px] font-medium text-white text-center">סכום כולל מע&quot;מ</span>
+                <span className="text-[13px] font-medium text-white text-center">סה&quot;כ שולם</span>
+                <span className="text-[13px] font-medium text-white text-center">סה&quot;כ נותר לתשלום</span>
+                <span className="text-[13px] font-medium text-white text-center">סטטוס</span>
+                <span className="text-[13px] font-medium text-white text-center">אפשרויות</span>
               </div>
 
               {/* Table Rows */}
@@ -8323,8 +8361,15 @@ function ExpensesPageInner() {
                   <span className="text-[14px] text-white/50">אין חשבוניות בתקופה הנבחרת</span>
                 </div>
               ) : (
-                breakdownSupplierInvoices.map((inv) => (
-                  <div key={inv.id} className="grid grid-cols-[0.95fr_1.15fr_1fr_1fr_0.9fr_1.15fr] gap-[4px] items-center px-[5px] py-[10px] border-b border-white/5">
+                breakdownSupplierInvoices.map((inv) => {
+                  // שולם / נותר. Delivery notes carry no payment of their own.
+                  const isDeliveryNote = inv.documentType === "delivery_note";
+                  const paid = isDeliveryNote ? 0 : Number(inv.paidComputed || 0);
+                  const remaining = Number(inv.amountWithVat || 0) - paid;
+                  const isPartiallyPaid = !isDeliveryNote && Math.abs(paid) > 0.01 && Math.abs(remaining) > 0.01;
+                  const money = (n: number) => `₪${n.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  return (
+                  <div key={inv.id} className="grid grid-cols-[0.9fr_1.1fr_0.95fr_0.95fr_0.9fr_0.95fr_0.85fr_1.05fr] gap-[4px] items-center px-[5px] py-[10px] border-b border-white/5">
                     <div className="flex flex-col text-right min-w-0">
                       <span className="text-[14px] text-white ltr-num">{inv.date}</span>
                       {inv.referenceDate && inv.invoiceDate && inv.referenceDate !== inv.invoiceDate && (
@@ -8333,8 +8378,22 @@ function ExpensesPageInner() {
                     </div>
                     <span className="text-[14px] text-white text-center ltr-num min-w-0 truncate">{inv.reference || "-"}</span>
                     <span className="text-[13px] text-white text-center ltr-num min-w-0">₪{inv.amountBeforeVat.toLocaleString()}</span>
-                    <span className="text-[13px] text-white text-center ltr-num min-w-0">₪{Number(inv.amountWithVat || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    <span className="text-[12px] text-center ltr-num min-w-0">
+                    <span className="text-[13px] text-white text-center ltr-num min-w-0">{money(Number(inv.amountWithVat || 0))}</span>
+                    <span className="text-[13px] text-center ltr-num min-w-0 text-[#0BB783]">
+                      {Math.abs(paid) > 0.01 ? money(paid) : <span className="text-white/30">-</span>}
+                    </span>
+                    <span className={`text-[13px] text-center ltr-num min-w-0 ${isPartiallyPaid ? "text-[#FFC107] font-medium" : "text-white"}`}>
+                      {Math.abs(remaining) > 0.01 ? money(remaining) : <span className="text-white/30">-</span>}
+                    </span>
+                    <span className="text-[12px] text-center ltr-num min-w-0 flex flex-col items-center gap-[3px]">
+                      {/* A partial payment leaves the invoice at status 'pending',
+                          so without this pill the row looked untouched even though
+                          money had gone out. Mirrors the OCR payment list. */}
+                      {isPartiallyPaid && (
+                        <span className="text-[9px] font-bold px-[8px] py-[1px] rounded-full bg-[#FFC107] text-black whitespace-nowrap leading-tight">
+                          ש.חלקית
+                        </span>
+                      )}
                       {inv.approval_status === 'pending_review' ? (
                         <button
                           className="text-[10px] font-bold px-[7px] py-[3px] rounded-full bg-white/20 text-white/60 hover:bg-green-500 hover:text-white transition-colors whitespace-nowrap"
@@ -8452,8 +8511,10 @@ function ExpensesPageInner() {
                       )}
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
+            </div>
             </div>
 
             {/* Show All Invoices Button */}
