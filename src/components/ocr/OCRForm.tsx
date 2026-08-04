@@ -6,6 +6,8 @@ import { X } from 'lucide-react';
 import type { OCRDocument, OCRFormData, DocumentType, ExpenseType, OCRLineItem } from '@/types/ocr';
 import KartesetCheckPanel from '@/components/ocr/KartesetCheckPanel';
 import { PartialPaymentModal, type PartialModalInvoice } from './PartialPaymentModal';
+import { OpenInvoiceEditModal, type OpenInvoiceEditValues } from './OpenInvoiceEditModal';
+import { DeliveryNoteEditModal, type DeliveryNoteEditValues } from './DeliveryNoteEditModal';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { createClient } from '@/lib/supabase/client';
@@ -630,7 +632,7 @@ export default function OCRForm({
   }, [showInvoiceAttachPicker, selectedBusinessId, supplierId]);
 
   // Payment tab — open invoices for linking (mirrors payments/page.tsx)
-  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string; clarification_reason: string | null; notes: string | null; amount_paid: number; attachment_urls: string[] };
+  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; vat_amount: number; status: string; clarification_reason: string | null; notes: string | null; amount_paid: number; attachment_urls: string[] };
   const [paymentOpenInvoices, setPaymentOpenInvoices] = useState<PaymentOpenInvoice[]>([]);
   const [paymentSelectedInvoiceIds, setPaymentSelectedInvoiceIds] = useState<Set<string>>(new Set());
   const [paymentExpandedMonths, setPaymentExpandedMonths] = useState<Set<string>>(new Set());
@@ -638,47 +640,86 @@ export default function OCRForm({
   const [showPartialModal, setShowPartialModal] = useState(false);
   const [isPartialPayment, setIsPartialPayment] = useState(false);
 
-  // Update an invoice's status inline from the open-invoices list. Mirrors
-  // the status select in /expenses so the user has the same three choices
-  // here without having to leave the OCR flow.
-  const updateOpenInvoiceStatus = async (invoiceId: string, newStatus: 'pending' | 'paid' | 'clarification') => {
+  // Quick-edit an open invoice (date / number / total / status) without leaving
+  // the OCR payment flow. Replaces the older status-only select — the status is
+  // now one field inside the edit popup.
+  const [editingOpenInvoice, setEditingOpenInvoice] = useState<PaymentOpenInvoice | null>(null);
+
+  const saveOpenInvoiceEdit = async (values: OpenInvoiceEditValues) => {
+    const target = editingOpenInvoice;
+    if (!target) return;
     const supabase = createClient();
-    const updatePayload: Record<string, unknown> = { status: newStatus };
-    // Leaving "בבירור" — clear the reason so it doesn't reappear stale.
-    if (newStatus !== 'clarification') {
-      updatePayload.clarification_reason = null;
+    const updatePayload: Record<string, unknown> = {
+      invoice_date: values.invoice_date,
+      invoice_number: values.invoice_number.trim() || null,
+      total_amount: values.total_amount,
+    };
+    // invoices store total + VAT; the pre-VAT figure is derived (total - vat).
+    // Scale VAT by the same factor as the total so an exempt supplier stays at 0
+    // and a "מע"מ 2/3" supplier keeps its partial rate.
+    if (target.total_amount) {
+      updatePayload.vat_amount = Number(
+        ((target.vat_amount || 0) * (values.total_amount / target.total_amount)).toFixed(2)
+      );
     }
-    const { error } = await supabase
-      .from('invoices')
-      .update(updatePayload)
-      .eq('id', invoiceId);
+    // Only write status when the user actually changed it — an untouched save on
+    // a 'partial' invoice must not downgrade it to 'pending'.
+    const statusChanged = values.status !== target.status;
+    if (statusChanged) {
+      updatePayload.status = values.status;
+      // Leaving "בבירור" — clear the reason so it doesn't reappear stale.
+      if (values.status !== 'clarification') updatePayload.clarification_reason = null;
+    }
+
+    const { error } = await supabase.from('invoices').update(updatePayload).eq('id', target.id);
     if (error) {
-      alert('שינוי הסטטוס נכשל. נסה שוב.');
+      alert('שמירת החשבונית נכשלה. נסה שוב.');
       return;
     }
-    if (newStatus === 'paid') {
+    setEditingOpenInvoice(null);
+
+    if (statusChanged && values.status === 'paid') {
       // Once marked paid, the invoice no longer belongs in the "open invoices"
       // list — drop it and de-select it.
-      setPaymentOpenInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+      setPaymentOpenInvoices(prev => prev.filter(inv => inv.id !== target.id));
       setPaymentSelectedInvoiceIds(prev => {
         const next = new Set(prev);
-        next.delete(invoiceId);
+        next.delete(target.id);
         return next;
       });
       return;
     }
+
     setPaymentOpenInvoices(prev => prev.map(inv =>
-      inv.id === invoiceId
-        ? { ...inv, status: newStatus, clarification_reason: newStatus === 'clarification' ? inv.clarification_reason : null }
+      inv.id === target.id
+        ? {
+            ...inv,
+            invoice_date: values.invoice_date,
+            invoice_number: values.invoice_number.trim() || null,
+            total_amount: values.total_amount,
+            vat_amount: (updatePayload.vat_amount as number) ?? inv.vat_amount,
+            status: statusChanged ? values.status : inv.status,
+            clarification_reason: statusChanged && values.status !== 'clarification' ? null : inv.clarification_reason,
+          }
         : inv
     ));
+
     // If we flipped INTO clarification, drop the selection so it can't be paid.
-    if (newStatus === 'clarification') {
+    if (statusChanged && values.status === 'clarification') {
       setPaymentSelectedInvoiceIds(prev => {
         const next = new Set(prev);
-        next.delete(invoiceId);
+        next.delete(target.id);
         return next;
       });
+      return;
+    }
+
+    // The amount auto-fill only re-runs when the SELECTION changes, so editing
+    // the total of an already-selected invoice would leave a stale payment
+    // amount. Clearing the "previously seen selection" makes the next render
+    // treat it as a change and re-sync.
+    if (values.total_amount !== target.total_amount && paymentSelectedInvoiceIds.has(target.id)) {
+      prevSelectedInvoiceIdsRef.current = new Set();
     }
   };
 
@@ -697,7 +738,7 @@ export default function OCRForm({
       const supabase = createClient();
       const { data } = await supabase
         .from('invoices')
-        .select('id, invoice_number, invoice_date, total_amount, status, clarification_reason, notes, amount_paid, attachment_url')
+        .select('id, invoice_number, invoice_date, total_amount, vat_amount, status, clarification_reason, notes, amount_paid, attachment_url')
         .eq('business_id', selectedBusinessId)
         .eq('supplier_id', paymentTabSupplierId)
         .in('status', ['pending', 'clarification', 'partial'])
@@ -709,6 +750,7 @@ export default function OCRForm({
         invoice_number: (inv.invoice_number as string) || null,
         invoice_date: inv.invoice_date as string,
         total_amount: Number(inv.total_amount),
+        vat_amount: Number(inv.vat_amount) || 0,
         status: inv.status as string,
         clarification_reason: (inv.clarification_reason as string) || null,
         notes: (inv.notes as string) || null,
@@ -789,11 +831,16 @@ export default function OCRForm({
     notes: '',
   });
   // Open delivery notes from DB for selected supplier
-  const [openDeliveryNotes, setOpenDeliveryNotes] = useState<Array<{ id: string; delivery_note_number: string; delivery_date: string; total_amount: number; notes: string | null }>>([]);
+  type OpenDeliveryNote = { id: string; delivery_note_number: string; delivery_date: string; total_amount: number; vat_amount: number; notes: string | null; attachment_urls: string[] };
+  const [openDeliveryNotes, setOpenDeliveryNotes] = useState<OpenDeliveryNote[]>([]);
   const [selectedDeliveryNoteIds, setSelectedDeliveryNoteIds] = useState<Set<string>>(new Set());
   const [isLoadingDeliveryNotes, setIsLoadingDeliveryNotes] = useState(false);
   // Summary tab — month groups expand/collapse state (keyed as "YYYY-MM")
   const [summaryExpandedMonths, setSummaryExpandedMonths] = useState<Set<string>>(new Set());
+  // Summary tab — quick edit of a single open delivery note (date/number/total/note).
+  // Saves straight to delivery_notes so the user doesn't have to leave the
+  // markezet check for /expenses just to fix a scanned number or amount.
+  const [editingDeliveryNote, setEditingDeliveryNote] = useState<OpenDeliveryNote | null>(null);
 
   // Business credit cards
   const [businessCreditCards, setBusinessCreditCards] = useState<{id: string, card_name: string, billing_day: number}[]>([]);
@@ -1713,7 +1760,7 @@ export default function OCRForm({
       const supabase = (await import('@/lib/supabase/client')).createClient();
       const { data } = await supabase
         .from('delivery_notes')
-        .select('id, delivery_note_number, delivery_date, total_amount, notes')
+        .select('id, delivery_note_number, delivery_date, total_amount, vat_amount, notes, attachment_url')
         .eq('business_id', selectedBusinessId)
         .eq('supplier_id', summarySupplierId)
         .is('invoice_id', null)
@@ -1741,7 +1788,9 @@ export default function OCRForm({
           delivery_note_number: d.delivery_note_number || '',
           delivery_date: toLocalYMD(d.delivery_date),
           total_amount: Number(d.total_amount) || 0,
+          vat_amount: Number(d.vat_amount) || 0,
           notes: d.notes,
+          attachment_urls: parseAttachmentUrls((d.attachment_url as string) || null),
         }));
         setOpenDeliveryNotes(mapped);
         // Start with nothing selected — the user picks which delivery notes
@@ -1756,6 +1805,56 @@ export default function OCRForm({
     fetchOpenNotes();
     return () => { cancelled = true; };
   }, [selectedBusinessId, summarySupplierId, documentType]);
+
+  // Save the markezet quick-edit of an open delivery note straight to the DB,
+  // then patch it into the local list so the month grouping, the ticked-notes
+  // sum and the auto-filled markezet total all follow without a refetch
+  // (a refetch would clear the user's selection mid-check).
+  const saveDeliveryNoteEdit = async (values: DeliveryNoteEditValues) => {
+    const target = editingDeliveryNote;
+    if (!target) return;
+    const supabase = createClient();
+    // delivery_notes store subtotal + vat + total. Scale VAT by the same factor
+    // as the total so an exempt supplier stays at 0 and a "מע"מ 2/3" supplier
+    // keeps its partial rate; subtotal is then the derived remainder.
+    const nextVat = target.total_amount
+      ? Number(((target.vat_amount || 0) * (values.total_amount / target.total_amount)).toFixed(2))
+      : (target.vat_amount || 0);
+    const { error } = await supabase
+      .from('delivery_notes')
+      .update({
+        delivery_date: values.delivery_date,
+        delivery_note_number: values.delivery_note_number.trim() || null,
+        total_amount: values.total_amount,
+        vat_amount: nextVat,
+        subtotal: Number((values.total_amount - nextVat).toFixed(2)),
+        notes: values.notes.trim() || null,
+      })
+      .eq('id', target.id);
+    if (error) {
+      alert('שמירת תעודת המשלוח נכשלה. נסה שוב.');
+      return;
+    }
+    setEditingDeliveryNote(null);
+    setOpenDeliveryNotes(prev => prev.map(n =>
+      n.id === target.id
+        ? {
+            ...n,
+            delivery_date: values.delivery_date,
+            delivery_note_number: values.delivery_note_number.trim(),
+            total_amount: values.total_amount,
+            vat_amount: nextVat,
+            notes: values.notes.trim() || null,
+          }
+        : n
+    ));
+    // A moved date can land the note in a month group that is still collapsed —
+    // open it so the edited row stays visible instead of seeming to vanish.
+    const movedToMonth = values.delivery_date.slice(0, 7);
+    if (movedToMonth) {
+      setSummaryExpandedMonths(prev => new Set(prev).add(movedToMonth));
+    }
+  };
 
   // Calculate selected delivery notes total
   const selectedDeliveryNotesTotal = useMemo(() => {
@@ -4682,6 +4781,13 @@ export default function OCRForm({
             }}
           />
 
+          <OpenInvoiceEditModal
+            open={!!editingOpenInvoice}
+            invoice={editingOpenInvoice}
+            onClose={() => setEditingOpenInvoice(null)}
+            onSave={saveOpenInvoiceEdit}
+          />
+
           {paymentIsLoadingInvoices ? (
             <div className="flex justify-center py-[15px]">
               <svg className="animate-spin w-5 h-5 text-white/40" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" strokeLinecap="round"/></svg>
@@ -4857,30 +4963,27 @@ export default function OCRForm({
                                 </div>
                               )}
 
-                              {/* Status changer — same 3 options as /expenses, on every row, anchored
-                                  to the bottom of the card with a soft divider so it reads as a
-                                  meta-action rather than a floating control. */}
-                              <div className="flex items-center justify-between gap-[8px] px-[10px] py-[6px] border-t border-white/[0.06] bg-white/[0.02]" dir="rtl">
-                                <span className="text-[11px] text-white/50">שינוי סטטוס</span>
-                                <select
-                                  value={inv.status}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    const newStatus = e.target.value as 'pending' | 'paid' | 'clarification';
-                                    if (newStatus === inv.status) return;
-                                    const labels: Record<string, string> = { pending: 'ממתין לתשלום', paid: 'שולם', clarification: 'בבירור' };
-                                    confirm(
-                                      `לשנות את הסטטוס של חשבונית ${inv.invoice_number || '(ללא מספר)'} ל"${labels[newStatus]}"?`,
-                                      () => updateOpenInvoiceStatus(inv.id, newStatus)
-                                    );
-                                  }}
-                                  className="bg-transparent border border-[#727BA0]/60 text-white/90 text-[11px] rounded-[6px] px-[8px] py-[3px] cursor-pointer focus:outline-none focus:border-[#29318A] hover:border-white/40 transition-colors"
-                                >
-                                  <option value="pending" className="bg-[#1A1F3D]">ממתין לתשלום</option>
-                                  <option value="paid" className="bg-[#1A1F3D]">שולם</option>
-                                  <option value="clarification" className="bg-[#1A1F3D]">בבירור</option>
-                                </select>
-                              </div>
+                              {/* Edit action — same pencil as /expenses, on every row, anchored to
+                                  the bottom of the card with a soft divider so it reads as a
+                                  meta-action rather than a floating control. Opens the quick-edit
+                                  popup (date / number / total / status) so a wrong document can be
+                                  fixed without leaving the payment flow. */}
+                              <button
+                                type="button"
+                                title="עריכת מסמך"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingOpenInvoice(inv);
+                                }}
+                                className="w-full flex items-center justify-between gap-[8px] px-[10px] py-[6px] border-t border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
+                                dir="rtl"
+                              >
+                                <span className="text-[11px] text-white/50">עריכת מסמך</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/70">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                </svg>
+                              </button>
                             </div>
                           );
                         })}
@@ -5002,6 +5105,13 @@ export default function OCRForm({
 
       {/* Open Delivery Notes from DB */}
       <div className="flex flex-col gap-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
+        <DeliveryNoteEditModal
+          open={!!editingDeliveryNote}
+          note={editingDeliveryNote}
+          onClose={() => setEditingDeliveryNote(null)}
+          onSave={saveDeliveryNoteEdit}
+        />
+
         {/* Label on the right (RTL natural), action button on the left. */}
         <div className="flex items-center justify-between">
           <label className="text-[15px] font-medium text-white">תעודות משלוח פתוחות ({openDeliveryNotes.length})</label>
@@ -5090,37 +5200,87 @@ export default function OCRForm({
                       {monthNotes.map(note => {
                         const isSelected = selectedDeliveryNoteIds.has(note.id);
                         return (
-                          <button
+                          // Row = selection button + document-preview + quick-edit.
+                          // The two action buttons live OUTSIDE the selection
+                          // button (buttons can't nest) and sit at the row's left
+                          // edge (last DOM children in RTL), same as the payment
+                          // tab's open-invoices list.
+                          <div
                             key={note.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedDeliveryNoteIds(prev => {
-                                const next = new Set(prev);
-                                if (next.has(note.id)) next.delete(note.id); else next.add(note.id);
-                                return next;
-                              });
-                            }}
-                            className={`flex items-center justify-between rounded-[8px] p-[10px] transition-colors cursor-pointer ${isSelected ? 'bg-[#29318A]/40 border border-[#29318A]' : 'bg-[#1a1f42] border border-transparent hover:border-white/20'}`}
+                            className={`flex items-stretch rounded-[8px] overflow-hidden transition-colors ${isSelected ? 'bg-[#29318A]/40 border border-[#29318A]' : 'bg-[#1a1f42] border border-transparent hover:border-white/20'}`}
                           >
-                            <div className="flex items-center gap-[8px]">
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : 'text-white/30'}>
-                                {isSelected ? (
-                                  <><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
-                                ) : (
-                                  <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDeliveryNoteIds(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(note.id)) next.delete(note.id); else next.add(note.id);
+                                  return next;
+                                });
+                              }}
+                              className="flex-1 min-w-0 flex items-center justify-between p-[10px] cursor-pointer hover:bg-white/[0.03] transition-colors"
+                            >
+                              <div className="flex items-center gap-[8px]">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : 'text-white/30'}>
+                                  {isSelected ? (
+                                    <><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
+                                  ) : (
+                                    <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
+                                  )}
+                                </svg>
+                                <span className="text-[14px] text-white font-medium ltr-num">
+                                  &#8362;{note.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                              <div className="flex flex-col items-end min-w-0">
+                                <span className="text-[14px] text-white truncate">{note.delivery_note_number}</span>
+                                <span className="text-[11px] text-white/50">
+                                  {note.delivery_date ? new Date(note.delivery_date + 'T00:00:00').toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+                                </span>
+                              </div>
+                            </button>
+                            {note.attachment_urls.length > 0 && (
+                              <button
+                                type="button"
+                                title={note.attachment_urls.length > 1 ? `צפייה במסמך (${note.attachment_urls.length} דפים)` : 'צפייה במסמך'}
+                                aria-label="צפייה במסמך"
+                                onClick={() => {
+                                  const url = note.attachment_urls[0];
+                                  // PDFs open in a new tab (the inline lightbox is <img>-only);
+                                  // images use the existing full-screen preview overlay.
+                                  if (isPdfUrl(url)) {
+                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                  } else {
+                                    setMergePreviewUrl(url);
+                                  }
+                                }}
+                                className="relative flex-shrink-0 px-[10px] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors border-s border-white/[0.06]"
+                              >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                                  <polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                                {note.attachment_urls.length > 1 && (
+                                  <span className="absolute top-[4px] end-[2px] min-w-[14px] h-[14px] px-[3px] rounded-full bg-[#29318A] text-white text-[9px] font-bold flex items-center justify-center ltr-num leading-none">
+                                    {note.attachment_urls.length}
+                                  </span>
                                 )}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              title="עריכת תעודה"
+                              aria-label="עריכת תעודה"
+                              onClick={() => setEditingDeliveryNote(note)}
+                              className="flex-shrink-0 px-[10px] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors border-s border-white/[0.06]"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 20h9"/>
+                                <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
                               </svg>
-                              <span className="text-[14px] text-white font-medium ltr-num">
-                                &#8362;{note.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <span className="text-[14px] text-white">{note.delivery_note_number}</span>
-                              <span className="text-[11px] text-white/50">
-                                {note.delivery_date ? new Date(note.delivery_date + 'T00:00:00').toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
-                              </span>
-                            </div>
-                          </button>
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
