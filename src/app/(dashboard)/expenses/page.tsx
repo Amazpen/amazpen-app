@@ -108,6 +108,8 @@ interface InvoiceDisplay {
   rawDate: string;
   supplier: string;
   reference: string;
+  // Tax-authority allocation number ("מספר הקצאה") — needed by the Summit export.
+  allocationNumber?: string;
   amount: number;
   amountWithVat: number;
   amountBeforeVat: number;
@@ -307,6 +309,9 @@ function ExpensesPageInner() {
   const [expenseType, setExpenseType] = useState<"current" | "goods" | "employees">("current");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  // Tax-authority allocation number ("מספר הקצאה"). OCR already extracts it;
+  // this lets manual entries carry it too, since the Summit export needs it.
+  const [allocationNumber, setAllocationNumber] = useState("");
   const [amountBeforeVat, setAmountBeforeVat] = useState("");
   const [partialVat, setPartialVat] = useState(false);
   const [vatAmount, setVatAmount] = useState("");
@@ -709,6 +714,7 @@ function ExpensesPageInner() {
               rawDate: primaryDate ? toLocalDateStr(new Date(primaryDate)) : "",
               supplier: inv.supplier?.name || "לא ידוע",
               reference: inv.invoice_number || "",
+              allocationNumber: (inv as unknown as { allocation_number?: string | null }).allocation_number || "",
               amount: Number(inv.total_amount),
               amountWithVat: Number(inv.total_amount),
               amountBeforeVat: Number(inv.subtotal),
@@ -1976,14 +1982,14 @@ function ExpensesPageInner() {
   const saveExpenseDraftData = useCallback(() => {
     if (!showAddExpensePopup) return;
     saveExpenseDraft({
-      expenseDate, referenceDate, expenseType, selectedSupplier, invoiceNumber,
+      expenseDate, referenceDate, expenseType, selectedSupplier, invoiceNumber, allocationNumber,
       amountBeforeVat, partialVat, vatAmount, notes,
       isPaidInFull, needsClarification, clarificationReason,
       paymentMethod, paymentDate, paymentInstallments, paymentReference, paymentNotes,
       popupPaymentMethods,
     });
   }, [saveExpenseDraft, showAddExpensePopup,
-    expenseDate, referenceDate, expenseType, selectedSupplier, invoiceNumber,
+    expenseDate, referenceDate, expenseType, selectedSupplier, invoiceNumber, allocationNumber,
     amountBeforeVat, partialVat, vatAmount, notes,
     isPaidInFull, needsClarification, clarificationReason,
     paymentMethod, paymentDate, paymentInstallments, paymentReference, paymentNotes,
@@ -2012,6 +2018,7 @@ function ExpensesPageInner() {
           if (draft.expenseType) setExpenseType(draft.expenseType as "current" | "goods" | "employees");
           if (draft.selectedSupplier) setSelectedSupplier(draft.selectedSupplier as string);
           if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber as string);
+          if (draft.allocationNumber) setAllocationNumber(draft.allocationNumber as string);
           if (draft.amountBeforeVat) setAmountBeforeVat(draft.amountBeforeVat as string);
           if (draft.partialVat !== undefined) setPartialVat(draft.partialVat as boolean);
           if (draft.vatAmount) setVatAmount(draft.vatAmount as string);
@@ -2431,6 +2438,7 @@ function ExpensesPageInner() {
           }
         }
         if (data.document_number) setInvoiceNumber(data.document_number);
+        if (data.allocation_number) setAllocationNumber(data.allocation_number);
         if (data.subtotal != null) { setAmountBeforeVat(data.subtotal.toString()); setTotalWithVatInput(""); }
         if (data.vat_amount != null) {
           const expectedVat = (data.subtotal || 0) * 0.18;
@@ -2613,6 +2621,7 @@ function ExpensesPageInner() {
           .from("invoices")
           .update({
             invoice_number: invoiceNumber || null,
+            allocation_number: allocationNumber.trim() || null,
             reference_date: referenceDate || null,
             subtotal: parseFloat(amountBeforeVat),
             vat_amount: calculatedVat,
@@ -2729,6 +2738,7 @@ function ExpensesPageInner() {
             business_id: selectedBusinesses[0], // Use first selected business
             supplier_id: selectedSupplier,
             invoice_number: invoiceNumber || null,
+            allocation_number: allocationNumber.trim() || null,
             invoice_date: expenseDate,
             reference_date: referenceDate || null,
             subtotal: parseFloat(amountBeforeVat),
@@ -2976,6 +2986,7 @@ function ExpensesPageInner() {
     setExpenseType("current");
     setSelectedSupplier("");
     setInvoiceNumber("");
+    setAllocationNumber("");
     setAmountBeforeVat("");
     setPartialVat(false);
     setVatAmount("");
@@ -3317,6 +3328,7 @@ function ExpensesPageInner() {
       setVatAmount("");
     }
     setInvoiceNumber(invoice.reference);
+    setAllocationNumber(invoice.allocationNumber || "");
     setAmountBeforeVat(invoice.amountBeforeVat.toString());
     setTotalWithVatInput("");
     setNotes(invoice.notes);
@@ -3443,6 +3455,7 @@ function ExpensesPageInner() {
         updateData = {
           supplier_id: selectedSupplier,
           invoice_number: invoiceNumber || null,
+          allocation_number: allocationNumber.trim() || null,
           invoice_date: expenseDate,
           reference_date: referenceDate || null,
           subtotal: parseFloat(amountBeforeVat),
@@ -3774,6 +3787,7 @@ function ExpensesPageInner() {
     setExpenseType("current");
     setSelectedSupplier("");
     setInvoiceNumber("");
+    setAllocationNumber("");
     setAmountBeforeVat("");
     setPartialVat(false);
     setVatAmount("");
@@ -6257,6 +6271,25 @@ function ExpensesPageInner() {
                 )}
               </div>
 
+              {/* Allocation number ("מספר הקצאה") — invoices only; delivery
+                  notes have no such column. Needed for the Summit export. */}
+              {!linkToCoordinator && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[15px] font-normal text-white text-right">מספר הקצאה</label>
+                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      title="מספר הקצאה"
+                      value={allocationNumber}
+                      onChange={(e) => setAllocationNumber(e.target.value)}
+                      placeholder="מספר הקצאה..."
+                      className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Amount Before VAT */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
@@ -7210,6 +7243,25 @@ function ExpensesPageInner() {
                   </div>
                 )}
               </div>
+
+              {/* Allocation number ("מספר הקצאה") — invoices only; delivery
+                  notes have no such column. Needed for the Summit export. */}
+              {editingInvoice?.documentType !== "delivery_note" && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[15px] font-normal text-white text-right">מספר הקצאה</label>
+                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      title="מספר הקצאה"
+                      value={allocationNumber}
+                      onChange={(e) => setAllocationNumber(e.target.value)}
+                      placeholder="מספר הקצאה..."
+                      className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Amount Before VAT */}
               <div className="flex flex-col gap-[5px]">

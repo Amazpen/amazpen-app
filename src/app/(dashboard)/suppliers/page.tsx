@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -36,6 +36,16 @@ interface ExpenseCategory {
   is_active: boolean;
 }
 
+// "סוג תנועה" — per-business list the customer maintains themselves (seeded
+// with מע"מ מלא / מע"מ חלקי). Feeds the first column of the Summit export.
+interface SupplierTransactionType {
+  id: string;
+  business_id: string;
+  name: string;
+  display_order: number | null;
+  is_active: boolean;
+}
+
 // Supplier type from database
 interface Supplier {
   id: string;
@@ -44,6 +54,10 @@ interface Supplier {
   expense_type: string;
   expense_category_id?: string;
   parent_category_id?: string;
+  // Summit export fields: movement type + the supplier's company number
+  // (ח.פ / ע.מ), which Summit calls "מספר עוסק".
+  transaction_type_id?: string;
+  tax_id?: string;
   expense_nature?: string;
   payment_terms_days?: number;
   vat_type?: string;
@@ -176,6 +190,9 @@ export default function SuppliersPage() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [parentCategories, setParentCategories] = useState<ExpenseCategory[]>([]);
 
+  // "סוג תנועה" options from database (per business)
+  const [transactionTypes, setTransactionTypes] = useState<SupplierTransactionType[]>([]);
+
   // Credit cards from database
   const [businessCreditCards, setBusinessCreditCards] = useState<{ id: string; card_name: string; last_four_digits: string | null }[]>([]);
 
@@ -289,6 +306,12 @@ export default function SuppliersPage() {
   const [isAddingParentCategory, setIsAddingParentCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newParentCategoryName, setNewParentCategoryName] = useState("");
+  // Summit export fields — "סוג תנועה" (managed list, like categories) and
+  // "מספר עוסק" (the supplier's ח.פ / ע.מ, stored in suppliers.tax_id).
+  const [transactionTypeId, setTransactionTypeId] = useState("");
+  const [isAddingTransactionType, setIsAddingTransactionType] = useState(false);
+  const [newTransactionTypeName, setNewTransactionTypeName] = useState("");
+  const [supplierTaxId, setSupplierTaxId] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [vatRequired, setVatRequired] = useState<"yes" | "no" | "partial" | "two_thirds">("yes");
   const [isFixedExpense, setIsFixedExpense] = useState(false);
@@ -327,7 +350,7 @@ export default function SuppliersPage() {
       expenseType, category, parentCategory, paymentTerms,
       vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
       primaryPaymentMethod, selectedCreditCardId, fixedNote,
-      supplierEmail, requestKarteset,
+      supplierEmail, requestKarteset, transactionTypeId, supplierTaxId,
     });
   }, [saveSupplierDraft, isAddSupplierModalOpen, isEditingSupplier,
     supplierName, hasPreviousObligations, waitingForCoordinator,
@@ -336,7 +359,7 @@ export default function SuppliersPage() {
     expenseType, category, parentCategory, paymentTerms,
     vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
     primaryPaymentMethod, selectedCreditCardId, fixedNote,
-    supplierEmail, requestKarteset]);
+    supplierEmail, requestKarteset, transactionTypeId, supplierTaxId]);
 
   useEffect(() => {
     if (supplierDraftRestored.current) {
@@ -373,6 +396,8 @@ export default function SuppliersPage() {
           if (draft.fixedNote) setFixedNote(draft.fixedNote as string);
           if (draft.supplierEmail) setSupplierEmail(draft.supplierEmail as string);
           if (draft.requestKarteset !== undefined) setRequestKarteset(draft.requestKarteset as boolean);
+          if (draft.transactionTypeId) setTransactionTypeId(draft.transactionTypeId as string);
+          if (draft.supplierTaxId) setSupplierTaxId(draft.supplierTaxId as string);
         }
         supplierDraftRestored.current = true;
       }, 0);
@@ -401,9 +426,9 @@ export default function SuppliersPage() {
     if (params.get("addSupplier") !== "1") return;
 
     const prefName = params.get("name") || "";
-    // /suppliers form doesn't currently surface a tax_id field, so we ignore
-    // ?taxId — OCR keeps the value in the document itself and applies it
-    // to the invoice it creates, not the supplier record.
+    // The form now surfaces "מספר עוסק" (suppliers.tax_id) for the Summit
+    // export, so the OCR-extracted ?taxId prefills it instead of being dropped.
+    const prefTaxId = params.get("taxId") || "";
     const prefBusinessId = params.get("businessId") || "";
     const returnTo = params.get("returnTo") || "";
 
@@ -450,6 +475,8 @@ export default function SuppliersPage() {
     setFixedNote("");
     setSupplierEmail(currentUserEmail || "");
     setRequestKarteset(false);
+    setTransactionTypeId("");
+    setSupplierTaxId(prefTaxId);
     setExpenseType("current");
     setIsAddSupplierModalOpen(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -703,6 +730,50 @@ export default function SuppliersPage() {
     fetchCategories();
   }, [selectedBusinesses]);
 
+  // Fetch "סוג תנועה" options (Summit export) for the selected businesses
+  useEffect(() => {
+    async function fetchTransactionTypes() {
+      if (selectedBusinesses.length === 0) {
+        setTransactionTypes([]);
+        return;
+      }
+
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("supplier_transaction_types")
+        .select("*")
+        .in("business_id", selectedBusinesses)
+        .is("deleted_at", null)
+        .eq("is_active", true)
+        .order("display_order", { ascending: true, nullsFirst: false })
+        .order("name", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching transaction types:", error);
+        return;
+      }
+
+      setTransactionTypes((data || []) as SupplierTransactionType[]);
+    }
+
+    fetchTransactionTypes();
+  }, [selectedBusinesses]);
+
+  // The supplier form always writes to a single business — the one being
+  // edited, or the first selected one when creating. Scope the "סוג תנועה"
+  // dropdown to it so a multi-business selection can't offer another
+  // business's options (which RLS would then reject on save).
+  const transactionTypeBusinessId =
+    editingSupplierData?.business_id || selectedBusinesses[0] || "";
+  const businessTransactionTypes = useMemo(
+    () => transactionTypes.filter((t) => t.business_id === transactionTypeBusinessId),
+    [transactionTypes, transactionTypeBusinessId],
+  );
+  // Fallback for new suppliers when the user doesn't pick anything.
+  const defaultTransactionTypeId =
+    businessTransactionTypes.find((t) => t.name === 'מע"מ מלא')?.id || "";
+
   // Fetch credit cards from database
   useEffect(() => {
     async function fetchCreditCards() {
@@ -758,6 +829,10 @@ export default function SuppliersPage() {
     setIsAddingParentCategory(false);
     setNewCategoryName("");
     setNewParentCategoryName("");
+    setTransactionTypeId("");
+    setIsAddingTransactionType(false);
+    setNewTransactionTypeName("");
+    setSupplierTaxId("");
     // Reset edit mode
     setIsEditingSupplier(false);
     setEditingSupplierData(null);
@@ -796,6 +871,8 @@ export default function SuppliersPage() {
     setIsSupplierActive(selectedSupplier.is_active !== false);
     setSupplierEmail(selectedSupplier.email || "");
     setRequestKarteset(selectedSupplier.request_karteset || false);
+    setTransactionTypeId(selectedSupplier.transaction_type_id || "");
+    setSupplierTaxId(selectedSupplier.tax_id || "");
 
     // Close detail popup and open add/edit modal.
     // Open the edit modal on the next tick to let Radix fully finish
@@ -1020,6 +1097,8 @@ export default function SuppliersPage() {
           is_active: isSupplierActive,
           email: supplierEmail.trim() || null,
           request_karteset: supplierEmail.trim() ? requestKarteset : false,
+          transaction_type_id: transactionTypeId || null,
+          tax_id: supplierTaxId.trim() || null,
         })
         .eq("id", editingSupplierData.id);
 
@@ -1207,6 +1286,86 @@ export default function SuppliersPage() {
     setIsAddingParentCategory(false);
   };
 
+  // Add a new "סוג תנועה" option to this business — same revive-or-insert
+  // flow as the categories above, because the unique index is soft-delete
+  // aware and a plain insert would 23505 on a previously removed name.
+  const handleAddTransactionType = async () => {
+    const trimmedName = newTransactionTypeName.trim();
+    if (!trimmedName) {
+      showToast("יש להזין שם סוג תנועה", "warning");
+      return;
+    }
+
+    if (selectedBusinesses.length === 0) {
+      showToast("יש לבחור עסק תחילה", "warning");
+      return;
+    }
+
+    const supabase = createClient();
+    const businessId = selectedBusinesses[0];
+
+    const { data: existing } = await supabase
+      .from("supplier_transaction_types")
+      .select("id, deleted_at, is_active")
+      .eq("business_id", businessId)
+      .eq("name", trimmedName)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      if (existing.deleted_at === null && existing.is_active) {
+        showToast(`סוג תנועה בשם "${trimmedName}" כבר קיים בעסק זה`, "warning");
+        return;
+      }
+      const { data: revived, error: reviveError } = await supabase
+        .from("supplier_transaction_types")
+        .update({ deleted_at: null, is_active: true })
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+      if (reviveError || !revived) {
+        console.error("Error reviving transaction type:", reviveError);
+        showToast("שגיאה בהוספת סוג תנועה", "error");
+        return;
+      }
+
+      setTransactionTypes((prev) => {
+        const without = prev.filter((t) => t.id !== revived.id);
+        return [...without, revived as SupplierTransactionType];
+      });
+      setTransactionTypeId(revived.id);
+      setNewTransactionTypeName("");
+      setIsAddingTransactionType(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("supplier_transaction_types")
+      .insert({
+        business_id: businessId,
+        name: trimmedName,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding transaction type:", error);
+      if (error.code === "23505") {
+        showToast(`סוג תנועה בשם "${trimmedName}" כבר קיים בעסק זה`, "warning");
+      } else {
+        showToast("שגיאה בהוספת סוג תנועה", "error");
+      }
+      return;
+    }
+
+    setTransactionTypes((prev) => [...prev, data as SupplierTransactionType]);
+    setTransactionTypeId(data.id);
+    setNewTransactionTypeName("");
+    setIsAddingTransactionType(false);
+  };
+
   const handleSaveSupplier = async () => {
     if (!supplierName.trim()) {
       showToast("יש להזין שם ספק", "warning");
@@ -1332,6 +1491,11 @@ export default function SuppliersPage() {
           is_active: true,
           email: supplierEmail.trim() || null,
           request_karteset: supplierEmail.trim() ? requestKarteset : false,
+          // Summit export. A new supplier with no explicit pick falls back to
+          // the business's default movement type ('מע"מ מלא') so the export
+          // column is never blank.
+          transaction_type_id: transactionTypeId || defaultTransactionTypeId || null,
+          tax_id: supplierTaxId.trim() || null,
         })
         .select()
         .single();
@@ -3095,6 +3259,76 @@ export default function SuppliersPage() {
                   </Select>
                   );
                 })()}
+              </div>
+
+              {/* Transaction type (Summit export — "סוג תנועה") */}
+              <div className="flex flex-col gap-[5px]">
+                <div className="flex items-center justify-between">
+                  <label className="text-[15px] font-medium text-white">סוג תנועה</label>
+                  <Button
+                    type="button"
+                    onClick={() => setIsAddingTransactionType(!isAddingTransactionType)}
+                    className="bg-[#29318A] text-white text-[13px] font-medium px-[10px] py-[3px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
+                  >
+                    {isAddingTransactionType ? "ביטול" : "+ חדש"}
+                  </Button>
+                </div>
+                {isAddingTransactionType ? (
+                  <div className="flex gap-[8px]">
+                    <div className="flex-1 border border-[#727BA0] rounded-[10px] h-[50px]">
+                      <Input
+                        type="text"
+                        title="שם סוג תנועה חדש"
+                        value={newTransactionTypeName}
+                        onChange={(e) => setNewTransactionTypeName(e.target.value)}
+                        placeholder="הזן שם סוג תנועה..."
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                        autoFocus
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleAddTransactionType}
+                      disabled={!newTransactionTypeName.trim()}
+                      className="bg-[#3CD856] text-white text-[14px] font-semibold px-[15px] rounded-[10px] hover:bg-[#2FB847] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      הוסף
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    value={transactionTypeId || "__none__"}
+                    onValueChange={(val) => setTransactionTypeId(val === "__none__" ? "" : val)}
+                  >
+                    <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                      <SelectValue placeholder="בחר סוג תנועה" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">בחר סוג תנועה</SelectItem>
+                      {businessTransactionTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {/* Company number (Summit export — "מספר עוסק") */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">מספר עוסק (ח.פ / ע.מ)</label>
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    title="מספר עוסק (ח.פ / ע.מ)"
+                    value={supplierTaxId}
+                    onChange={(e) => setSupplierTaxId(e.target.value)}
+                    placeholder="לדוגמה: 514123456"
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                  />
+                </div>
               </div>
 
               {/* Payment Terms (hidden for previous obligations) */}
