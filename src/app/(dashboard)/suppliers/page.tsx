@@ -4270,6 +4270,41 @@ export default function SuppliersPage() {
                                         </svg>
                                       </a>
                                     )}
+                                    {/* Payment confirmation. The scan attached when a
+                                        payment is approved in OCR lands on
+                                        payments.receipt_url and is never copied to
+                                        invoices.attachment_url — so a fixed-expense
+                                        invoice (ארנונה, שכירות) that has no scan of its
+                                        own showed nothing here, even though a
+                                        confirmation existed. Kept green and separate
+                                        from the invoice scan above: one is the
+                                        supplier's document, the other is proof we paid.
+                                        Reachable in full via "הצגת תשלומים מקושרים". */}
+                                    {(() => {
+                                      const receiptUrls = Array.from(new Set(
+                                        invoice.linkedPayments.flatMap(p => parseAttachmentUrls(p.receiptUrl))
+                                      ));
+                                      if (receiptUrls.length === 0) return null;
+                                      return (
+                                        <Button
+                                          type="button"
+                                          title={receiptUrls.length > 1 ? `אסמכתאות תשלום (${receiptUrls.length})` : "אסמכתת תשלום"}
+                                          onClick={() => setViewerDocUrl(receiptUrls[0])}
+                                          className="relative w-[18px] h-[18px] text-[#0BB783] hover:text-[#2FD79E] transition-colors cursor-pointer"
+                                        >
+                                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                                            <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1Z"/>
+                                            <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
+                                            <path d="M12 17.5v-11"/>
+                                          </svg>
+                                          {receiptUrls.length > 1 && (
+                                            <span className="absolute -top-[5px] -right-[5px] min-w-[13px] h-[13px] px-[3px] rounded-full bg-[#0BB783] text-white text-[9px] font-bold flex items-center justify-center ltr-num leading-none">
+                                              {receiptUrls.length}
+                                            </span>
+                                          )}
+                                        </Button>
+                                      );
+                                    })()}
                                     {/* Edit Icon (leftmost in RTL) */}
                                     <Button
                                       type="button"

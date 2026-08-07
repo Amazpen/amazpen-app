@@ -125,6 +125,11 @@ interface InvoiceDisplay {
   notes: string;
   attachmentUrl: string | null;
   attachmentUrls: string[];
+  // Scans attached when a PAYMENT was approved. These live on
+  // payments.receipt_url and are never copied to invoices.attachment_url, so
+  // they need their own slot — kept apart from the invoice's own scan so the
+  // two documents aren't conflated.
+  paymentReceiptUrls?: string[];
   clarificationReason: string | null;
   isFixed: boolean;
   approval_status: string | null;
@@ -4421,6 +4426,32 @@ function ExpensesPageInner() {
         return sawAny ? paid : (Number(inv.amount_paid) || 0);
       };
 
+      // The file attached when a payment was approved in OCR lands on
+      // payments.receipt_url ONLY — invoices.attachment_url stays null. For
+      // auto-generated fixed-expense invoices (ארנונה, שכירות…) the invoice has
+      // no scan of its own, so the row showed no document icon at all even
+      // though a payment confirmation had been attached.
+      const collectReceiptUrls = (inv: {
+        payments?: { receipt_url?: string | null; deleted_at?: string | null }[] | null;
+        payment_invoice_links?: { payment: { receipt_url?: string | null } | null }[] | null;
+      }): string[] => {
+        const urls: string[] = [];
+        const seen = new Set<string>();
+        const push = (raw: string | null | undefined) => {
+          for (const u of parseAttachmentUrls(raw ?? null)) {
+            if (seen.has(u)) continue;
+            seen.add(u);
+            urls.push(u);
+          }
+        };
+        for (const p of inv.payments || []) {
+          if (p.deleted_at) continue;
+          push(p.receipt_url);
+        }
+        for (const link of inv.payment_invoice_links || []) push(link.payment?.receipt_url);
+        return urls;
+      };
+
       const displayInvoices: InvoiceDisplay[] = (invoicesData || []).map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => {
         // Display by value-date (reference_date) when present; fall back to invoice_date
         const primaryDate = inv.reference_date || inv.invoice_date;
@@ -4443,6 +4474,7 @@ function ExpensesPageInner() {
         notes: inv.notes || "",
         attachmentUrl: inv.attachment_url || null,
         attachmentUrls: parseAttachmentUrls(inv.attachment_url),
+        paymentReceiptUrls: collectReceiptUrls(inv as unknown as Parameters<typeof collectReceiptUrls>[0]),
         clarificationReason: inv.clarification_reason || null,
         isFixed: inv.supplier?.is_fixed_expense || false,
         approval_status: inv.approval_status || null,
@@ -8557,6 +8589,31 @@ function ExpensesPageInner() {
                           {inv.attachmentUrls.length > 1 && (
                             <span className="absolute -top-[4px] -right-[4px] min-w-[14px] h-[14px] px-[3px] rounded-full bg-[#29318A] text-white text-[9px] font-bold flex items-center justify-center ltr-num leading-none">
                               {inv.attachmentUrls.length}
+                            </span>
+                          )}
+                        </Button>
+                      )}
+                      {/* Payment confirmation. Kept as its own (green) icon rather
+                          than folded into the document icon above — one is the
+                          supplier's invoice, the other is proof we paid it. */}
+                      {(inv.paymentReceiptUrls?.length ?? 0) > 0 && (
+                        <Button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openViewer(inv.paymentReceiptUrls![0], inv.paymentReceiptUrls!);
+                          }}
+                          className="relative w-[25px] h-[25px] flex items-center justify-center text-[#0BB783] hover:text-[#2FD79E] transition-colors"
+                          title={inv.paymentReceiptUrls!.length > 1 ? `אסמכתאות תשלום (${inv.paymentReceiptUrls!.length})` : "אסמכתת תשלום"}
+                        >
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1Z"/>
+                            <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
+                            <path d="M12 17.5v-11"/>
+                          </svg>
+                          {inv.paymentReceiptUrls!.length > 1 && (
+                            <span className="absolute -top-[4px] -right-[4px] min-w-[14px] h-[14px] px-[3px] rounded-full bg-[#0BB783] text-white text-[9px] font-bold flex items-center justify-center ltr-num leading-none">
+                              {inv.paymentReceiptUrls!.length}
                             </span>
                           )}
                         </Button>
