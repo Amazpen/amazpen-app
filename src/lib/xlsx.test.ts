@@ -48,6 +48,19 @@ describe("buildXlsx", () => {
     expect(wb.worksheets[0].getCell("A2").value).toBe(-11.8);
   });
 
+  it("rounds money to two decimals and formats it that way", async () => {
+    const wb = await readBack(
+      await buildXlsx({
+        ...baseSheet,
+        rows: [[{ t: "money", v: 204.2905 }, { t: "money", v: -11.836 }]],
+      }),
+    );
+    const ws = wb.worksheets[0];
+    expect(ws.getCell("A2").value).toBe(204.29);
+    expect(ws.getCell("A2").numFmt).toBe("#,##0.00");
+    expect(ws.getCell("B2").value).toBe(-11.84);
+  });
+
   it("leaves blank cells empty rather than writing a zero or an empty string", async () => {
     const wb = await readBack(
       await buildXlsx({

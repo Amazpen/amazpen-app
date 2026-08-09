@@ -32,7 +32,8 @@ export interface XlsxSheet {
 }
 
 const DATE_FORMAT = "dd/mm/yyyy";
-const MONEY_FORMAT = "###,###,###,##0.00##";
+/** Exactly two decimals — never more, so what Excel shows is what Summit reads. */
+const MONEY_FORMAT = "#,##0.00";
 
 /** Parses `YYYY-MM-DD` into a UTC Date. Built from the string parts rather
  *  than `new Date(str)` so a timezone offset can never shift the day. */
@@ -89,7 +90,9 @@ export async function buildXlsx(sheet: XlsxSheet): Promise<Blob> {
           break;
         case "money":
           if (Number.isFinite(cell.v)) {
-            target.value = cell.v;
+            // Rounded, not just formatted — otherwise the cell would show 204.29
+            // while the value Summit imports is still 204.2905.
+            target.value = Math.round(cell.v * 100) / 100;
             target.numFmt = MONEY_FORMAT;
           }
           break;
