@@ -95,9 +95,11 @@ interface SupplierSummitMeta {
   // debit account and the VAT rule on Summit's side (6 = קניות 18%,
   // 5 = אחזקת רכב 2/3, 14 = חשמל/מים 1/4 ...), so it is per-category.
   transactionCode: number | null;
-  // "חשבון לקוח/ספק" — the supplier's account number in the bookkeeper's chart
+  // "חשבון זכות ראשי" — the supplier's account number in the bookkeeper's chart
   // of accounts. Summit matches suppliers on this, not on name or ח.פ.
   accountNumber: string;
+  // "מספר עוסק" — the supplier's ח.פ / ע.מ.
+  taxId: string;
   // Second half of "פרטים", which Summit's own file writes as
   // "שם ספק / קטגוריה". Falls back to the parent category.
   categoryName: string;
@@ -267,7 +269,7 @@ export default function AccountingReviewPage() {
         supabase
           .from("suppliers")
           .select(
-            "id, accounting_account_number, expense_category_id, parent_category_id, transaction_type_id",
+            "id, accounting_account_number, tax_id, expense_category_id, parent_category_id, transaction_type_id",
           )
           .eq("business_id", selectedBusinessId)
           .is("deleted_at", null),
@@ -296,6 +298,7 @@ export default function AccountingReviewPage() {
       for (const s of suppliersRes.data || []) {
         meta[s.id as string] = {
           accountNumber: ((s.accounting_account_number as string) || "").trim(),
+          taxId: ((s.tax_id as string) || "").trim(),
           transactionCode: typeCodes.get(s.transaction_type_id as string) ?? null,
           // Prefer the specific category; fall back to the parent so the
           // column is only ever blank for a supplier with neither.
@@ -693,60 +696,91 @@ export default function AccountingReviewPage() {
   }, [selectedInvoices, showToast]);
 
   // ===== Summit (סאמיט) Export =====
-  // Mirrors a real, working Summit import file byte-for-byte in shape: a single
-  // sheet named "מנה" with exactly these 8 columns, typed cells (a real date
-  // cell and numeric amounts — not text), and a frozen header row.
+  // Matches Summit's own Template.xlsx exactly: sheet "Sheet1", the 17 columns
+  // below in this order with these labels, the template's column widths, a
+  // plain (untinted) header and a frozen header row. Columns Amazpen has no
+  // data for are emitted empty rather than dropped, so the file still lines up
+  // with the template. Cells are typed — a real date cell and numeric amounts,
+  // not text that merely looks like them.
   const exportSummit = useCallback(async () => {
     if (selectedInvoices.length === 0) return;
 
     const headers = [
       "סוג תנועה",
       "אסמכתא 1",
+      "אסמכתא 2",
       "מספר הקצאה",
       "ת. אסמכתא",
       "סכום",
-      "חשבון לקוח/ספק",
+      "חשבון חובה ראשי",
+      "חשבון זכות ראשי",
       "פרטים",
+      "הערות",
+      "תאריך ערך",
       'סכום מע"מ',
+      "ניכוי במקור",
+      "מטבע",
+      'סכום מט"ח',
+      "כמות",
+      "מספר עוסק",
     ];
 
-    // Summit's own file writes references and account numbers as numbers, not
-    // text. Anything non-numeric (a letter in an invoice number) stays a string
-    // so it survives the round trip instead of turning into NaN.
-    const refCell = (value: string | null): XlsxCell => {
+    // Summit writes references and account numbers as numbers, not text.
+    // Anything non-numeric (a letter in an invoice number) stays a string so it
+    // survives the round trip instead of turning into NaN.
+    const refCell = (value: string | null | undefined): XlsxCell => {
       const raw = (value || "").trim();
       if (!raw) return { t: "blank" };
       return /^\d+$/.test(raw) ? { t: "n", v: Number(raw) } : { t: "s", v: raw };
     };
 
+    const textCell = (value: string | null | undefined): XlsxCell => {
+      const raw = (value || "").trim();
+      return raw ? { t: "s", v: raw } : { t: "blank" };
+    };
+
     const rows: XlsxCell[][] = selectedInvoices.map((inv) => {
       const meta = supplierMeta[inv.supplier_id];
-      // "ת. אסמכתא" is the date printed on the document. The real Summit file
-      // has one date column only, so invoice_date is used purely as a fallback.
+      // "ת. אסמכתא" is the date printed on the document; "תאריך ערך" is the
+      // accounting date, which for fixed expenses is deliberately the month the
+      // expense belongs to rather than the date printed on the document.
       const documentDate = inv.reference_date || inv.invoice_date;
       const supplierName = inv.supplier_name === "—" ? "" : inv.supplier_name;
-      // Summit writes "פרטים" as "שם ספק / קטגוריה".
-      const details = [supplierName, meta?.categoryName].filter(Boolean).join(" / ");
 
       return [
         meta?.transactionCode != null ? { t: "n", v: meta.transactionCode } : { t: "blank" },
         refCell(inv.invoice_number),
+        { t: "blank" }, // אסמכתא 2 — not tracked in Amazpen
         refCell(inv.allocation_number),
         documentDate ? { t: "d", v: documentDate } : { t: "blank" },
         { t: "money", v: Number(inv.total_amount) || 0 },
-        refCell(meta?.accountNumber || null),
-        details ? { t: "s", v: details } : { t: "blank" },
+        textCell(meta?.categoryName), // חשבון חובה ראשי — the expense category
+        // חשבון זכות ראשי — the supplier's account number in the bookkeeper's
+        // chart of accounts. This is what Summit matches the supplier on; the
+        // readable name goes to פרטים.
+        refCell(meta?.accountNumber),
+        textCell([supplierName, meta?.categoryName].filter(Boolean).join(" / ")),
+        textCell(inv.notes),
+        inv.invoice_date ? { t: "d", v: inv.invoice_date } : { t: "blank" },
         { t: "money", v: Number(inv.vat_amount) || 0 },
+        { t: "blank" }, // ניכוי במקור
+        { t: "blank" }, // מטבע
+        { t: "blank" }, // סכום מט"ח
+        { t: "blank" }, // כמות
+        refCell(meta?.taxId),
       ];
     });
 
     await downloadXlsx(
       {
-        // Summit's own export names the sheet "מנה" (batch).
-        name: "מנה",
+        // Summit's Template.xlsx names the sheet "Sheet1".
+        name: "Sheet1",
         header: headers,
         rows,
-        columnWidths: [16, 13.14, 17.85, 10.85, 10.28, 24.42, 76, 15],
+        columnWidths: [
+          16, 13.109375, 13, 17.88671875, 14.5546875, 7.6640625, 26, 13, 9.5546875, 13, 16, 15,
+          19.88671875, 7.6640625, 15, 7.6640625, 16,
+        ],
       },
       `summit-${new Date().toISOString().split("T")[0]}.xlsx`,
     );
