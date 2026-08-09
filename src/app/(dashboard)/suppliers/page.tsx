@@ -36,12 +36,14 @@ interface ExpenseCategory {
   is_active: boolean;
 }
 
-// "סוג תנועה" — per-business list the customer maintains themselves (seeded
-// with מע"מ מלא / מע"מ חלקי). Feeds the first column of the Summit export.
+// "סוג תנועה" — per-business list the customer maintains themselves, seeded
+// with Summit's own codes. `code` is what the Summit export actually writes;
+// the name is only there so the dropdown is readable.
 interface SupplierTransactionType {
   id: string;
   business_id: string;
   name: string;
+  code: number | null;
   display_order: number | null;
   is_active: boolean;
 }
@@ -54,10 +56,11 @@ interface Supplier {
   expense_type: string;
   expense_category_id?: string;
   parent_category_id?: string;
-  // Summit export fields: movement type + the supplier's company number
-  // (ח.פ / ע.מ), which Summit calls "מספר עוסק".
+  // Summit export fields: movement type, the supplier's company number
+  // (ח.פ / ע.מ) and the account number Summit matches the supplier on.
   transaction_type_id?: string;
   tax_id?: string;
+  accounting_account_number?: string;
   expense_nature?: string;
   payment_terms_days?: number;
   vat_type?: string;
@@ -306,12 +309,15 @@ export default function SuppliersPage() {
   const [isAddingParentCategory, setIsAddingParentCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newParentCategoryName, setNewParentCategoryName] = useState("");
-  // Summit export fields — "סוג תנועה" (managed list, like categories) and
-  // "מספר עוסק" (the supplier's ח.פ / ע.מ, stored in suppliers.tax_id).
+  // Summit export fields — "סוג תנועה" (managed list, like categories),
+  // "מספר עוסק" (the supplier's ח.פ / ע.מ, stored in suppliers.tax_id) and
+  // "חשבון לקוח/ספק" (the account number Summit matches the supplier on).
   const [transactionTypeId, setTransactionTypeId] = useState("");
   const [isAddingTransactionType, setIsAddingTransactionType] = useState(false);
   const [newTransactionTypeName, setNewTransactionTypeName] = useState("");
+  const [newTransactionTypeCode, setNewTransactionTypeCode] = useState("");
   const [supplierTaxId, setSupplierTaxId] = useState("");
+  const [supplierAccountNumber, setSupplierAccountNumber] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [vatRequired, setVatRequired] = useState<"yes" | "no" | "partial" | "two_thirds">("yes");
   const [isFixedExpense, setIsFixedExpense] = useState(false);
@@ -351,6 +357,7 @@ export default function SuppliersPage() {
       vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
       primaryPaymentMethod, selectedCreditCardId, fixedNote,
       supplierEmail, requestKarteset, transactionTypeId, supplierTaxId,
+      supplierAccountNumber,
     });
   }, [saveSupplierDraft, isAddSupplierModalOpen, isEditingSupplier,
     supplierName, hasPreviousObligations, waitingForCoordinator,
@@ -359,7 +366,8 @@ export default function SuppliersPage() {
     expenseType, category, parentCategory, paymentTerms,
     vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
     primaryPaymentMethod, selectedCreditCardId, fixedNote,
-    supplierEmail, requestKarteset, transactionTypeId, supplierTaxId]);
+    supplierEmail, requestKarteset, transactionTypeId, supplierTaxId,
+    supplierAccountNumber]);
 
   useEffect(() => {
     if (supplierDraftRestored.current) {
@@ -398,6 +406,8 @@ export default function SuppliersPage() {
           if (draft.requestKarteset !== undefined) setRequestKarteset(draft.requestKarteset as boolean);
           if (draft.transactionTypeId) setTransactionTypeId(draft.transactionTypeId as string);
           if (draft.supplierTaxId) setSupplierTaxId(draft.supplierTaxId as string);
+          if (draft.supplierAccountNumber)
+            setSupplierAccountNumber(draft.supplierAccountNumber as string);
         }
         supplierDraftRestored.current = true;
       }, 0);
@@ -477,6 +487,7 @@ export default function SuppliersPage() {
     setRequestKarteset(false);
     setTransactionTypeId("");
     setSupplierTaxId(prefTaxId);
+    setSupplierAccountNumber("");
     setExpenseType("current");
     setIsAddSupplierModalOpen(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -770,9 +781,10 @@ export default function SuppliersPage() {
     () => transactionTypes.filter((t) => t.business_id === transactionTypeBusinessId),
     [transactionTypes, transactionTypeBusinessId],
   );
-  // Fallback for new suppliers when the user doesn't pick anything.
+  // Fallback for new suppliers when the user doesn't pick anything. Code 6
+  // ("קניות", full 18% VAT) is by far the most common in real Summit files.
   const defaultTransactionTypeId =
-    businessTransactionTypes.find((t) => t.name === 'מע"מ מלא')?.id || "";
+    businessTransactionTypes.find((t) => t.code === 6)?.id || "";
 
   // Fetch credit cards from database
   useEffect(() => {
@@ -832,7 +844,9 @@ export default function SuppliersPage() {
     setTransactionTypeId("");
     setIsAddingTransactionType(false);
     setNewTransactionTypeName("");
+    setNewTransactionTypeCode("");
     setSupplierTaxId("");
+    setSupplierAccountNumber("");
     // Reset edit mode
     setIsEditingSupplier(false);
     setEditingSupplierData(null);
@@ -873,6 +887,7 @@ export default function SuppliersPage() {
     setRequestKarteset(selectedSupplier.request_karteset || false);
     setTransactionTypeId(selectedSupplier.transaction_type_id || "");
     setSupplierTaxId(selectedSupplier.tax_id || "");
+    setSupplierAccountNumber(selectedSupplier.accounting_account_number || "");
 
     // Close detail popup and open add/edit modal.
     // Open the edit modal on the next tick to let Radix fully finish
@@ -1099,6 +1114,7 @@ export default function SuppliersPage() {
           request_karteset: supplierEmail.trim() ? requestKarteset : false,
           transaction_type_id: transactionTypeId || null,
           tax_id: supplierTaxId.trim() || null,
+          accounting_account_number: supplierAccountNumber.trim() || null,
         })
         .eq("id", editingSupplierData.id);
 
@@ -1296,6 +1312,15 @@ export default function SuppliersPage() {
       return;
     }
 
+    // The code is what actually reaches Summit — a named option without one
+    // would export an empty "סוג תנועה" cell and fail on import.
+    const trimmedCode = newTransactionTypeCode.trim();
+    if (!/^\d+$/.test(trimmedCode)) {
+      showToast("יש להזין קוד סאמיט (מספר)", "warning");
+      return;
+    }
+    const codeValue = Number(trimmedCode);
+
     if (selectedBusinesses.length === 0) {
       showToast("יש לבחור עסק תחילה", "warning");
       return;
@@ -1319,7 +1344,7 @@ export default function SuppliersPage() {
       }
       const { data: revived, error: reviveError } = await supabase
         .from("supplier_transaction_types")
-        .update({ deleted_at: null, is_active: true })
+        .update({ deleted_at: null, is_active: true, code: codeValue })
         .eq("id", existing.id)
         .select()
         .single();
@@ -1336,6 +1361,7 @@ export default function SuppliersPage() {
       });
       setTransactionTypeId(revived.id);
       setNewTransactionTypeName("");
+      setNewTransactionTypeCode("");
       setIsAddingTransactionType(false);
       return;
     }
@@ -1345,6 +1371,7 @@ export default function SuppliersPage() {
       .insert({
         business_id: businessId,
         name: trimmedName,
+        code: codeValue,
         is_active: true,
       })
       .select()
@@ -1363,6 +1390,7 @@ export default function SuppliersPage() {
     setTransactionTypes((prev) => [...prev, data as SupplierTransactionType]);
     setTransactionTypeId(data.id);
     setNewTransactionTypeName("");
+    setNewTransactionTypeCode("");
     setIsAddingTransactionType(false);
   };
 
@@ -1496,6 +1524,7 @@ export default function SuppliersPage() {
           // column is never blank.
           transaction_type_id: transactionTypeId || defaultTransactionTypeId || null,
           tax_id: supplierTaxId.trim() || null,
+          accounting_account_number: supplierAccountNumber.trim() || null,
         })
         .select()
         .single();
@@ -3286,10 +3315,26 @@ export default function SuppliersPage() {
                         autoFocus
                       />
                     </div>
+                    {/* The Summit code. Sits to the LEFT of the name field:
+                        in RTL the first sibling renders on the right. */}
+                    <div className="w-[90px] border border-[#727BA0] rounded-[10px] h-[50px]">
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        title="קוד סאמיט"
+                        value={newTransactionTypeCode}
+                        onChange={(e) => setNewTransactionTypeCode(e.target.value)}
+                        placeholder="קוד"
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                      />
+                    </div>
                     <Button
                       type="button"
                       onClick={handleAddTransactionType}
-                      disabled={!newTransactionTypeName.trim()}
+                      disabled={
+                        !newTransactionTypeName.trim() ||
+                        !/^\d+$/.test(newTransactionTypeCode.trim())
+                      }
                       className="bg-[#3CD856] text-white text-[14px] font-semibold px-[15px] rounded-[10px] hover:bg-[#2FB847] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       הוסף
@@ -3307,7 +3352,7 @@ export default function SuppliersPage() {
                       <SelectItem value="__none__">בחר סוג תנועה</SelectItem>
                       {businessTransactionTypes.map((type) => (
                         <SelectItem key={type.id} value={type.id}>
-                          {type.name}
+                          {type.code != null ? `${type.name} (${type.code})` : type.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -3326,6 +3371,24 @@ export default function SuppliersPage() {
                     value={supplierTaxId}
                     onChange={(e) => setSupplierTaxId(e.target.value)}
                     placeholder="לדוגמה: 514123456"
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                  />
+                </div>
+              </div>
+
+              {/* Accounting account number (Summit export - "חשבון לקוח/ספק").
+                  Summit matches suppliers on this number, not on the name or
+                  the ח.פ, so an empty value means the row will not import. */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">מספר חשבון בהנהלת חשבונות</label>
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    title="מספר חשבון בהנהלת חשבונות"
+                    value={supplierAccountNumber}
+                    onChange={(e) => setSupplierAccountNumber(e.target.value)}
+                    placeholder="לדוגמה: 8134"
                     className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
                   />
                 </div>

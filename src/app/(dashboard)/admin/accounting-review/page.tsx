@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useDashboard } from "@/app/(dashboard)/layout";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
+import { downloadXlsx, type XlsxCell } from "@/lib/xlsx";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -90,12 +91,15 @@ interface InvoiceRow {
 // Per-supplier fields the Summit export needs but the invoice row doesn't
 // carry. Loaded once per business and joined by supplier_id at export time.
 interface SupplierSummitMeta {
-  // "מספר עוסק" — the supplier's ח.פ / ע.מ.
-  taxId: string;
-  // "סוג תנועה" — the supplier's movement type.
-  transactionType: string;
-  // "חשבון חובה ראשי" — the supplier's category, falling back to its parent
-  // category when no specific category is set.
+  // "סוג תנועה" — Summit's numeric journal-template code. It fixes both the
+  // debit account and the VAT rule on Summit's side (6 = קניות 18%,
+  // 5 = אחזקת רכב 2/3, 14 = חשמל/מים 1/4 ...), so it is per-category.
+  transactionCode: number | null;
+  // "חשבון לקוח/ספק" — the supplier's account number in the bookkeeper's chart
+  // of accounts. Summit matches suppliers on this, not on name or ח.פ.
+  accountNumber: string;
+  // Second half of "פרטים", which Summit's own file writes as
+  // "שם ספק / קטגוריה". Falls back to the parent category.
   categoryName: string;
 }
 
@@ -262,7 +266,9 @@ export default function AccountingReviewPage() {
       const [suppliersRes, categoriesRes, typesRes] = await Promise.all([
         supabase
           .from("suppliers")
-          .select("id, tax_id, expense_category_id, parent_category_id, transaction_type_id")
+          .select(
+            "id, accounting_account_number, expense_category_id, parent_category_id, transaction_type_id",
+          )
           .eq("business_id", selectedBusinessId)
           .is("deleted_at", null),
         supabase
@@ -272,7 +278,7 @@ export default function AccountingReviewPage() {
           .is("deleted_at", null),
         supabase
           .from("supplier_transaction_types")
-          .select("id, name")
+          .select("id, code")
           .eq("business_id", selectedBusinessId)
           .is("deleted_at", null),
       ]);
@@ -282,15 +288,15 @@ export default function AccountingReviewPage() {
       const categoryNames = new Map<string, string>(
         (categoriesRes.data || []).map((c) => [c.id as string, (c.name as string) || ""]),
       );
-      const typeNames = new Map<string, string>(
-        (typesRes.data || []).map((t) => [t.id as string, (t.name as string) || ""]),
+      const typeCodes = new Map<string, number | null>(
+        (typesRes.data || []).map((t) => [t.id as string, (t.code as number | null) ?? null]),
       );
 
       const meta: Record<string, SupplierSummitMeta> = {};
       for (const s of suppliersRes.data || []) {
         meta[s.id as string] = {
-          taxId: (s.tax_id as string) || "",
-          transactionType: typeNames.get(s.transaction_type_id as string) || "",
+          accountNumber: ((s.accounting_account_number as string) || "").trim(),
+          transactionCode: typeCodes.get(s.transaction_type_id as string) ?? null,
           // Prefer the specific category; fall back to the parent so the
           // column is only ever blank for a supplier with neither.
           categoryName:
@@ -686,109 +692,79 @@ export default function AccountingReviewPage() {
     showToast(`יוצאו ${selectedInvoices.length} חשבוניות ל-CSV`, "success");
   }, [selectedInvoices, showToast]);
 
-  // ===== Summit (סאמיט) CSV Export =====
-  // Mirrors Summit's import template exactly: 17 columns in a fixed order,
-  // including the four they don't populate from our data (אסמכתא 2 / פרטים /
-  // ניכוי במקור / מטבע / סכום מט"ח / כמות) which must still be present as
-  // empty columns so the file matches their template.
-  const exportSummitCsv = useCallback(() => {
+  // ===== Summit (סאמיט) Export =====
+  // Mirrors a real, working Summit import file byte-for-byte in shape: a single
+  // sheet named "מנה" with exactly these 8 columns, typed cells (a real date
+  // cell and numeric amounts — not text), and a frozen header row.
+  const exportSummit = useCallback(async () => {
     if (selectedInvoices.length === 0) return;
 
     const headers = [
       "סוג תנועה",
       "אסמכתא 1",
-      "אסמכתא 2",
       "מספר הקצאה",
       "ת. אסמכתא",
       "סכום",
-      "חשבון חובה ראשי",
-      "חשבון זכות ראשי",
+      "חשבון לקוח/ספק",
       "פרטים",
-      "הערות",
-      "תאריך ערך",
       'סכום מע"מ',
-      "ניכוי במקור",
-      "מטבע",
-      'סכום מט"ח',
-      "כמות",
-      "מספר עוסק",
     ];
 
-    // Summit reads dates as DD/MM/YYYY. Build them from the stored
-    // YYYY-MM-DD string rather than via Date, so a timezone offset can never
-    // shift an invoice into the previous day.
-    const summitDate = (dateStr: string | null): string => {
-      if (!dateStr) return "";
-      const [y, m, d] = dateStr.slice(0, 10).split("-");
-      if (!y || !m || !d) return "";
-      return `${d}/${m}/${y}`;
+    // Summit's own file writes references and account numbers as numbers, not
+    // text. Anything non-numeric (a letter in an invoice number) stays a string
+    // so it survives the round trip instead of turning into NaN.
+    const refCell = (value: string | null): XlsxCell => {
+      const raw = (value || "").trim();
+      if (!raw) return { t: "blank" };
+      return /^\d+$/.test(raw) ? { t: "n", v: Number(raw) } : { t: "s", v: raw };
     };
 
-    // Plain numbers only — no ₪, no thousands separators — or Summit's import
-    // rejects the cell.
-    const summitAmount = (value: number | null): string => {
-      const n = Number(value) || 0;
-      return n.toFixed(2);
-    };
-
-    const rows = selectedInvoices.map((inv) => {
+    const rows: XlsxCell[][] = selectedInvoices.map((inv) => {
       const meta = supplierMeta[inv.supplier_id];
-      // The document date drives "ת. אסמכתא"; invoice_date is the accounting
-      // (value) date, which for fixed expenses is deliberately the month the
-      // expense belongs to rather than the date printed on the document.
+      // "ת. אסמכתא" is the date printed on the document. The real Summit file
+      // has one date column only, so invoice_date is used purely as a fallback.
       const documentDate = inv.reference_date || inv.invoice_date;
+      const supplierName = inv.supplier_name === "—" ? "" : inv.supplier_name;
+      // Summit writes "פרטים" as "שם ספק / קטגוריה".
+      const details = [supplierName, meta?.categoryName].filter(Boolean).join(" / ");
 
       return [
-        meta?.transactionType || "",
-        inv.invoice_number || "",
-        "", // אסמכתא 2 — not tracked in Amazpen
-        inv.allocation_number || "",
-        summitDate(documentDate),
-        summitAmount(inv.total_amount),
-        meta?.categoryName || "",
-        inv.supplier_name === "—" ? "" : inv.supplier_name,
-        "", // פרטים — not tracked in Amazpen
-        inv.notes || "",
-        summitDate(inv.invoice_date),
-        summitAmount(inv.vat_amount),
-        "", // ניכוי במקור
-        "", // מטבע
-        "", // סכום מט"ח
-        "", // כמות
-        meta?.taxId || "",
+        meta?.transactionCode != null ? { t: "n", v: meta.transactionCode } : { t: "blank" },
+        refCell(inv.invoice_number),
+        refCell(inv.allocation_number),
+        documentDate ? { t: "d", v: documentDate } : { t: "blank" },
+        { t: "money", v: Number(inv.total_amount) || 0 },
+        refCell(meta?.accountNumber || null),
+        details ? { t: "s", v: details } : { t: "blank" },
+        { t: "money", v: Number(inv.vat_amount) || 0 },
       ];
     });
 
-    const BOM = "﻿";
-    const csv =
-      BOM +
-      [
-        headers.join(","),
-        ...rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")),
-      ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `summit-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await downloadXlsx(
+      {
+        // Summit's own export names the sheet "מנה" (batch).
+        name: "מנה",
+        header: headers,
+        rows,
+        columnWidths: [16, 13.14, 17.85, 10.85, 10.28, 24.42, 76, 15],
+      },
+      `summit-${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
 
     // Surface rows that would land in Summit with an empty required column, so
     // the user fixes the supplier record instead of discovering it on import.
-    const missingTransactionType = selectedInvoices.filter(
-      (inv) => !supplierMeta[inv.supplier_id]?.transactionType,
+    const missingCode = selectedInvoices.filter(
+      (inv) => supplierMeta[inv.supplier_id]?.transactionCode == null,
     ).length;
-    const missingTaxId = selectedInvoices.filter(
-      (inv) => !supplierMeta[inv.supplier_id]?.taxId,
+    const missingAccount = selectedInvoices.filter(
+      (inv) => !supplierMeta[inv.supplier_id]?.accountNumber,
     ).length;
 
     showToast(`יוצאו ${selectedInvoices.length} חשבוניות לסאמיט`, "success");
-    if (missingTransactionType > 0 || missingTaxId > 0) {
+    if (missingCode > 0 || missingAccount > 0) {
       const parts: string[] = [];
-      if (missingTransactionType > 0) parts.push(`${missingTransactionType} ללא סוג תנועה`);
-      if (missingTaxId > 0) parts.push(`${missingTaxId} ללא מספר עוסק`);
+      if (missingCode > 0) parts.push(`${missingCode} ללא סוג תנועה`);
+      if (missingAccount > 0) parts.push(`${missingAccount} ללא מספר חשבון`);
       showToast(`שים לב - ${parts.join(", ")}. יש להשלים בדף הספק.`, "warning");
     }
   }, [selectedInvoices, supplierMeta, showToast]);
@@ -983,8 +959,8 @@ export default function AccountingReviewPage() {
               </Button>
               <Button
                 className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-[#4C9AFF]/40 bg-[#4C9AFF]/10 text-sm font-medium text-[#4C9AFF] hover:bg-[#4C9AFF]/20 hover:border-[#4C9AFF]/60 transition-colors"
-                onClick={exportSummitCsv}
-                title="ייצוא בפורמט הייבוא של סאמיט"
+                onClick={exportSummit}
+                title="ייצוא קובץ אקסל בפורמט הייבוא של סאמיט"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 ייצוא לסאמיט
