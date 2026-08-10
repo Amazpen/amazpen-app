@@ -569,20 +569,29 @@ export default function OCRBusinessPage() {
           let invoiceError: unknown = null;
           if (formData.link_to_fixed_invoice_id) {
             // Multi-month link mode — see /ocr/page.tsx for the full rationale.
-            // The primary placeholder gets its own allocated subtotal slice;
-            // each extra placeholder gets the same attachment + invoice_number
-            // and its own slice, with vat/total scaled proportionally.
+            // The primary placeholder gets its own allocated slice; each extra
+            // placeholder gets the same attachment + invoice_number and its own
+            // slice. Slices are GROSS (incl VAT), so each month's vat is scaled
+            // off its gross slice and the subtotal is total − vat.
             const extras = formData.link_to_fixed_invoice_extras || [];
             const docTotalAmount = parseFloat(formData.total_amount);
             const docSubtotal = parseFloat(formData.amount_before_vat);
             const docVat = parseFloat(formData.vat_amount);
-            const totalRatio = docSubtotal > 0 ? docTotalAmount / docSubtotal : 1;
-            const vatRatio = docSubtotal > 0 ? docVat / docSubtotal : 0;
-            const primarySubtotal = extras.length > 0 && typeof formData.fixed_invoice_primary_subtotal === 'number'
-              ? formData.fixed_invoice_primary_subtotal
-              : docSubtotal;
-            const primaryVat = extras.length > 0 ? primarySubtotal * vatRatio : docVat;
-            const primaryTotal = extras.length > 0 ? primarySubtotal * totalRatio : docTotalAmount;
+            const round2 = (n: number) => Math.round(n * 100) / 100;
+            const vatRatio = docTotalAmount > 0 ? docVat / docTotalAmount : 0;
+            // Extras first, primary absorbs the rounding remainder — see
+            // /ocr/page.tsx for why.
+            const extraSlices = extras.map(extra => {
+              const total = round2(Number(extra.total) || 0);
+              const vat = round2(total * vatRatio);
+              return { ...extra, total, vat, subtotal: round2(total - vat) };
+            });
+            const extrasVatSum = extraSlices.reduce((sum, e) => sum + e.vat, 0);
+            const primaryTotal = extras.length > 0 && typeof formData.fixed_invoice_primary_total === 'number'
+              ? round2(formData.fixed_invoice_primary_total)
+              : docTotalAmount;
+            const primaryVat = extras.length > 0 ? round2(docVat - extrasVatSum) : docVat;
+            const primarySubtotal = extras.length > 0 ? round2(primaryTotal - primaryVat) : docSubtotal;
             // Per-month date override — see /ocr/page.tsx for full rationale.
             const primaryDate = (extras.length > 0 && formData.fixed_invoice_primary_date)
               ? formData.fixed_invoice_primary_date
@@ -610,10 +619,10 @@ export default function OCRBusinessPage() {
             invoiceError = error;
 
             if (!error && extras.length > 0) {
-              for (const extra of extras) {
-                const exSubtotal = Number(extra.subtotal) || 0;
-                const exVat = exSubtotal * vatRatio;
-                const exTotal = exSubtotal * totalRatio;
+              for (const extra of extraSlices) {
+                const exTotal = extra.total;
+                const exVat = extra.vat;
+                const exSubtotal = extra.subtotal;
                 const exDate = extra.reference_date || null;
                 const update: Record<string, unknown> = {
                   invoice_number: formData.document_number || null,

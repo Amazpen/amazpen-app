@@ -2494,15 +2494,15 @@ export default function OCRForm({
 
     // Multi-month allocation validation — when the user picks more than one
     // fixed-expense invoice to link, the sum of per-month allocations must
-    // match the document's amount-before-VAT (within 0.01 floor noise). The
+    // match the document's total INCLUDING VAT (within 0.01 floor noise). The
     // UI shows a red banner but we re-check at submit so the user can't slip
     // past it by collapsing the picker.
     if (linkToFixedInvoiceId && additionalFixedInvoiceIds.length > 0) {
-      const totalToSplit = parseFloat(amountBeforeVat) || 0;
+      const totalToSplit = Math.round(totalWithVat * 100) / 100;
       const allIds = [linkToFixedInvoiceId, ...additionalFixedInvoiceIds];
       const allocatedSum = allIds.reduce((sum, id) => sum + (parseFloat(fixedInvoiceAllocations[id] ?? '0') || 0), 0);
       if (Math.abs(allocatedSum - totalToSplit) > 0.01) {
-        alert(`חלוקת הסכום בין החודשים לא תואמת לסכום החשבונית.\n\nסכום החשבונית: ₪${totalToSplit.toFixed(2)}\nסה"כ שהוקצה: ₪${allocatedSum.toFixed(2)}\n\nיש לעדכן את ההקצאות לפני שמירה.`);
+        alert(`חלוקת הסכום בין החודשים לא תואמת לסכום החשבונית.\n\nסכום החשבונית (כולל מע"מ): ₪${totalToSplit.toFixed(2)}\nסה"כ שהוקצה: ₪${allocatedSum.toFixed(2)}\n\nיש לעדכן את ההקצאות לפני שמירה.`);
         return;
       }
       // Block save if any single allocation is zero — likely a forgotten input
@@ -2738,21 +2738,22 @@ export default function OCRForm({
         is_paid: isPaid,
         link_to_fixed_invoice_id: linkToFixedInvoiceId,
         // Extra fixed-expense invoices that should receive the same
-        // attachment + invoice_number. Each carries its own subtotal slice
-        // from fixedInvoiceAllocations. Empty array = single-month flow.
+        // attachment + invoice_number. Each carries its own GROSS slice (incl
+        // VAT) from fixedInvoiceAllocations — the approve handler derives that
+        // month's vat_amount + subtotal from it. Empty array = single-month flow.
         link_to_fixed_invoice_extras: additionalFixedInvoiceIds.length > 0
           ? additionalFixedInvoiceIds.map(id => ({
               invoice_id: id,
-              subtotal: parseFloat(fixedInvoiceAllocations[id] ?? '0') || 0,
+              total: parseFloat(fixedInvoiceAllocations[id] ?? '0') || 0,
               // Per-month date override. null = keep the placeholder's existing date.
               reference_date: fixedInvoiceDates[id] || null,
             }))
           : undefined,
-        // When extras exist, the primary's subtotal also comes from the
-        // allocation map instead of amountBeforeVat (which represents the
-        // document total). Always pass it so the server doesn't have to
-        // re-parse the allocation logic.
-        fixed_invoice_primary_subtotal: additionalFixedInvoiceIds.length > 0 && linkToFixedInvoiceId
+        // When extras exist, the primary's gross total also comes from the
+        // allocation map instead of total_amount (which represents the whole
+        // document). Always pass it so the server doesn't have to re-parse the
+        // allocation logic.
+        fixed_invoice_primary_total: additionalFixedInvoiceIds.length > 0 && linkToFixedInvoiceId
           ? (parseFloat(fixedInvoiceAllocations[linkToFixedInvoiceId] ?? '0') || 0)
           : undefined,
         // Per-month date override for the primary invoice. Only set when the
@@ -3379,8 +3380,11 @@ export default function OCRForm({
           }
         };
 
-        // Total amount-before-VAT to split, from the user-entered field.
-        const totalToSplit = parseFloat(amountBeforeVat) || 0;
+        // Total to split = the document's GROSS total (incl VAT). A payment
+        // always arrives with VAT, so the per-month slices the user types here
+        // are gross too; each month's subtotal + VAT are derived from its slice
+        // on save. Rounded the same way total_amount is sent in formData.
+        const totalToSplit = Math.round(totalWithVat * 100) / 100;
         const allocatedSum = selectedIds.reduce((sum, id) => {
           const raw = fixedInvoiceAllocations[id];
           if (raw !== undefined) return sum + (parseFloat(raw) || 0);
@@ -3474,7 +3478,7 @@ export default function OCRForm({
                 {selectedIds.length > 1 && (
                   <div className="flex flex-col gap-[6px] bg-[#0F1535] rounded-[10px] p-[10px] border border-[#727BA0]" dir="rtl">
                     <div className="flex items-center justify-between gap-[8px]">
-                      <span className="text-[13px] text-white font-medium">חלוקת סכום בין חודשים (לפני מע&quot;מ)</span>
+                      <span className="text-[13px] text-white font-medium">חלוקת סכום בין חודשים (כולל מע&quot;מ)</span>
                       <Button
                         type="button"
                         onClick={splitEvenly}
@@ -3522,7 +3526,7 @@ export default function OCRForm({
                     </div>
                     {allocationMismatch && (
                       <span className="text-[11px] text-[#F64E60] text-right">
-                        סכום ההקצאות חייב להיות שווה לסכום לפני מע&quot;מ של המסמך
+                        סכום ההקצאות חייב להיות שווה לסכום כולל מע&quot;מ של המסמך
                       </span>
                     )}
                   </div>

@@ -734,21 +734,34 @@ export default function OCRPage() {
             // billing period (e.g. electric bill spanning Feb + Mar). The
             // primary invoice gets the slice the user typed for it; each
             // extra invoice gets its own slice, the SAME attachment_url +
-            // invoice_number, with vat/total scaled proportionally so each
-            // row stays self-consistent.
+            // invoice_number.
+            //
+            // The slices the user types are GROSS (incl VAT) — a payment always
+            // arrives with VAT. So each month's vat_amount is scaled off its
+            // gross slice and the subtotal is total − vat, which keeps every
+            // row self-consistent (subtotal + vat === total, to the agora).
             const extras = formData.link_to_fixed_invoice_extras || [];
             const docTotalAmount = parseFloat(formData.total_amount);
             const docSubtotal = parseFloat(formData.amount_before_vat);
             const docVat = parseFloat(formData.vat_amount);
-            // Ratio of total/vat per unit-of-subtotal — used to scale each
-            // month's vat and total from its allocated subtotal slice.
-            const totalRatio = docSubtotal > 0 ? docTotalAmount / docSubtotal : 1;
-            const vatRatio = docSubtotal > 0 ? docVat / docSubtotal : 0;
-            const primarySubtotal = extras.length > 0 && typeof formData.fixed_invoice_primary_subtotal === 'number'
-              ? formData.fixed_invoice_primary_subtotal
-              : docSubtotal;
-            const primaryVat = extras.length > 0 ? primarySubtotal * vatRatio : docVat;
-            const primaryTotal = extras.length > 0 ? primarySubtotal * totalRatio : docTotalAmount;
+            const round2 = (n: number) => Math.round(n * 100) / 100;
+            // VAT per unit-of-gross — handles exempt (0), partial and full VAT
+            // alike because it comes from the document's own numbers.
+            const vatRatio = docTotalAmount > 0 ? docVat / docTotalAmount : 0;
+            // Derive the extra months first so the primary can absorb the
+            // rounding remainder. That keeps all three sums exact against the
+            // document: Σtotal, Σvat and Σsubtotal.
+            const extraSlices = extras.map(extra => {
+              const total = round2(Number(extra.total) || 0);
+              const vat = round2(total * vatRatio);
+              return { ...extra, total, vat, subtotal: round2(total - vat) };
+            });
+            const extrasVatSum = extraSlices.reduce((sum, e) => sum + e.vat, 0);
+            const primaryTotal = extras.length > 0 && typeof formData.fixed_invoice_primary_total === 'number'
+              ? round2(formData.fixed_invoice_primary_total)
+              : docTotalAmount;
+            const primaryVat = extras.length > 0 ? round2(docVat - extrasVatSum) : docVat;
+            const primarySubtotal = extras.length > 0 ? round2(primaryTotal - primaryVat) : docSubtotal;
             // Per-month date override for the primary slice. When the user
             // picked a date in the allocation row it sets the invoice_date
             // (which month the expense lands in). The reference_date (תאריך
@@ -790,10 +803,10 @@ export default function OCRPage() {
             // its existing date (legacy behaviour — the placeholder date is
             // already the right month).
             if (!error && extras.length > 0) {
-              for (const extra of extras) {
-                const exSubtotal = Number(extra.subtotal) || 0;
-                const exVat = exSubtotal * vatRatio;
-                const exTotal = exSubtotal * totalRatio;
+              for (const extra of extraSlices) {
+                const exTotal = extra.total;
+                const exVat = extra.vat;
+                const exSubtotal = extra.subtotal;
                 const exDate = extra.reference_date || null;
                 const update: Record<string, unknown> = {
                   invoice_number: formData.document_number || null,

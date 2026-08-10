@@ -125,13 +125,15 @@ export interface OCRFormData {
   // Additional fixed-expense invoices that should receive the same attachment
   // + invoice_number when the OCR document covers more than one billing
   // period (e.g. electric bill spanning two months). Each entry carries its
-  // own subtotal slice; the primary in link_to_fixed_invoice_id keeps its
-  // own slice in fixed_invoice_primary_subtotal.
-  link_to_fixed_invoice_extras?: Array<{ invoice_id: string; subtotal: number; reference_date?: string | null }>;
+  // own GROSS slice (incl VAT — a payment always arrives with VAT); the
+  // primary in link_to_fixed_invoice_id keeps its own slice in
+  // fixed_invoice_primary_total. The approve handler derives each month's
+  // vat_amount + subtotal from the gross slice.
+  link_to_fixed_invoice_extras?: Array<{ invoice_id: string; total: number; reference_date?: string | null }>;
   // When the multi-month flow is active this overrides the document-level
-  // amount_before_vat for the primary invoice's subtotal. amount_before_vat
-  // still represents the document total (the sum across all months).
-  fixed_invoice_primary_subtotal?: number;
+  // total_amount for the primary invoice's gross total. total_amount still
+  // represents the whole document (the sum across all months).
+  fixed_invoice_primary_total?: number;
   // Per-month date override for the primary invoice in the multi-month flow.
   // YYYY-MM-DD. When omitted the existing placeholder date is kept (matches
   // legacy single-month behaviour).
