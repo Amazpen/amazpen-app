@@ -238,7 +238,43 @@ export async function GET(request: NextRequest) {
     const rawLaborCost = entries.reduce((s, e) => s + (Number(e.labor_cost) || 0), 0);
     const actualWorkDays = entries.reduce((s, e) => s + (Number(e.day_factor) || 0), 0);
     const computedManagerCost = managerDailyCost * actualWorkDays;
-    const laborCost = (rawLaborCost + computedManagerCost) * markup;
+
+    // Employee-cost month-close: once the month is closed, labor comes from the
+    // ACTUAL employee_costs invoices instead of the daily-entries estimate —
+    // mirrors the dashboard (page.tsx). Those invoices are not part of
+    // "הוצאות שוטפות" (their suppliers are expense_type='employee_costs'), so
+    // without this they would disappear from the report entirely.
+    // This route serves a single business, so "closed" = a closed row exists.
+    const lmcRes = await supabase
+      .from("labor_month_close")
+      .select("business_id")
+      .eq("business_id", businessId)
+      .eq("period_year", year)
+      .eq("period_month", month)
+      .eq("status", "closed");
+    const laborMonthClosed = ((lmcRes.data || []) as Array<{ business_id: string }>).length > 0;
+
+    let laborActualFromInvoices = 0;
+    if (laborMonthClosed) {
+      // Window = the FULL month (inclusive), same as the dashboard. The main
+      // invoices query above uses the report period with an exclusive end;
+      // the month-close is a whole-month figure, so it must not be clipped.
+      const { data: lmcInvoices } = await supabase
+        .from("invoices")
+        .select("subtotal, supplier:suppliers!inner(expense_type)")
+        .eq("business_id", businessId)
+        .is("deleted_at", null)
+        .gte("reference_date", fmtLocal(monthStartDate))
+        .lte("reference_date", fmtLocal(lastDayOfMonth))
+        .eq("supplier.expense_type", "employee_costs");
+      laborActualFromInvoices = ((lmcInvoices || []) as Array<{ subtotal: number | null }>).reduce(
+        (s, r) => s + (Number(r.subtotal) || 0),
+        0
+      );
+    }
+
+    const laborCostEstimate = (rawLaborCost + computedManagerCost) * markup;
+    const laborCost = laborMonthClosed ? laborActualFromInvoices : laborCostEstimate;
     const laborCostPct = incomeBeforeVat > 0 ? (laborCost / incomeBeforeVat) * 100 : 0;
     const laborTargetPct = Number(goal?.labor_cost_target_pct) || 0;
     const laborDiffPct = laborCostPct - laborTargetPct;
@@ -264,6 +300,26 @@ export async function GET(request: NextRequest) {
       .is("deleted_at", null);
     const goodsSupplierIds = new Set(
       ((goodsSupplierIdsRes.data || []) as Array<{ id: string }>).map((s) => s.id)
+    );
+
+    // Same for "הוצאות שוטפות": the dashboard buckets by the SUPPLIER's
+    // expense_type='current_expenses' (active, not deleted) — a whitelist, not
+    // "everything that isn't goods". is_fixed_expense is needed for the
+    // budget fallback below.
+    const currentExpensesSuppliersRes = await supabase
+      .from("suppliers")
+      .select("id, is_fixed_expense")
+      .eq("business_id", businessId)
+      .eq("expense_type", "current_expenses")
+      .eq("is_active", true)
+      .is("deleted_at", null);
+    const currentExpensesSuppliers = (currentExpensesSuppliersRes.data || []) as Array<{
+      id: string;
+      is_fixed_expense: boolean | null;
+    }>;
+    const currentExpensesSupplierIds = new Set(currentExpensesSuppliers.map((s) => s.id));
+    const trulyFixedExpenseSupplierIds = new Set(
+      currentExpensesSuppliers.filter((s) => s.is_fixed_expense).map((s) => s.id)
     );
 
     // Also include unlinked delivery notes (תעודות משלוח without an invoice)
@@ -292,20 +348,7 @@ export async function GET(request: NextRequest) {
     const foodDiffPct = foodCostPct - foodTargetPct;
     const foodDiffNis = (foodDiffPct * incomeBeforeVat) / 100;
 
-    // Current expenses = invoices from non-goods suppliers. Falls back to the
-    // legacy invoice_type='current' filter for invoices whose supplier was
-    // deleted / has no expense_type, so they still get bucketed somewhere.
-    // Target is scaled by periodFactor so partial-month actuals are compared
-    // against partial-month targets (David's request: split by days elapsed).
-    //
-    // current_expenses_target is stored gross (כולל מע"מ); divide by vatDivisor
-    // to match dashboard reports/page.tsx, then take MAX with the sum of
-    // supplier_budgets that aren't under the "עלות מכר" or "עלות עובדים"
-    // top-level categories — same filter the dashboard uses (by category NAME,
-    // not by supplier.expense_type, so the two numbers stay identical).
-    const currentExpensesTargetFromGoal =
-      (Number(goal?.current_expenses_target) || 0) / vatDivisor;
-    // Fetch categories once for the budget filter + reuse for category breakdown later.
+    // Fetch categories for the category budget breakdown further down.
     const { data: allCategoriesData } = await supabase
       .from("expense_categories")
       .select("id, name, parent_id")
@@ -323,8 +366,6 @@ export async function GET(request: NextRequest) {
       categoryNameByIdMap[c.id] = c.name;
       categoryParentByIdMap[c.id] = c.parent_id || null;
     }
-    const laborCostNames = new Set(["עלות עובדים", "עלויות עובדים"]);
-    const excludedTopLevelNames = new Set(["עלות מכר", ...laborCostNames]);
     const walkToTopLevel = (catId: string | null): string | null => {
       let cur = catId;
       let depth = 0;
@@ -334,30 +375,45 @@ export async function GET(request: NextRequest) {
       }
       return cur;
     };
-    const supplierBudgetsForCurrent = (supplierBudgetsRes.data || []) as unknown as Array<{
-      budget_amount: number | null;
-      supplier:
-        | { expense_category_id?: string | null; parent_category_id?: string | null }
-        | Array<{ expense_category_id?: string | null; parent_category_id?: string | null }>
-        | null;
-    }>;
-    const currentExpensesTargetFromBudgets = supplierBudgetsForCurrent.reduce((sum, sb) => {
-      const supplierObj = Array.isArray(sb.supplier) ? sb.supplier[0] : sb.supplier;
-      const catId = supplierObj?.parent_category_id || supplierObj?.expense_category_id || null;
-      const topLevelId = walkToTopLevel(catId);
-      const topLevelName = topLevelId ? categoryNameByIdMap[topLevelId] : null;
-      if (topLevelName && excludedTopLevelNames.has(topLevelName)) return sum;
-      return sum + (Number(sb.budget_amount) || 0);
+    // ===== Current expenses (הוצאות שוטפות) — mirrors the dashboard 1:1 =====
+    // Actual = invoices of current-expense suppliers, plus a fixed-expense budget
+    // fallback. Target = plain sum of those suppliers' budgets this month.
+    const currentExpensesBudgets = (
+      (supplierBudgetsRes.data || []) as unknown as Array<{
+        budget_amount: number | null;
+        supplier_id: string | null;
+      }>
+    ).filter((sb) => sb.supplier_id && currentExpensesSupplierIds.has(sb.supplier_id));
+
+    const currentExpensesInvoices = (invoices as InvRow[]).filter(
+      (inv) => inv.supplier_id && currentExpensesSupplierIds.has(inv.supplier_id)
+    );
+    const currentExpensesInvoiced = currentExpensesInvoices.reduce(
+      (s, inv) => s + (Number(inv.subtotal) || 0),
+      0
+    );
+    // Fixed-expense fallback: a supplier marked is_fixed_expense that has a budget
+    // this month but no invoice yet counts its budget as an expense — mirrors the
+    // dashboard (page.tsx) so the email profit matches דוח רווח והפסד. Note:
+    // currentExpensesBudgets covers ALL current-expense suppliers (used for the
+    // target), so restrict the fallback to is_fixed_expense.
+    const currentExpensesInvoicedSupplierIds = new Set(
+      currentExpensesInvoices.map((inv) => inv.supplier_id as string)
+    );
+    const currentExpensesFixedFallback = currentExpensesBudgets.reduce((s, b) => {
+      const supplierId = b.supplier_id as string;
+      if (!trulyFixedExpenseSupplierIds.has(supplierId)) return s;
+      if (currentExpensesInvoicedSupplierIds.has(supplierId)) return s;
+      return s + (Number(b.budget_amount) || 0);
     }, 0);
-    const currentExpensesTargetFull = Math.max(
-      currentExpensesTargetFromGoal,
-      currentExpensesTargetFromBudgets
+    const currentExpensesActual = currentExpensesInvoiced + currentExpensesFixedFallback;
+
+    const currentExpensesTargetFull = currentExpensesBudgets.reduce(
+      (s, b) => s + (Number(b.budget_amount) || 0),
+      0
     );
     // Use FULL-MONTH target (no periodFactor) so values match the dashboard cards.
     const currentExpensesTarget = currentExpensesTargetFull;
-    const currentExpensesActual = (invoices as InvRow[])
-      .filter((inv) => !inv.supplier_id || !goodsSupplierIds.has(inv.supplier_id))
-      .reduce((s, inv) => s + (Number(inv.subtotal) || 0), 0);
     const currentExpensesDiffNis = currentExpensesActual - currentExpensesTarget;
     // Attainment % (actual / target × 100), matching dashboard's "הפרש %" semantics.
     const currentExpensesDiffPct =
@@ -618,6 +674,9 @@ export async function GET(request: NextRequest) {
       laborDiffPct: Math.round(laborDiffPct * 100) / 100,
       laborDiffNis: Math.round(laborDiffNis),
       laborActualNis: Math.round(laborCost),
+      // true = laborActualNis comes from actual employee_costs invoices
+      // (חודש סגור), false = daily-entries estimate.
+      laborMonthClosed,
 
       // Food
       foodTargetPct: Math.round(foodTargetPct * 100) / 100,
