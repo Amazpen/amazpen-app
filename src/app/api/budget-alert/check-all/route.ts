@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
   const { data: invoices } = await supabase
     .from("invoices")
     .select("business_id, supplier_id, subtotal")
+    .is("deleted_at", null)
     .gte("reference_date", monthStart)
     .lt("reference_date", monthEnd)
     .neq("status", "cancelled");

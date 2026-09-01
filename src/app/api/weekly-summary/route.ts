@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
       supabase.from("invoices")
         .select("subtotal, invoice_type, supplier_id")
         .eq("business_id", businessId)
+        .is("deleted_at", null)
         .gte("reference_date", monthStart).lt("reference_date", monthEnd)
         .neq("status", "cancelled"),
       // Business members (owners/admins) for email

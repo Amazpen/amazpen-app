@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
         .from("invoices")
         .select("subtotal, invoice_type, reference_date, supplier_id")
         .eq("business_id", businessId)
+        .is("deleted_at", null)
         .gte("reference_date", startStr)
         .lt("reference_date", endExclusiveStr)
         .neq("status", "cancelled"),

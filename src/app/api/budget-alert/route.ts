@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
       .select("subtotal")
       .eq("business_id", business_id)
       .eq("supplier_id", supplier_id)
+      .is("deleted_at", null)
       .gte("reference_date", monthStart)
       .lt("reference_date", monthEnd)
       .neq("status", "cancelled");
