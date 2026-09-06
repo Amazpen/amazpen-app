@@ -888,61 +888,34 @@ export default function OCRBusinessPage() {
             }
           }
 
-          if (formData.is_partial_payment && selectedInvoicesArr.length > 0) {
-            // Exact FIFO partial allocation: close oldest in full, leave one 'partial'.
-            await applyPartialPaymentAllocation(supabase, {
+          if (selectedInvoicesArr.length > 0) {
+            // One path for both a regular and an explicitly partial payment:
+            // exact FIFO allocation against each invoice's OPEN balance, close
+            // the oldest in full, leave at most one 'partial'. The old
+            // heuristic compared the payment to the invoices' full
+            // total_amount, so a payment settling the remainder of an
+            // already-partially-paid invoice never matched and the same
+            // remainder kept coming back into the open-invoice list.
+            // ₪5 is the pre-existing business tolerance carried over from the
+            // amount-vs-total heuristic this replaced: an OCR-read payment is
+            // regularly a few shekels off the invoice total, and closing that
+            // gap beats leaving a stream of junk ₪1-4 open balances. The
+            // explicit "תשלום חלקי" flow stays exact.
+            const closeTolerance = formData.is_partial_payment ? 0 : 5;
+            const alloc = await applyPartialPaymentAllocation(supabase, {
               paymentId: newPayment.id,
               invoiceIds: selectedInvoicesArr,
               paymentAmount: totalAmount,
+              closeTolerance,
             });
-          } else {
-          if (selectedInvoicesArr.length > 1) {
-            const { data: invDetails } = await supabase
-              .from('invoices')
-              .select('id, total_amount')
-              .in('id', selectedInvoicesArr);
-            let remaining = totalAmount;
-            for (const inv of invDetails || []) {
-              const allocated = Math.min(Number(inv.total_amount), remaining);
-              remaining -= allocated;
-              await supabase.from('payment_invoice_links').insert({
-                payment_id: newPayment.id,
-                invoice_id: inv.id,
-                amount_allocated: allocated,
-              });
-            }
-          }
 
-          if (formData.payment_linked_invoice_ids && formData.payment_linked_invoice_ids.length > 0) {
-            const { data: selectedInvs } = await supabase
-              .from('invoices')
-              .select('id, total_amount')
-              .in('id', formData.payment_linked_invoice_ids);
-            if (selectedInvs) {
-              const invoicesTotal = selectedInvs.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
-              const diff = Math.abs(invoicesTotal - totalAmount);
-              if (diff <= 5) {
-                await supabase
-                  .from('invoices')
-                  .update({ status: 'paid' })
-                  .in('id', formData.payment_linked_invoice_ids);
-              } else {
-                const sorted = [...selectedInvs].sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
-                let remaining = totalAmount;
-                const toMarkPaid: string[] = [];
-                for (const inv of sorted) {
-                  const invAmount = Number(inv.total_amount);
-                  if (invAmount <= remaining + 1) {
-                    toMarkPaid.push(inv.id as string);
-                    remaining -= invAmount;
-                  }
-                }
-                if (toMarkPaid.length > 0) {
-                  await supabase.from('invoices').update({ status: 'paid' }).in('id', toMarkPaid);
-                }
-              }
+            // Money the selected invoices could not absorb stays unallocated on
+            // the payment - say so instead of silently swallowing it. Same
+            // tolerance, so rounding noise does not raise a false alarm.
+            const overpayThreshold = formData.is_partial_payment ? 0.01 : closeTolerance;
+            if (alloc.overpay > overpayThreshold) {
+              alert(`שים לב: ₪${alloc.overpay.toFixed(2)} מתוך התשלום לא שויכו לאף חשבונית, כי הסכום גבוה מהיתרה הפתוחה של החשבוניות שנבחרו.`);
             }
-          }
           }
 
         } else if (formData.document_type === 'summary') {
