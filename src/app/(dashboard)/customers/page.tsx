@@ -467,8 +467,10 @@ export default function CustomersPage() {
   const [monthDetailKey, setMonthDetailKey] = useState<string | null>(null);
   // Invoice-detail modal: when set, filter payments to those linked to this invoice
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-  // Map payment_id → { invoice_id, invoice_number } for the linkage badge under each payment
-  const [paymentInvoiceLinks, setPaymentInvoiceLinks] = useState<Map<string, { invoice_id: string; invoice_number: string | null }>>(new Map());
+  // Map payment_id → { invoice_id, invoice_number, notes, amount_allocated } for the
+  // linkage badge under each payment and the invoice popup. amount_allocated is
+  // the GROSS amount the trigger credited to that invoice.
+  const [paymentInvoiceLinks, setPaymentInvoiceLinks] = useState<Map<string, { invoice_id: string; invoice_number: string | null; notes: string | null; amount_allocated: number }>>(new Map());
   // Inline modal targets for invoice CRUD + paid-in-full flows
   type InvoiceRow = { id: string; invoice_number: string | null; issue_date: string; subtotal: number; vat_amount: number; total_amount: number; amount_paid: number; status: "open" | "partial" | "paid" | "cancelled"; source: "manual" | "auto_retainer" };
   const [editInvoice, setEditInvoice] = useState<InvoiceRow | null>(null);
@@ -701,7 +703,7 @@ export default function CustomersPage() {
       // Fetch all links for invoices of this customer (small set, scoped via inner join via FK + RLS)
       supabase
         .from("customer_payment_invoice_links")
-        .select("payment_id, invoice_id, customer_invoices!inner(invoice_number, customer_id)")
+        .select("payment_id, invoice_id, amount_allocated, customer_invoices!inner(invoice_number, notes, customer_id)")
         .eq("customer_invoices.customer_id", customerId),
     ]);
     setCustomerInvoices(
@@ -717,10 +719,16 @@ export default function CustomersPage() {
         source: r.source as "manual" | "auto_retainer",
       })),
     );
-    const linkMap = new Map<string, { invoice_id: string; invoice_number: string | null }>();
-    for (const row of (linkData || []) as Array<{ payment_id: string; invoice_id: string; customer_invoices?: { invoice_number: string | null } | { invoice_number: string | null }[] | null }>) {
+    const linkMap = new Map<string, { invoice_id: string; invoice_number: string | null; notes: string | null; amount_allocated: number }>();
+    type LinkedInv = { invoice_number: string | null; notes: string | null };
+    for (const row of (linkData || []) as Array<{ payment_id: string; invoice_id: string; amount_allocated: number | string | null; customer_invoices?: LinkedInv | LinkedInv[] | null }>) {
       const inv = Array.isArray(row.customer_invoices) ? row.customer_invoices[0] : row.customer_invoices;
-      linkMap.set(row.payment_id, { invoice_id: row.invoice_id, invoice_number: inv?.invoice_number ?? null });
+      linkMap.set(row.payment_id, {
+        invoice_id: row.invoice_id,
+        invoice_number: inv?.invoice_number ?? null,
+        notes: inv?.notes ?? null,
+        amount_allocated: Number(row.amount_allocated) || 0,
+      });
     }
     setPaymentInvoiceLinks(linkMap);
   }, []);
@@ -814,6 +822,8 @@ export default function CustomersPage() {
   // Open-debt per customer for ALL customers in scope — drives the red
   // "חייב ₪X" line on each card and the total-debt KPI in the page header.
   // Uses the same computeBillingSummary helper as the in-Sheet table.
+  // computeBillingSummary works in NET; the cards and the header show GROSS,
+  // so apply the same rule as the invoices table: x(1+vat) unless is_foreign.
   const debtByCustomerId = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of displayItems) {
@@ -824,7 +834,9 @@ export default function CustomersPage() {
         item.business?.vat_percentage ?? null,
         customerPayments,
       );
-      map.set(item.customer.id, summary?.totalOpen ?? 0);
+      const vatRate = Number(item.business?.vat_percentage) || 0.18;
+      const grossMul = item.customer.is_foreign ? 1 : 1 + vatRate;
+      map.set(item.customer.id, (summary?.totalOpen ?? 0) * grossMul);
     }
     return map;
   }, [displayItems, allPayments]);
@@ -3152,10 +3164,19 @@ export default function CustomersPage() {
                 const billingDay = Math.max(1, Number(selectedItem.customer?.retainer_day_of_month) || 1);
                 // Map real invoices by month key ("YYYY-M", month 0-indexed) to
                 // enrich the matching forecast row with its invoice number.
+                // When a month has several invoices (e.g. a duplicate AUTO row or
+                // an ADHOC extra), prefer the auto_retainer one, and among those
+                // the earliest issued - never let a later row silently win.
                 const invByMonth = new Map<string, InvoiceRow>();
                 for (const inv of customerInvoices) {
                   const d = new Date(inv.issue_date);
-                  invByMonth.set(`${d.getFullYear()}-${d.getMonth()}`, inv);
+                  const key = `${d.getFullYear()}-${d.getMonth()}`;
+                  const cur = invByMonth.get(key);
+                  if (!cur) { invByMonth.set(key, inv); continue; }
+                  const curIsAuto = cur.source === "auto_retainer";
+                  const invIsAuto = inv.source === "auto_retainer";
+                  if (invIsAuto && !curIsAuto) { invByMonth.set(key, inv); continue; }
+                  if (invIsAuto === curIsAuto && inv.issue_date < cur.issue_date) invByMonth.set(key, inv);
                 }
                 const totalExpected = billingSummary.totalExpected * grossMul;
                 const totalPaid = billingSummary.totalPaid * grossMul;
@@ -4618,6 +4639,18 @@ export default function CustomersPage() {
             if (!inv) return null;
             const linkedPayments = payments.filter((p) => paymentInvoiceLinks.get(p.id)?.invoice_id === inv.id);
             const issueLabel = new Date(inv.issue_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
+            // Every payment covering the invoice's month (same bucketing as the
+            // חשבוניות table row), shown GROSS with the table's multiplier so
+            // the popup total equals the row's "שולם".
+            const invIssue = new Date(inv.issue_date);
+            const invMonthKey = `${invIssue.getFullYear()}-${invIssue.getMonth()}`;
+            const invMonthLabel = new Date(invIssue.getFullYear(), invIssue.getMonth(), 1).toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+            const monthPayments = payments
+              .filter((p) => paymentCoveredMonthKey(p) === invMonthKey)
+              .sort((a, b) => (a.payment_date || "").localeCompare(b.payment_date || ""));
+            const monthGrossTotal = monthPayments.reduce((s, p) => s + Number(p.amount || 0) * svcGrossMul, 0);
+            const fmtMoney = (n: number) => n.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+            const fmtDate = (s: string) => new Date(s).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
             const open = Math.max(0, inv.total_amount - inv.amount_paid);
             const badge = inv.status === "paid"
               ? { c: "bg-[#0BB783]/20 text-[#0BB783]", t: "✓ שולם" }
@@ -4710,19 +4743,66 @@ export default function CustomersPage() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-[6px] max-h-[40vh] overflow-y-auto">
-                    {linkedPayments.map((p) => (
-                      <div key={p.id} className="flex flex-col gap-[3px] bg-white/5 rounded-[7px] p-[8px]">
-                        <div className="flex items-center justify-between">
-                          <span dir="ltr" className="text-[13px] text-white font-medium">₪{Number(p.amount).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
-                          <span dir="ltr" className="text-[11px] text-white/60">{new Date(p.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>
+                    {linkedPayments.map((p) => {
+                      // Gross amount credited to THIS invoice (trigger writes
+                      // amount_allocated = net x (1+vat)); fall back to the
+                      // gross payment when the link carries no allocation.
+                      const allocated = paymentInvoiceLinks.get(p.id)?.amount_allocated || 0;
+                      const shown = allocated > 0 ? allocated : Number(p.amount || 0) * svcGrossMul;
+                      return (
+                        <div key={p.id} className="flex flex-col gap-[3px] bg-white/5 rounded-[7px] p-[8px]">
+                          <div className="flex items-center justify-between">
+                            <span dir="ltr" className="text-[13px] text-white font-medium">₪{fmtMoney(shown)}</span>
+                            <span dir="ltr" className="text-[11px] text-white/60">{fmtDate(p.payment_date)}</span>
+                          </div>
+                          {p.payment_method && (
+                            <span className="text-[11px] text-white/50 text-right">{paymentMethodLabels[p.payment_method] || p.payment_method}</span>
+                          )}
                         </div>
-                        {p.payment_method && (
-                          <span className="text-[11px] text-white/50 text-right">{paymentMethodLabels[p.payment_method] || p.payment_method}</span>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
+
+                {/* Read-only: every payment whose covered month is this invoice's
+                    month, gross. The total must equal the table row's "שולם".
+                    Services only - the non-services table is per-invoice, not per-month. */}
+                {selectedItem?.business?.business_type === "services" && (<>
+                <h4 className="text-[13px] font-semibold text-white/80 text-right mb-[6px] mt-[12px]">תשלומים בחודש זה - {invMonthLabel} ({monthPayments.length})</h4>
+                {monthPayments.length === 0 ? (
+                  <div className="flex items-center justify-center py-[15px]">
+                    <span className="text-[12px] text-white/50">אין תשלומים בחודש זה</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-[6px] max-h-[40vh] overflow-y-auto">
+                    {monthPayments.map((p) => {
+                      const link = paymentInvoiceLinks.get(p.id);
+                      const onWhat = link ? (link.invoice_number || link.notes || "חשבונית") : "לא משויך";
+                      return (
+                        <div key={p.id} className="flex flex-col gap-[3px] bg-white/5 rounded-[7px] p-[8px]">
+                          <div className="flex items-center justify-between">
+                            <span dir="ltr" className="text-[13px] text-white font-medium">₪{fmtMoney(Number(p.amount || 0) * svcGrossMul)}</span>
+                            <span dir="ltr" className="text-[11px] text-white/60">{fmtDate(p.payment_date)}</span>
+                          </div>
+                          {p.payment_method && (
+                            <span className="text-[11px] text-white/50 text-right">{paymentMethodLabels[p.payment_method] || p.payment_method}</span>
+                          )}
+                          {(p.description || p.notes) && (
+                            <span className="text-[11px] text-white/40 text-right">{p.description || p.notes}</span>
+                          )}
+                          <span className={`text-[11px] text-right ${link ? "text-[#3F97FF]" : "text-[#F6A609]"}`} title={link ? "החשבונית שאליה שויך התשלום" : "התשלום לא משויך לאף חשבונית"}>
+                            על מה: {onWhat}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center justify-between border-t border-white/10 pt-[6px] mt-[2px] px-[8px]">
+                      <span className="text-[13px] text-white">סה&quot;כ בחודש</span>
+                      <span dir="ltr" className="text-[14px] text-[#0BB783] font-bold">₪{fmtMoney(monthGrossTotal)}</span>
+                    </div>
+                  </div>
+                )}
+                </>)}
                 <Button variant="outline" type="button" onClick={() => setSelectedInvoiceId(null)}
                   className="w-full mt-[12px] border-white/30 text-white hover:bg-white/10">
                   סגור
