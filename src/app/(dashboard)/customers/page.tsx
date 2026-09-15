@@ -131,7 +131,16 @@ interface CustomerDocument {
   created_at: string;
 }
 
-// Computed monthly billing row (derived from retainer + payments)
+// Minimal customer_invoices shape the billing math needs. subtotal is NET
+// (pre-VAT). auto_retainer rows ARE the retainer forecast, so only manual
+// rows are added on top of it.
+interface BillingInvoiceInput {
+  issue_date: string;
+  subtotal: number;
+  source: "manual" | "auto_retainer";
+}
+
+// Computed monthly billing row (derived from retainer + payments + manual invoices)
 type BillingRowStatus = 'paid' | 'partial' | 'open' | 'overpaid' | 'no-charge';
 
 interface BillingRow {
@@ -182,17 +191,23 @@ function paymentCoveredMonthKey(p: Pick<CustomerPayment, "payment_date" | "billi
 }
 
 // Pure helper used by both the in-Sheet monthly table and the per-card
-// debt indicator. Returns null when there's nothing to bill (no retainer
-// and no payments). All amounts are VAT-inclusive unless customer.is_foreign.
+// debt indicator. Returns null when there's nothing to bill (no retainer,
+// no payments and no manual invoices). All amounts are VAT-inclusive unless
+// customer.is_foreign. Derived from retainer + payments + manual invoices:
+// manual customer_invoices rows are ADDITIVE on top of the retainer forecast
+// (auto_retainer rows are the forecast itself and are skipped).
 function computeBillingSummary(
   customer: Customer,
   businessVatPercentage: number | null,
   customerPayments: CustomerPayment[],
+  customerInvoices: BillingInvoiceInput[] = [],
 ): BillingSummary | null {
   const retainerAmount = Number(customer.retainer_amount) || 0;
   const hasRetainer = retainerAmount > 0;
   const hasPayments = customerPayments.length > 0;
-  if (!hasRetainer && !hasPayments) return null;
+  const manualInvoices = customerInvoices.filter((inv) => inv.source === "manual");
+  const hasManualInvoices = manualInvoices.length > 0;
+  if (!hasRetainer && !hasPayments && !hasManualInvoices) return null;
 
   // Convention: customer_payments.amount and customer.retainer_amount are
   // both stored as pre-VAT (net). The DB trigger
@@ -219,9 +234,11 @@ function computeBillingSummary(
   } else {
     startDate = workStart || retainerStart;
   }
-  if (!startDate && hasPayments) {
-    const earliest = customerPayments
-      .map((p) => parseDate(p.payment_date))
+  if (!startDate && (hasPayments || hasManualInvoices)) {
+    const earliest = [
+      ...customerPayments.map((p) => parseDate(p.payment_date)),
+      ...manualInvoices.map((inv) => parseDate(inv.issue_date)),
+    ]
       .filter((d): d is Date => d !== null)
       .sort((a, b) => a.getTime() - b.getTime())[0];
     if (earliest) startDate = earliest;
@@ -258,16 +275,29 @@ function computeBillingSummary(
     paidByMonth.set(key, (paidByMonth.get(key) || 0) + Number(p.amount));
   }
 
+  // Bucket manual invoices by issue month (same key as the payments above).
+  // These are extra work billed on top of the retainer, so their NET
+  // subtotal is added to that month's expected amount. auto_retainer rows
+  // are the retainer itself and would double count - they are filtered out.
+  const manualByMonth = new Map<string, number>();
+  for (const inv of manualInvoices) {
+    const d = parseDate(inv.issue_date);
+    if (!d) continue;
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    manualByMonth.set(key, (manualByMonth.get(key) || 0) + Number(inv.subtotal));
+  }
+
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth();
   const startKey = `${startAnchor.getFullYear()}-${startAnchor.getMonth()}`;
 
-  // Make sure any month that has a payment is included in the iteration,
-  // even if it falls outside the retainer window (e.g. setup-fee payment
-  // recorded on work_start_date when work_start_date < retainer_start_date).
-  for (const [paidKey] of paidByMonth) {
-    if (monthsAsc.some((m) => `${m.year}-${m.month}` === paidKey)) continue;
-    const [yStr, mStr] = paidKey.split("-");
+  // Make sure any month that has a payment or a manual invoice is included
+  // in the iteration, even if it falls outside the retainer window (e.g.
+  // setup-fee payment recorded on work_start_date when work_start_date <
+  // retainer_start_date, or an extra-work invoice issued for a future month).
+  for (const extraKey of [...paidByMonth.keys(), ...manualByMonth.keys()]) {
+    if (monthsAsc.some((m) => `${m.year}-${m.month}` === extraKey)) continue;
+    const [yStr, mStr] = extraKey.split("-");
     monthsAsc.push({ year: parseInt(yStr, 10), month: parseInt(mStr, 10) });
   }
   // Re-sort ascending after potential additions
@@ -294,6 +324,8 @@ function computeBillingSummary(
         expected = monthlyExpectedGross;
       }
     }
+    // Manual invoices are additive on top of the retainer forecast.
+    expected += manualByMonth.get(key) || 0;
 
     const paid = paidByMonth.get(key) || 0;
 
@@ -446,6 +478,9 @@ export default function CustomersPage() {
 
   // All payments for currently-selected businesses (for per-card debt computation)
   const [allPayments, setAllPayments] = useState<CustomerPayment[]>([]);
+  // All MANUAL customer_invoices for currently-selected businesses - same scope
+  // as allPayments, so the per-card debt sees extra-work invoices too.
+  const [allInvoices, setAllInvoices] = useState<Array<InvoiceRow & { customer_id: string }>>([]);
 
   // Detail popup state
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -576,6 +611,38 @@ export default function CustomersPage() {
 
   // ─── Data Fetching ─────────────────────────────────────────
 
+  // Manual customer_invoices for all customers in scope - the per-card debt
+  // and the header KPI add these on top of the retainer forecast, exactly
+  // like the in-Sheet table does. Re-run whenever allPayments is refreshed
+  // and after an invoice is created / edited / deleted.
+  const fetchAllInvoices = useCallback(async (customerIds: string[]) => {
+    if (customerIds.length === 0) {
+      setAllInvoices([]);
+      return;
+    }
+    const supabase = createClient();
+    const { data: invs } = await supabase
+      .from("customer_invoices")
+      .select("id, customer_id, invoice_number, issue_date, subtotal, vat_amount, total_amount, amount_paid, status, source")
+      .in("customer_id", customerIds)
+      .eq("source", "manual")
+      .is("deleted_at", null);
+    setAllInvoices(
+      (invs || []).map((r) => ({
+        id: r.id as string,
+        customer_id: r.customer_id as string,
+        invoice_number: (r.invoice_number as string | null) ?? null,
+        issue_date: r.issue_date as string,
+        subtotal: Number(r.subtotal) || 0,
+        vat_amount: Number(r.vat_amount) || 0,
+        total_amount: Number(r.total_amount) || 0,
+        amount_paid: Number(r.amount_paid) || 0,
+        status: r.status as "open" | "partial" | "paid" | "cancelled",
+        source: r.source as "manual" | "auto_retainer",
+      })),
+    );
+  }, []);
+
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
@@ -648,6 +715,8 @@ export default function CustomersPage() {
       } else {
         setAllPayments([]);
       }
+      // Manual invoices for the same customers - same scope as allPayments.
+      await fetchAllInvoices(customerIds);
 
       // Fetch income sources for retainer linking (#35)
       const bizIds = selectedBusinesses;
@@ -665,7 +734,7 @@ export default function CustomersPage() {
       setIsLoading(false);
     }
     fetchData();
-  }, [selectedBusinesses, refreshTrigger, showToast]);
+  }, [selectedBusinesses, refreshTrigger, showToast, fetchAllInvoices]);
 
   // Realtime — auto-refresh when customers/payments/services/businesses
   // change in any of the selected businesses (e.g. another tab adds a
@@ -813,11 +882,19 @@ export default function CustomersPage() {
   // Per-customer monthly billing breakdown. Returns null when the section
   // should not render (no retainer + no payments). All amounts are
   // VAT-inclusive unless customer.is_foreign === true.
+  // Services flow only: manual invoices are added on top of the retainer
+  // forecast. The non-services flow lists customer_invoices directly.
   const billingSummary = useMemo<BillingSummary | null>(() => {
     const customer = selectedItem?.customer;
     if (!customer) return null;
-    return computeBillingSummary(customer, selectedItem?.business?.vat_percentage ?? null, payments);
-  }, [selectedItem, payments]);
+    const isServices = selectedItem?.business?.business_type === "services";
+    return computeBillingSummary(
+      customer,
+      selectedItem?.business?.vat_percentage ?? null,
+      payments,
+      isServices ? customerInvoices : [],
+    );
+  }, [selectedItem, payments, customerInvoices]);
 
   // Open-debt per customer for ALL customers in scope — drives the red
   // "חייב ₪X" line on each card and the total-debt KPI in the page header.
@@ -829,17 +906,22 @@ export default function CustomersPage() {
     for (const item of displayItems) {
       if (!item.customer) continue;
       const customerPayments = allPayments.filter((p) => p.customer_id === item.customer!.id);
+      // Services flow only: manual invoices add to the expected amount.
+      const customerManualInvoices = item.business?.business_type === "services"
+        ? allInvoices.filter((inv) => inv.customer_id === item.customer!.id)
+        : [];
       const summary = computeBillingSummary(
         item.customer,
         item.business?.vat_percentage ?? null,
         customerPayments,
+        customerManualInvoices,
       );
       const vatRate = Number(item.business?.vat_percentage) || 0.18;
       const grossMul = item.customer.is_foreign ? 1 : 1 + vatRate;
       map.set(item.customer.id, (summary?.totalOpen ?? 0) * grossMul);
     }
     return map;
-  }, [displayItems, allPayments]);
+  }, [displayItems, allPayments, allInvoices]);
 
   const totalDebtAllCustomers = useMemo(() => {
     let sum = 0;
@@ -3165,12 +3247,16 @@ export default function CustomersPage() {
                 // Map real invoices by month key ("YYYY-M", month 0-indexed) to
                 // enrich the matching forecast row with its invoice number.
                 // When a month has several invoices (e.g. a duplicate AUTO row or
-                // an ADHOC extra), prefer the auto_retainer one, and among those
-                // the earliest issued - never let a later row silently win.
+                // a manual extra-work invoice), prefer the auto_retainer one, and
+                // among those the earliest issued - never let a later row silently
+                // win. All of the month's invoices are kept in invoicesByMonth so
+                // the cell can show "+N" and the row click can open the month.
                 const invByMonth = new Map<string, InvoiceRow>();
+                const invoicesByMonth = new Map<string, InvoiceRow[]>();
                 for (const inv of customerInvoices) {
                   const d = new Date(inv.issue_date);
                   const key = `${d.getFullYear()}-${d.getMonth()}`;
+                  invoicesByMonth.set(key, [...(invoicesByMonth.get(key) || []), inv]);
                   const cur = invByMonth.get(key);
                   if (!cur) { invByMonth.set(key, inv); continue; }
                   const curIsAuto = cur.source === "auto_retainer";
@@ -3193,7 +3279,9 @@ export default function CustomersPage() {
                           setInvForm({
                             invoice_number: "",
                             issue_date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`,
-                            subtotal: selectedItem?.customer?.retainer_amount ? String(selectedItem.customer.retainer_amount) : "",
+                            // Manual invoices are ADDED on top of the retainer, so
+                            // prefilling the retainer amount would double the month.
+                            subtotal: "",
                             notes: "",
                           });
                           setCreateInvoiceOpen(true);
@@ -3230,6 +3318,11 @@ export default function CustomersPage() {
                       <div className="max-h-[320px] overflow-y-auto flex flex-col gap-[3px] mt-[3px]">
                         {billingSummary.rows.map((row) => {
                           const inv = invByMonth.get(row.key);
+                          const monthInvoices = invoicesByMonth.get(row.key) || [];
+                          const extraCount = Math.max(0, monthInvoices.length - 1);
+                          // Preferred invoice's number, plus " +N" when the month has more.
+                          const invLabel = `${inv?.invoice_number || "—"}${extraCount > 0 ? ` +${extraCount}` : ""}`;
+                          const invTitle = monthInvoices.map((i) => i.invoice_number || "").filter(Boolean).join(", ");
                           const [yStr, mStr] = row.key.split("-");
                           const yr = parseInt(yStr, 10);
                           const mi = parseInt(mStr, 10);
@@ -3249,12 +3342,12 @@ export default function CustomersPage() {
                             <button
                               key={row.key}
                               type="button"
-                              onClick={() => inv ? setSelectedInvoiceId(inv.id) : setMonthDetailKey(row.key)}
-                              title={inv ? "הצג תשלומים מקושרים לחשבונית זו" : "הצג פירוט תשלומים לחודש זה"}
+                              onClick={() => (inv && monthInvoices.length === 1) ? setSelectedInvoiceId(inv.id) : setMonthDetailKey(row.key)}
+                              title={(inv && monthInvoices.length === 1) ? "הצג תשלומים מקושרים לחשבונית זו" : "הצג פירוט תשלומים לחודש זה"}
                               className="grid grid-cols-[1.4fr_1.6fr_0.9fr_0.9fr_0.9fr_1fr] w-full p-[8px_5px] bg-white/5 hover:bg-white/10 rounded-[5px] items-center text-right cursor-pointer"
                             >
                               <div dir="ltr" className="text-center text-[12px] text-white">{dateLabel}</div>
-                              <div className="text-center text-[11px] text-white/70 truncate" title={inv?.invoice_number || ""}>{inv?.invoice_number || "—"}</div>
+                              <div className="text-center text-[11px] text-white/70 truncate" title={invTitle}>{invLabel}</div>
                               <div dir="ltr" className="text-center text-[12px] text-white">₪{row.expected.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
                               <div dir="ltr" className="text-center text-[12px] text-white">₪{grossExpected.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
                               <div dir="ltr" className="text-center text-[12px] text-[#0BB783]">₪{grossPaid.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
@@ -4726,7 +4819,12 @@ export default function CustomersPage() {
                         showToast("החשבונית נמחקה", "success");
                         setSelectedInvoiceId(null);
                         if (selectedItem?.customer) {
-                          await Promise.all([fetchCustomerInvoices(selectedItem.customer.id), fetchPayments(selectedItem.customer.id)]);
+                          await Promise.all([
+                            fetchCustomerInvoices(selectedItem.customer.id),
+                            fetchPayments(selectedItem.customer.id),
+                            // Card / header debt reads the all-customers list.
+                            fetchAllInvoices(displayItems.filter((it) => it.customer).map((it) => it.customer!.id)),
+                          ]);
                         }
                       });
                     }}
@@ -4857,7 +4955,11 @@ export default function CustomersPage() {
               setCreateInvoiceOpen(false);
               setEditInvoice(null);
               setInvForm({ invoice_number: "", issue_date: "", subtotal: "", notes: "" });
-              await fetchCustomerInvoices(selectedItem.customer.id);
+              await Promise.all([
+                fetchCustomerInvoices(selectedItem.customer.id),
+                // Card / header debt reads the all-customers list.
+                fetchAllInvoices(displayItems.filter((it) => it.customer).map((it) => it.customer!.id)),
+              ]);
             };
             return (
               <>
