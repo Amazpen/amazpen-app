@@ -2016,22 +2016,10 @@ export default function DashboardPage() {
       const prevMonthEnd = new Date(dateRange.start);
       prevMonthEnd.setDate(0); // Last day of previous month
       const prevMonthStartStr = formatLocalDate(prevMonthStart);
-
-      // Fair-compare cutoff: when comparing the current (partial) month to the
-      // previous month, only count the *same number of days* in the prev month.
-      // Otherwise a partial-month foodCost (e.g. through day 15) gets divided
-      // by a partial-month income and compared against a full prev month —
-      // which inflates the "change from previous month" line.
-      // We measure progress by the max calendar-day-of-month of current
-      // entries. If there are no entries yet, fall back to the full prev month.
-      const currentMonthMaxDay = (entries || []).reduce((max, e) => {
-        const d = new Date(e.entry_date).getDate();
-        return d > max ? d : max;
-      }, 0);
-      const prevMonthFairEnd = currentMonthMaxDay > 0
-        ? new Date(prevMonthStart.getFullYear(), prevMonthStart.getMonth(), Math.min(currentMonthMaxDay, prevMonthEnd.getDate()))
-        : prevMonthEnd;
-      const prevMonthFairEndStr = formatLocalDate(prevMonthFairEnd);
+      // Use the FULL previous calendar month — same approach as the prev-year
+      // comparison below. All "change vs previous month" lines compare against
+      // the complete previous month, not a same-day-of-month cutoff.
+      const prevMonthEndStr = formatLocalDate(prevMonthEnd);
 
       const prevYearStart = new Date(dateRange.start);
       prevYearStart.setFullYear(prevYearStart.getFullYear() - 1);
@@ -2052,16 +2040,16 @@ export default function DashboardPage() {
         prevYearGoodsInvoicesResult,
         prevMonthCurrentExpensesInvoicesResult,
         prevYearCurrentExpensesInvoicesResult,
-        prevMonthFullIncomeResult
+        prevMonthGoodsDeliveryNotesResult,
+        prevYearGoodsDeliveryNotesResult
       ] = await Promise.all([
-        // Previous month entries — capped at fair-compare cutoff so the
-        // partial-current-month is compared to the same partial-prev-month
+        // Previous month entries — full calendar month
         supabase
           .from("daily_entries")
           .select("id, total_register, labor_cost, manager_daily_cost, day_factor")
           .in("business_id", selectedBusinesses)
           .gte("entry_date", prevMonthStartStr)
-          .lte("entry_date", prevMonthFairEndStr)
+          .lte("entry_date", prevMonthEndStr)
           .is("deleted_at", null),
 
         // Previous year entries
@@ -2081,16 +2069,14 @@ export default function DashboardPage() {
           .eq("year", prevYearYear)
           .eq("month", prevYearMonth),
 
-        // Previous month goods invoices — filter by supplier set in memory.
-        // Capped at fair-compare cutoff (same day-of-month as current entries)
-        // so a partial month is compared to a partial prev month.
+        // Previous month goods invoices — full calendar month, filter by supplier set in memory.
         goodsSupplierIds.length > 0
           ? supabase
               .from("invoices")
               .select("subtotal, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", prevMonthStartStr)
-              .lte("reference_date", prevMonthFairEndStr)
+              .lte("reference_date", prevMonthEndStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
@@ -2105,14 +2091,14 @@ export default function DashboardPage() {
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
-        // Previous month current expenses invoices — capped at fair cutoff
+        // Previous month current expenses invoices — full calendar month
         currentExpensesSupplierIds.length > 0
           ? supabase
               .from("invoices")
               .select("subtotal, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", prevMonthStartStr)
-              .lte("reference_date", prevMonthFairEndStr)
+              .lte("reference_date", prevMonthEndStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
@@ -2127,17 +2113,28 @@ export default function DashboardPage() {
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
-        // Previous month income — FULL calendar month (NOT capped at the fair cutoff).
-        // The income card compares the full-month forecast (monthlyPace) against the
-        // full previous month, mirroring the "change vs prev year" line. Using the
-        // capped 1-day prevMonth base here produced an explosive % (e.g. 5568%).
-        supabase
-          .from("daily_entries")
-          .select("total_register")
-          .in("business_id", selectedBusinesses)
-          .gte("entry_date", prevMonthStartStr)
-          .lte("entry_date", formatLocalDate(prevMonthEnd))
-          .is("deleted_at", null)
+        // Previous month UNLINKED delivery notes — full calendar month, same shape as
+        // the current-month query (2b in batch 2). Post-filtered to goods suppliers in memory.
+        goodsSupplierIds.length > 0
+          ? supabase
+              .from("delivery_notes")
+              .select("subtotal, supplier_id")
+              .in("business_id", selectedBusinesses)
+              .gte("delivery_date", prevMonthStartStr)
+              .lte("delivery_date", prevMonthEndStr)
+              .is("invoice_id", null)
+          : Promise.resolve({ data: [] }),
+
+        // Previous year UNLINKED delivery notes — full calendar month
+        goodsSupplierIds.length > 0
+          ? supabase
+              .from("delivery_notes")
+              .select("subtotal, supplier_id")
+              .in("business_id", selectedBusinesses)
+              .gte("delivery_date", prevYearStartStr)
+              .lte("delivery_date", prevYearEndStr)
+              .is("invoice_id", null)
+          : Promise.resolve({ data: [] })
       ]);
 
       const { data: prevMonthEntries } = prevMonthEntriesResult;
@@ -2152,18 +2149,20 @@ export default function DashboardPage() {
         .filter(row => currentExpensesSupplierIdSetForFilter.has(row.supplier_id));
       const prevYearCurrentExpensesInvoices = ((prevYearCurrentExpensesInvoicesResult.data as Array<{ subtotal: number; supplier_id: string }>) || [])
         .filter(row => currentExpensesSupplierIdSetForFilter.has(row.supplier_id));
+      // Unlinked delivery notes count toward "עלות מכר" — same as the current month.
+      const prevMonthGoodsDeliveryNotes = ((prevMonthGoodsDeliveryNotesResult.data as Array<{ subtotal: number; supplier_id: string }>) || [])
+        .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id));
+      const prevYearGoodsDeliveryNotes = ((prevYearGoodsDeliveryNotesResult.data as Array<{ subtotal: number; supplier_id: string }>) || [])
+        .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id));
 
       // Calculate previous month metrics
-      // prevMonthIncome (capped at the fair cutoff) is used by the labor/food % lines below,
-      // which compare a partial current month to the same partial prev month.
+      // prevMonthIncome covers the FULL previous calendar month and is used by the
+      // income/labor/food/current-expenses "change vs prev month" lines below.
       const prevMonthIncome = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
       // Income card "change vs prev month": compare the full-month forecast (monthlyPace)
       // against the FULL previous month — symmetric with the "change vs prev year" line.
-      // Dividing monthlyPace by the 1-day capped base produced an explosive % (e.g. 5568%).
-      const prevMonthIncomeFull = ((prevMonthFullIncomeResult.data as Array<{ total_register: number }>) || [])
-        .reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
-      const prevMonthChange = prevMonthIncomeFull > 0 ? monthlyPace - prevMonthIncomeFull : 0;
-      const prevMonthChangePct = prevMonthIncomeFull > 0 ? ((monthlyPace / prevMonthIncomeFull) - 1) * 100 : 0;
+      const prevMonthChange = prevMonthIncome > 0 ? monthlyPace - prevMonthIncome : 0;
+      const prevMonthChangePct = prevMonthIncome > 0 ? ((monthlyPace / prevMonthIncome) - 1) * 100 : 0;
 
       const prevMonthRawLaborCost = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
       // Manager cost computed from monthly_salary (same approach as current month)
@@ -2198,14 +2197,19 @@ export default function DashboardPage() {
       }
 
       // Calculate food cost changes
-      const prevMonthFoodCost = (prevMonthGoodsInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
+      // Food cost = goods invoices + unlinked delivery notes (same as current month)
+      const prevMonthFoodCost = (prevMonthGoodsInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0)
+        + (prevMonthGoodsDeliveryNotes || []).reduce((sum, dn) => sum + (Number(dn.subtotal) || 0), 0);
       const prevMonthFoodCostPct = prevMonthIncomeBeforeVat > 0 ? (prevMonthFoodCost / prevMonthIncomeBeforeVat) * 100 : 0;
-      const hasPrevMonthData = prevMonthIncomeBeforeVat > 0 && (prevMonthGoodsInvoices || []).length > 0;
+      const hasPrevMonthData = prevMonthIncomeBeforeVat > 0
+        && ((prevMonthGoodsInvoices || []).length + (prevMonthGoodsDeliveryNotes || []).length) > 0;
       const foodCostPrevMonthChange = hasPrevMonthData ? foodCostPct - prevMonthFoodCostPct : 0;
 
-      const prevYearFoodCost = (prevYearGoodsInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
+      const prevYearFoodCost = (prevYearGoodsInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0)
+        + (prevYearGoodsDeliveryNotes || []).reduce((sum, dn) => sum + (Number(dn.subtotal) || 0), 0);
       const prevYearFoodCostPct = prevYearIncomeBeforeVat > 0 ? (prevYearFoodCost / prevYearIncomeBeforeVat) * 100 : 0;
-      const hasPrevYearData = prevYearIncomeBeforeVat > 0 && (prevYearGoodsInvoices || []).length > 0;
+      const hasPrevYearData = prevYearIncomeBeforeVat > 0
+        && ((prevYearGoodsInvoices || []).length + (prevYearGoodsDeliveryNotes || []).length) > 0;
       let foodCostPrevYearChange = hasPrevYearData ? foodCostPct - prevYearFoodCostPct : 0;
       // Fallback to monthly_summaries if no live data
       if (foodCostPrevYearChange === 0 && prevYearMonthlySummaries?.[0]?.food_cost_pct) {
