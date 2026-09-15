@@ -3,13 +3,20 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Receipt, X } from "lucide-react";
 import { useDashboard } from "../layout";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
+import {
+  allocateCustomerPayment,
+  grossToNet,
+  netToGross,
+  type InstallmentInput,
+  type OpenMonth,
+} from "@/lib/customerPayments/allocate";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -99,10 +106,18 @@ interface CustomerPayment {
   id: string;
   customer_id: string;
   payment_date: string;
+  // First day of the month this payment covers. NULL on legacy rows, in
+  // which case readers fall back to payment_date's month.
+  billing_month: string | null;
   amount: number;
   description: string | null;
   payment_method: string | null;
   notes: string | null;
+  reference_number?: string | null;
+  receipt_url?: string | null;
+  installments_count?: number | null;
+  installment_number?: number | null;
+  payment_group_id?: string | null;
   created_at: string;
   deleted_at: string | null;
 }
@@ -121,6 +136,8 @@ type BillingRowStatus = 'paid' | 'partial' | 'open' | 'overpaid' | 'no-charge';
 
 interface BillingRow {
   key: string;            // "2026-3"
+  year: number;
+  month: number;          // 0-11
   label: string;          // "מרץ 2026"
   expected: number;       // VAT-inclusive (net if customer.is_foreign)
   paid: number;
@@ -145,6 +162,23 @@ interface BusinessMember {
     full_name: string | null;
     email: string;
   };
+}
+
+// Which billing month does a payment settle? "YYYY-M" key (month 0-indexed),
+// matching BillingRow.key. Explicit billing_month wins; legacy rows
+// (billing_month NULL) fall back to the month the money arrived in.
+function paymentCoveredMonthKey(p: Pick<CustomerPayment, "payment_date" | "billing_month">): string | null {
+  if (p.billing_month) {
+    // "YYYY-MM-DD" -> parse the parts directly, no timezone drift.
+    const [yStr, mStr] = String(p.billing_month).split("-");
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    if (!isNaN(y) && !isNaN(m)) return `${y}-${m - 1}`;
+  }
+  if (!p.payment_date) return null;
+  const d = new Date(p.payment_date);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${d.getMonth()}`;
 }
 
 // Pure helper used by both the in-Sheet monthly table and the per-card
@@ -213,14 +247,14 @@ function computeBillingSummary(
     safety++;
   }
 
-  // Bucket payments by month. customer_payments.amount is stored pre-VAT (net)
-  // to match the retainer convention; the DB trigger handles VAT when posting
-  // into daily_entries.
+  // Bucket payments by the month they COVER: explicit billing_month wins,
+  // legacy rows (billing_month NULL) fall back to payment_date's month.
+  // customer_payments.amount is stored pre-VAT (net) to match the retainer
+  // convention; the DB trigger handles VAT when posting into daily_entries.
   const paidByMonth = new Map<string, number>();
   for (const p of customerPayments) {
-    const d = parseDate(p.payment_date);
-    if (!d) continue;
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const key = paymentCoveredMonthKey(p);
+    if (!key) continue;
     paidByMonth.set(key, (paidByMonth.get(key) || 0) + Number(p.amount));
   }
 
@@ -279,7 +313,7 @@ function computeBillingSummary(
       year: 'numeric',
     });
 
-    rows.push({ key, label, expected, paid, open, overpaid, status });
+    rows.push({ key, year: m.year, month: m.month, label, expected, paid, open, overpaid, status });
   }
 
   rows.reverse();
@@ -300,6 +334,37 @@ const paymentMethodLabels: Record<string, string> = {
   check: "צ׳ק",
   other: "אחר",
 };
+
+// Small trailer line under a customer-payment row: "N/M" installments, the
+// reference number and a receipt link - only rendered when there is
+// something to show.
+function PaymentRowExtras({ payment }: { payment: CustomerPayment }) {
+  const count = Number(payment.installments_count) || 1;
+  const number = Number(payment.installment_number) || 1;
+  const hasInstallments = count > 1;
+  const reference = payment.reference_number?.trim();
+  const receiptUrl = payment.receipt_url;
+  if (!hasInstallments && !reference && !receiptUrl) return null;
+  return (
+    <div className="flex items-center gap-[10px] text-[11px] text-white/50">
+      {hasInstallments && (
+        <span dir="ltr" className="ltr-num">תשלום {number}/{count}</span>
+      )}
+      {reference && <span>אסמכתא: {reference}</span>}
+      {receiptUrl && (
+        <a
+          href={receiptUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="פתח קבלה"
+          className="text-[#3F97FF] hover:text-[#3F97FF]/80 transition-colors"
+        >
+          <Receipt className="w-[14px] h-[14px]" />
+        </a>
+      )}
+    </div>
+  );
+}
 
 const customerBusinessTypes: { id: string; label: string }[] = [
   { id: "restaurant", label: "מסעדה" },
@@ -418,7 +483,28 @@ export default function CustomersPage() {
   // Bulk-pay open billing months (services): selected row keys + inline confirm form
   const [selectedOpenMonths, setSelectedOpenMonths] = useState<Set<string>>(new Set());
   const [bulkPayOpen, setBulkPayOpen] = useState(false);
-  const [bulkPayForm, setBulkPayForm] = useState({ payment_method: "", payment_date: "" });
+  // Bulk-pay form: mirrors the "הוספת תשלום חדש" sheet on /payments - one or
+  // more payment-method entries, each split into installments (date + amount),
+  // plus reference / receipt file / notes shared by the whole save.
+  type BulkPayInstallment = {
+    number: number;
+    dateForInput: string;   // YYYY-MM-DD
+    amount: number;         // gross (incl. VAT unless foreign)
+    amountStr?: string;     // raw text while editing (lets the user type "1250.50")
+    manuallyEdited?: boolean;
+  };
+  type BulkPayEntry = {
+    id: number;
+    method: string;
+    amount: string;         // gross total for this entry, as typed
+    amountTouched: boolean; // once the user types, stop re-defaulting from the selection
+    installments: string;   // "1".."36"
+    customInstallments: BulkPayInstallment[];
+  };
+  const [bulkPayEntries, setBulkPayEntries] = useState<BulkPayEntry[]>([]);
+  const [bulkPayReference, setBulkPayReference] = useState("");
+  const [bulkPayReceiptFile, setBulkPayReceiptFile] = useState<File | null>(null);
+  const [bulkPayNotes, setBulkPayNotes] = useState("");
   const [detailMonth, setDetailMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -546,12 +632,12 @@ export default function CustomersPage() {
       // Fetch payments for all customers in scope — needed to compute the
       // open-debt amount shown on every customer card and the total-debt
       // KPI in the page header. We fetch only id/customer_id/payment_date/
-      // amount since that's all the debt math uses.
+      // billing_month/amount since that's all the debt math uses.
       const customerIds = customerList.map((c) => c.id);
       if (customerIds.length > 0) {
         const { data: pmts } = await supabase
           .from("customer_payments")
-          .select("id, customer_id, payment_date, amount, deleted_at")
+          .select("id, customer_id, payment_date, billing_month, amount, deleted_at")
           .in("customer_id", customerIds)
           .is("deleted_at", null);
         // Cast — we only selected a subset of fields but the debt math
@@ -755,7 +841,10 @@ export default function CustomersPage() {
     setSelectedItem(item);
     setSelectedOpenMonths(new Set());
     setBulkPayOpen(false);
-    setBulkPayForm({ payment_method: "", payment_date: "" });
+    setBulkPayEntries([]);
+    setBulkPayReference("");
+    setBulkPayReceiptFile(null);
+    setBulkPayNotes("");
     setDetailMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
     setIsAddPaymentOpen(false);
     setIsAddServiceOpen(false);
@@ -802,6 +891,8 @@ export default function CustomersPage() {
     setSelectedItem(null);
     setSelectedOpenMonths(new Set());
     setBulkPayOpen(false);
+    setBulkPayEntries([]);
+    setBulkPayReceiptFile(null);
     setPayments([]);
     setServices([]);
     setCustomerInvoices([]);
@@ -1249,58 +1340,305 @@ export default function CustomersPage() {
     setIsSubmitting(false);
   };
 
-  // Pay one or more open billing months at once (services flow). Each selected
-  // month becomes its own customer_payment dated to that month's billing day
-  // (so per-month accounting stays correct), with the chosen payment method.
-  // amount is stored NET (= row.open); the DB trigger adds VAT into daily_entries.
+  // ─── Bulk-pay (services): pay selected open months ───────────────────
+  //
+  // The money's arrival date (payment_date) and the month it covers
+  // (billing_month) are now separate. The user enters what the customer paid
+  // (gross), optionally split into installments; allocateCustomerPayment()
+  // pours it into the selected months oldest-first and returns one
+  // customer_payments row per (installment, month).
+
+  const BULK_PAY_MAX_INSTALLMENTS = 36;
+
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const toYmd = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const parseAmountStr = (s: string) => parseFloat(String(s).replace(/[^\d.]/g, "")) || 0;
+  const amountToStr = (n: number) => (n % 1 === 0 ? String(n) : n.toFixed(2));
+
+  // Effective VAT rate for the open customer (0 for foreign customers).
+  const bulkPayVatRate = (() => {
+    if (selectedItem?.customer?.is_foreign) return 0;
+    return Number(selectedItem?.business?.vat_percentage) || 0.18;
+  })();
+
+  // Selected open months (net) + their gross total - the default amount of the first entry.
+  const bulkPaySelectedRows = useMemo(
+    () => (billingSummary ? billingSummary.rows.filter((r) => selectedOpenMonths.has(r.key) && r.open > 0) : []),
+    [billingSummary, selectedOpenMonths],
+  );
+  const bulkPaySelectedNet = bulkPaySelectedRows.reduce((s, r) => s + r.open, 0);
+  const bulkPaySelectedGross = netToGross(bulkPaySelectedNet, bulkPayVatRate);
+
+  // Split `total` into `count` installments. Rows the user edited by hand keep
+  // their amount; the rest share the remainder equally (last one absorbs the
+  // rounding). Existing dates are kept; new rows continue +1 month from the
+  // first installment's date.
+  const buildBulkPayInstallments = (
+    count: number,
+    total: number,
+    startDate: string,
+    previous: BulkPayInstallment[] = [],
+  ): BulkPayInstallment[] => {
+    const n = Math.min(BULK_PAY_MAX_INSTALLMENTS, Math.max(1, count));
+    const baseDate = previous[0]?.dateForInput || startDate;
+    const [by, bm, bd] = baseDate.split("-").map(Number);
+
+    const rows: BulkPayInstallment[] = [];
+    for (let i = 0; i < n; i++) {
+      const prev = previous[i];
+      let dateForInput = prev?.dateForInput;
+      if (!dateForInput) {
+        // Always compute from the base date to avoid cumulative month overflow.
+        const d = new Date(by, (bm - 1) + i, bd);
+        dateForInput = toYmd(d);
+      }
+      rows.push({
+        number: i + 1,
+        dateForInput,
+        amount: prev?.manuallyEdited ? prev.amount : 0,
+        amountStr: prev?.manuallyEdited ? prev.amountStr : undefined,
+        manuallyEdited: prev?.manuallyEdited || false,
+      });
+    }
+
+    const manualSum = rows.filter((r) => r.manuallyEdited).reduce((s, r) => s + r.amount, 0);
+    const autoIdx = rows.map((r, i) => (r.manuallyEdited ? -1 : i)).filter((i) => i >= 0);
+    if (autoIdx.length > 0) {
+      const remainder = Math.max(0, round2(total - manualSum));
+      const each = round2(remainder / autoIdx.length);
+      autoIdx.forEach((idx, k) => {
+        rows[idx].amount = k === autoIdx.length - 1 ? round2(remainder - each * (autoIdx.length - 1)) : each;
+      });
+    }
+    return rows;
+  };
+
+  const makeBulkPayEntry = (id: number, method: string, gross: number): BulkPayEntry => ({
+    id,
+    method,
+    amount: gross > 0 ? amountToStr(gross) : "",
+    amountTouched: false,
+    installments: "1",
+    customInstallments: buildBulkPayInstallments(1, gross, toYmd(new Date())),
+  });
+
+  const openBulkPay = () => {
+    setBulkPayEntries([makeBulkPayEntry(1, selectedItem?.customer?.payment_method || "", bulkPaySelectedGross)]);
+    setBulkPayReference("");
+    setBulkPayReceiptFile(null);
+    setBulkPayNotes("");
+    setBulkPayOpen(true);
+  };
+
+  const closeBulkPay = () => {
+    setBulkPayOpen(false);
+    setBulkPayEntries([]);
+    setBulkPayReference("");
+    setBulkPayReceiptFile(null);
+    setBulkPayNotes("");
+  };
+
+  // Re-default the first entry's amount when the month selection changes, but
+  // only while the user has not typed in it.
+  useEffect(() => {
+    if (!bulkPayOpen) return;
+    setBulkPayEntries((prev) => {
+      if (prev.length === 0 || prev[0].amountTouched) return prev;
+      const first = prev[0];
+      const nextStr = bulkPaySelectedGross > 0 ? amountToStr(bulkPaySelectedGross) : "";
+      if (first.amount === nextStr) return prev;
+      const count = parseInt(first.installments, 10) || 1;
+      return [
+        { ...first, amount: nextStr, customInstallments: buildBulkPayInstallments(count, bulkPaySelectedGross, toYmd(new Date()), first.customInstallments) },
+        ...prev.slice(1),
+      ];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulkPayOpen, bulkPaySelectedGross]);
+
+  const addBulkPayEntry = () => {
+    setBulkPayEntries((prev) => {
+      const newId = prev.length > 0 ? Math.max(...prev.map((p) => p.id)) + 1 : 1;
+      const allocated = prev.reduce((s, p) => s + parseAmountStr(p.amount), 0);
+      const remaining = Math.max(0, round2(bulkPaySelectedGross - allocated));
+      const startDate = prev[0]?.customInstallments[0]?.dateForInput || toYmd(new Date());
+      return [
+        ...prev,
+        {
+          id: newId,
+          method: "",
+          amount: remaining > 0 ? amountToStr(remaining) : "",
+          amountTouched: true,
+          installments: "1",
+          customInstallments: buildBulkPayInstallments(1, remaining, startDate),
+        },
+      ];
+    });
+  };
+
+  const removeBulkPayEntry = (id: number) => {
+    setBulkPayEntries((prev) => (prev.length > 1 ? prev.filter((p) => p.id !== id) : prev));
+  };
+
+  const updateBulkPayEntryMethod = (id: number, method: string) => {
+    setBulkPayEntries((prev) => prev.map((p) => (p.id === id ? { ...p, method } : p)));
+  };
+
+  const updateBulkPayEntryAmount = (id: number, raw: string) => {
+    // Allow only digits and a single decimal point.
+    let val = raw.replace(/[^\d.]/g, "");
+    const firstDot = val.indexOf(".");
+    if (firstDot !== -1) val = val.slice(0, firstDot + 1) + val.slice(firstDot + 1).replace(/\./g, "");
+    setBulkPayEntries((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const total = parseAmountStr(val);
+      const count = parseInt(p.installments, 10) || 1;
+      return {
+        ...p,
+        amount: val,
+        amountTouched: true,
+        customInstallments: buildBulkPayInstallments(count, total, toYmd(new Date()), p.customInstallments),
+      };
+    }));
+  };
+
+  const updateBulkPayEntryInstallments = (id: number, raw: string) => {
+    const count = Math.min(BULK_PAY_MAX_INSTALLMENTS, Math.max(1, parseInt(raw, 10) || 1));
+    setBulkPayEntries((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const total = parseAmountStr(p.amount);
+      return {
+        ...p,
+        installments: String(count),
+        customInstallments: buildBulkPayInstallments(count, total, toYmd(new Date()), p.customInstallments),
+      };
+    }));
+  };
+
+  const updateBulkPayInstallmentDate = (id: number, index: number, date: string) => {
+    setBulkPayEntries((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const rows = [...p.customInstallments];
+      if (rows[index]) rows[index] = { ...rows[index], dateForInput: date };
+      return { ...p, customInstallments: rows };
+    }));
+  };
+
+  // Each installment is independent: editing one never rewrites another. The
+  // entry total follows the sum of its installments (same as /payments).
+  const updateBulkPayInstallmentAmount = (id: number, index: number, raw: string) => {
+    const cleaned = raw.replace(/[^\d.]/g, "");
+    const amount = round2(parseFloat(cleaned) || 0);
+    setBulkPayEntries((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const rows = [...p.customInstallments];
+      if (rows[index]) rows[index] = { ...rows[index], amount, amountStr: cleaned, manuallyEdited: true };
+      const sum = round2(rows.reduce((s, r) => s + (Number(r.amount) || 0), 0));
+      return { ...p, amount: amountToStr(sum), amountTouched: true, customInstallments: rows };
+    }));
+  };
+
   const handleBulkPayMonths = async () => {
     if (!selectedItem?.customer || !billingSummary) return;
-    if (!bulkPayForm.payment_method) {
-      showToast("יש לבחור אמצעי תשלום", "error");
+    const customer = selectedItem.customer;
+
+    // ── Validation ──
+    const rows = bulkPaySelectedRows;
+    if (rows.length === 0) {
+      showToast("יש לבחור לפחות חודש אחד", "error");
       return;
     }
-    const customer = selectedItem.customer;
-    const billingDay = Math.max(1, Number(customer.retainer_day_of_month) || 1);
-    const rows = billingSummary.rows.filter((r) => selectedOpenMonths.has(r.key) && r.open > 0);
-    if (rows.length === 0) return;
-
-    // Year + month are ALWAYS pinned from the row key so the payment lands in
-    // the month being paid (the day is that month's billing day). Never trust a
-    // free-form date here — letting it drift to another month buckets the
-    // payment into the wrong period (paying November would mark May paid).
-    const inserts = rows.map((r) => {
-      const [yStr, mStr] = r.key.split("-");
-      const year = parseInt(yStr, 10);
-      const monthIdx = parseInt(mStr, 10);
-      const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-      const day = Math.min(billingDay, daysInMonth);
-      return {
-        id: generateUUID(),
-        customer_id: customer.id,
-        payment_date: `${year}-${String(monthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-        amount: r.open,
-        description: `תשלום ${r.label}`,
-        payment_method: bulkPayForm.payment_method,
-      };
-    });
+    for (const entry of bulkPayEntries) {
+      if (!entry.method) {
+        showToast("יש לבחור אמצעי תשלום", "error");
+        return;
+      }
+      const total = parseAmountStr(entry.amount);
+      if (total <= 0) {
+        showToast("יש להזין סכום תקין", "error");
+        return;
+      }
+      if (entry.customInstallments.some((i) => !i.dateForInput)) {
+        showToast("יש להזין תאריך לכל תשלום", "error");
+        return;
+      }
+      const sum = entry.customInstallments.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      if (Math.abs(sum - total) > 0.01) {
+        showToast("סכום התשלומים אינו תואם לסכום הכולל", "error");
+        return;
+      }
+    }
+    if (bulkPayEntries.length === 0) {
+      showToast("יש להוסיף אמצעי תשלום", "error");
+      return;
+    }
 
     setIsSubmitting(true);
-    const supabase = createClient();
-    const { error } = await supabase.from("customer_payments").insert(inserts);
-    if (error) {
-      showToast("שגיאה בתשלום החשבוניות", "error");
-      console.error(error);
-    } else {
+    try {
+      // ── Receipt upload (optional, no OCR) ──
+      let receiptUrl: string | null = null;
+      if (bulkPayReceiptFile) {
+        const safeName = bulkPayReceiptFile.name.replace(/[^\w.\-]+/g, "_");
+        const path = `customers/${customer.id}/payments/${generateUUID()}-${safeName}`;
+        const result = await uploadFile(bulkPayReceiptFile, path, "assets");
+        if (!result.publicUrl) throw new Error(result.error || "Upload failed");
+        receiptUrl = result.publicUrl;
+      }
+
+      // ── Allocate installments into the selected months ──
+      const openMonths: OpenMonth[] = rows.map((r) => ({ year: r.year, month: r.month, openNet: r.open }));
+      const installments: InstallmentInput[] = bulkPayEntries.flatMap((entry) =>
+        entry.customInstallments.map((i) => ({
+          paymentMethod: entry.method,
+          date: i.dateForInput,
+          amountGross: Number(i.amount) || 0,
+          installmentsCount: entry.customInstallments.length,
+          installmentNumber: i.number,
+        })),
+      );
+      const allocated = allocateCustomerPayment(openMonths, installments, bulkPayVatRate);
+      if (allocated.length === 0) {
+        showToast("אין סכום לרישום", "error");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const labelByKey = new Map(rows.map((r) => [r.key, r.label]));
+      const groupId = generateUUID();
+      const inserts = allocated.map((row) => ({
+        id: generateUUID(),
+        customer_id: customer.id,
+        payment_date: row.paymentDate,
+        billing_month: row.billingMonth,
+        amount: row.amountNet,
+        description: `תשלום ${labelByKey.get(`${row.year}-${row.month}`) || row.billingMonth}`,
+        payment_method: row.paymentMethod,
+        installments_count: row.installmentsCount,
+        installment_number: row.installmentNumber,
+        reference_number: bulkPayReference.trim() || null,
+        receipt_url: receiptUrl,
+        notes: bulkPayNotes.trim() || null,
+        payment_group_id: groupId,
+      }));
+
+      const supabase = createClient();
+      const { error } = await supabase.from("customer_payments").insert(inserts);
+      if (error) throw error;
+
       showToast(rows.length > 1 ? `${rows.length} חשבוניות שולמו` : "החשבונית שולמה", "success");
       setSelectedOpenMonths(new Set());
-      setBulkPayOpen(false);
-      setBulkPayForm({ payment_method: "", payment_date: "" });
+      closeBulkPay();
       await Promise.all([
         fetchPayments(customer.id),
         fetchCustomerInvoices(customer.id),
       ]);
+    } catch (err) {
+      console.error(err);
+      showToast("שגיאה בתשלום החשבוניות", "error");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const handleDeletePayment = (paymentId: string) => {
@@ -3619,12 +3957,10 @@ export default function CustomersPage() {
 
                   {/* Footer: selected total + pay action */}
                   {selectedOpenMonths.size > 0 && (() => {
-                    const sel = billingSummary.rows.filter((r) => selectedOpenMonths.has(r.key) && r.open > 0);
-                    const totalNet = sel.reduce((s, r) => s + r.open, 0);
+                    const sel = bulkPaySelectedRows;
+                    const totalNet = bulkPaySelectedNet;
                     const isForeign = !!selectedItem.customer?.is_foreign;
-                    const vatRate = Number(selectedItem.business?.vat_percentage) || 0.18;
-                    const totalGross = isForeign ? totalNet : totalNet * (1 + vatRate);
-                    const billingDay = Math.max(1, Number(selectedItem.customer?.retainer_day_of_month) || 1);
+                    const totalGross = bulkPaySelectedGross;
                     return (
                       <div className="mt-[12px] flex flex-col gap-[8px]">
                         <div className="flex items-center justify-between text-[13px] border-t border-white/10 pt-[10px]">
@@ -3638,45 +3974,240 @@ export default function CustomersPage() {
                         {!bulkPayOpen ? (
                           <Button
                             type="button"
-                            onClick={() => {
-                              setBulkPayForm({ payment_method: selectedItem.customer?.payment_method || "", payment_date: "" });
-                              setBulkPayOpen(true);
-                            }}
+                            onClick={openBulkPay}
                             className="w-full bg-[#3CD856] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#2FB847] transition-colors"
                           >
                             ✓ שלם נבחרים
                           </Button>
                         ) : (
-                          <div className="flex flex-col gap-[8px] border border-[#727BA0] rounded-[10px] p-[10px]">
-                            <div className="flex flex-col gap-[3px]">
-                              <label className="text-[13px] text-white/70 text-right">אמצעי תשלום</label>
-                              <Select value={bulkPayForm.payment_method || "__none__"} onValueChange={(v) => setBulkPayForm({ ...bulkPayForm, payment_method: v === "__none__" ? "" : v })}>
-                                <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center">
-                                  <SelectValue placeholder="בחר" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="__none__">בחר</SelectItem>
-                                  {Object.entries(paymentMethodLabels).map(([k, l]) => (<SelectItem key={k} value={k}>{l}</SelectItem>))}
-                                </SelectContent>
-                              </Select>
+                          <div className="flex flex-col gap-[15px] border border-[#727BA0] rounded-[10px] p-[10px]">
+                            {/* Payment Methods Section - same layout as the /payments "הוספת תשלום חדש" sheet */}
+                            <div className="flex flex-col gap-[15px]">
+                              <div className="flex items-center">
+                                <span className="text-[16px] font-medium text-white">אמצעי תשלום</span>
+                              </div>
+
+                              {bulkPayEntries.map((pm, pmIndex) => {
+                                const pmTotal = parseAmountStr(pm.amount);
+                                const installmentsTotal = pm.customInstallments.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+                                const isMismatch = Math.abs(installmentsTotal - pmTotal) > 0.01;
+                                return (
+                                  <div key={pm.id} className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                                    {/* Header with remove button */}
+                                    {bulkPayEntries.length > 1 && (
+                                      <div className="flex items-center justify-between mb-[5px]">
+                                        <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
+                                        <Button
+                                          type="button"
+                                          title="הסר אמצעי תשלום"
+                                          onClick={() => removeBulkPayEntry(pm.id)}
+                                          className="text-[14px] text-red-400 hover:text-red-300 transition-colors"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    )}
+
+                                    {/* Payment Method Select */}
+                                    <Select value={pm.method || "__none__"} onValueChange={(val) => updateBulkPayEntryMethod(pm.id, val === "__none__" ? "" : val)}>
+                                      <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] !h-[50px] px-[12px] text-[18px] text-white text-center">
+                                        <SelectValue placeholder="...בחר אמצעי תשלום" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="__none__" disabled>...בחר אמצעי תשלום</SelectItem>
+                                        {Object.entries(paymentMethodLabels).map(([k, l]) => (<SelectItem key={k} value={k}>{l}</SelectItem>))}
+                                      </SelectContent>
+                                    </Select>
+
+                                    {/* Payment Amount (gross) */}
+                                    <div className="flex flex-col gap-[3px]">
+                                      <span className="text-[14px] text-white/70">{isForeign ? "סכום" : 'סכום (כולל מע"מ)'}</span>
+                                      <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
+                                        <Input
+                                          type="text"
+                                          inputMode="decimal"
+                                          title={isForeign ? "סכום" : 'סכום (כולל מע"מ)'}
+                                          value={(() => {
+                                            const raw = pm.amount.replace(/,/g, "");
+                                            const num = parseFloat(raw);
+                                            if (!raw || isNaN(num)) return pm.amount;
+                                            const [intPart, decPart] = raw.split(".");
+                                            const formatted = Number(intPart).toLocaleString("he-IL");
+                                            return decPart !== undefined ? `${formatted}.${decPart}` : formatted;
+                                          })()}
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) => updateBulkPayEntryAmount(pm.id, e.target.value)}
+                                          placeholder="סכום"
+                                          className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
+                                        />
+                                      </div>
+                                      {!isForeign && (
+                                        <span dir="ltr" className="text-[12px] text-white/50 text-center">
+                                          לפני מע&quot;מ: ₪{grossToNet(pmTotal, bulkPayVatRate).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Installments */}
+                                    <div className="flex flex-col gap-[3px]">
+                                      <span className="text-[14px] text-white/70">כמות תשלומים</span>
+                                      <div className="border border-[#727BA0] rounded-[10px] min-h-[50px] flex items-center">
+                                        <Button
+                                          type="button"
+                                          title="הפחת תשלום"
+                                          onClick={() => updateBulkPayEntryInstallments(pm.id, String((parseInt(pm.installments, 10) || 1) - 1))}
+                                          className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
+                                        >
+                                          -
+                                        </Button>
+                                        <Input
+                                          type="text"
+                                          inputMode="numeric"
+                                          title="כמות תשלומים"
+                                          value={pm.installments}
+                                          onChange={(e) => updateBulkPayEntryInstallments(pm.id, e.target.value.replace(/\D/g, "") || "1")}
+                                          className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
+                                        />
+                                        <Button
+                                          type="button"
+                                          title="הוסף תשלום"
+                                          onClick={() => updateBulkPayEntryInstallments(pm.id, String((parseInt(pm.installments, 10) || 1) + 1))}
+                                          className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
+                                        >
+                                          +
+                                        </Button>
+                                      </div>
+
+                                      {/* Installments Breakdown */}
+                                      {pm.customInstallments.length > 0 && (
+                                        <div className="mt-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
+                                          <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
+                                            {pm.customInstallments.length > 1 && (
+                                              <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
+                                            )}
+                                            <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
+                                            <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
+                                          </div>
+                                          <div className="flex flex-col gap-[8px]">
+                                            {pm.customInstallments.map((item, index) => (
+                                              <div key={item.number} className="flex items-center gap-[8px]">
+                                                {pm.customInstallments.length > 1 && (
+                                                  <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
+                                                )}
+                                                <div className="flex-1">
+                                                  <DatePickerField
+                                                    value={item.dateForInput}
+                                                    onChange={(val) => updateBulkPayInstallmentDate(pm.id, index, val)}
+                                                    className="h-[36px] rounded-[7px] text-[14px]"
+                                                  />
+                                                </div>
+                                                <div className="flex-1 relative">
+                                                  <Input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    title={`סכום תשלום ${item.number}`}
+                                                    value={item.amountStr ?? (item.amount === 0 ? "" : amountToStr(item.amount))}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onChange={(e) => updateBulkPayInstallmentAmount(pm.id, index, e.target.value)}
+                                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                                  />
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                          {pm.customInstallments.length > 1 && (
+                                            <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
+                                              <span className="text-[14px] font-bold text-white flex-1 text-center">סה&quot;כ</span>
+                                              <span className="flex-1"></span>
+                                              <span className={`text-[14px] font-bold ltr-num flex-1 text-center ${isMismatch ? "text-red-400" : "text-white"}`}>
+                                                ₪{installmentsTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <Button
+                                type="button"
+                                onClick={addBulkPayEntry}
+                                className="w-full bg-[#29318A] text-white text-[16px] font-medium h-[50px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
+                              >
+                                + הוסף אמצעי תשלום
+                              </Button>
                             </div>
-                            <span className="text-[11px] text-white/50 text-center">
-                              {sel.length === 1
-                                ? (() => {
-                                    const [yStr, mStr] = sel[0].key.split("-");
-                                    const yr = parseInt(yStr, 10);
-                                    const mi = parseInt(mStr, 10);
-                                    const dim = new Date(yr, mi + 1, 0).getDate();
-                                    const d = Math.min(billingDay, dim);
-                                    return `התשלום יירשם בתאריך ${String(d).padStart(2, "0")}/${String(mi + 1).padStart(2, "0")}/${yr}`;
-                                  })()
-                                : `כל חודש יירשם ביום החיוב שלו (${billingDay} לחודש)`}
-                            </span>
+
+                            {/* Reference + Receipt Upload - single row */}
+                            <div className="flex flex-col gap-[3px]">
+                              <div className="flex items-start">
+                                <span className="text-[16px] font-medium text-white">אסמכתא</span>
+                              </div>
+                              <div className="flex gap-[8px] items-center">
+                                <div className="flex-1 border border-[#727BA0] rounded-[10px] min-h-[50px]">
+                                  <Input
+                                    type="text"
+                                    title="אסמכתא"
+                                    value={bulkPayReference}
+                                    onChange={(e) => setBulkPayReference(e.target.value)}
+                                    placeholder="מספר אסמכתא..."
+                                    className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+                                  />
+                                </div>
+                                <label className="shrink-0 border border-[#727BA0] border-dashed rounded-[10px] w-[50px] h-[50px] flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors" title="העלאת קבלה" onPointerDown={(e) => e.stopPropagation()}>
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                  </svg>
+                                  <input
+                                    type="file"
+                                    accept="image/*,.pdf"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0] || null;
+                                      if (file) setBulkPayReceiptFile(file);
+                                      e.target.value = "";
+                                    }}
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
+                              {bulkPayReceiptFile && (
+                                <div className="flex items-center justify-between gap-[8px] bg-white/5 border border-[#727BA0] rounded-[7px] px-[10px] py-[6px]">
+                                  <span className="text-[13px] text-white/80 truncate" dir="ltr">{bulkPayReceiptFile.name}</span>
+                                  <Button
+                                    type="button"
+                                    title="הסר קובץ"
+                                    onClick={() => setBulkPayReceiptFile(null)}
+                                    className="shrink-0 text-[#F64E60]/70 hover:text-[#F64E60] transition-colors"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Notes */}
+                            <div className="flex flex-col gap-[3px]">
+                              <div className="flex items-start">
+                                <span className="text-[16px] font-medium text-white">הערות</span>
+                              </div>
+                              <div className="border border-[#727BA0] rounded-[10px] min-h-[100px]">
+                                <Textarea
+                                  value={bulkPayNotes}
+                                  onChange={(e) => setBulkPayNotes(e.target.value)}
+                                  placeholder="הערות..."
+                                  className="w-full h-[100px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] py-[10px] rounded-[10px] resize-none"
+                                />
+                              </div>
+                            </div>
+
                             <div className="flex gap-[8px]">
                               <Button
                                 type="button"
                                 onClick={handleBulkPayMonths}
-                                disabled={!bulkPayForm.payment_method || isSubmitting}
+                                disabled={isSubmitting}
                                 className="flex-1 bg-[#3CD856] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#2FB847] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {isSubmitting ? "שומר..." : "אשר תשלום"}
@@ -3684,7 +4215,7 @@ export default function CustomersPage() {
                               <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => setBulkPayOpen(false)}
+                                onClick={closeBulkPay}
                                 className="flex-1 text-[14px] border-[#727BA0] text-white/80"
                               >
                                 ביטול
@@ -3771,6 +4302,7 @@ export default function CustomersPage() {
                               {paymentMethodLabels[payment.payment_method] || payment.payment_method}
                             </span>
                           )}
+                          <PaymentRowExtras payment={payment} />
                           {link && (
                             <button
                               type="button"
@@ -4005,11 +4537,10 @@ export default function CustomersPage() {
             const y = parseInt(yStr, 10);
             const m = parseInt(mStr, 10);
             const monthLabel = new Date(y, m, 1).toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+            // Same bucketing as computeBillingSummary: the month the payment
+            // covers (billing_month), falling back to payment_date for legacy rows.
             const monthPayments = payments
-              .filter((p) => {
-                const d = p.payment_date ? new Date(p.payment_date) : null;
-                return d && d.getFullYear() === y && d.getMonth() === m;
-              })
+              .filter((p) => paymentCoveredMonthKey(p) === `${y}-${m}`)
               .sort((a, b) => (a.payment_date || "").localeCompare(b.payment_date || ""));
             const totalNet = monthPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
             return (
@@ -4048,6 +4579,7 @@ export default function CustomersPage() {
                             {paymentMethodLabels[p.payment_method] || p.payment_method}
                           </span>
                         )}
+                        <PaymentRowExtras payment={p} />
                         {p.notes && (
                           <span className="text-[12px] text-white/40 text-right">{p.notes}</span>
                         )}
