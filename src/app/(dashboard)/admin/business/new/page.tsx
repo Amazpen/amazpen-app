@@ -14,6 +14,12 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SortableList, SortableObjectList } from "@/components/ui/sortable-list";
+import {
+  type CsvSupplier,
+  parseSupplierCsvFile,
+  ensureSupplierCategories,
+  buildSupplierInsertRecord,
+} from "@/lib/suppliers/csvImport";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -181,20 +187,11 @@ function NewBusinessPage() {
   const memberAvatarInputRef = useRef<HTMLInputElement>(null);
 
   // Step 5: Suppliers CSV Import
-  interface CsvSupplier {
-    name: string;
-    expense_type: string;
-    contact_name: string;
-    phone: string;
-    email: string;
-    tax_id: string;
-    address: string;
-    payment_terms_days: number;
-    notes: string;
-  }
   const [csvSuppliers, setCsvSuppliers] = useState<CsvSupplier[]>([]);
   const [csvFileName, setCsvFileName] = useState<string | null>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
+  // Blocking file problems (duplicate names, conflicting categories) - business creation is refused while non-empty
+  const [csvBlockingErrors, setCsvBlockingErrors] = useState<string[]>([]);
   const [csvParsingDone, setCsvParsingDone] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
@@ -263,157 +260,47 @@ function NewBusinessPage() {
     if (!file) return;
 
     setCsvError(null);
+    setCsvBlockingErrors([]);
     setCsvFileName(file.name);
     setCsvParsingDone(false);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
-
-        if (lines.length < 2) {
-          setCsvError("הקובץ חייב להכיל לפחות שורת כותרות ושורת נתונים אחת");
-          return;
-        }
-
-        // Parse header - support both comma and tab delimiters
-        const delimiter = lines[0].includes("\t") ? "\t" : ",";
-        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, "").replace(/^\uFEFF/, ""));
-
-        // Normalize header for matching: trim, collapse whitespace, remove trailing punctuation,
-        // unify quote characters (Hebrew CSVs often have ", '', `, etc. for the geresh/gershayim)
-        const normalizeHeader = (h: string): string => {
-          return h
-            .trim()
-            .replace(/\s+/g, " ")
-            .replace(/["׳״`]/g, "'")
-            .replace(/'+/g, "'")
-            .replace(/[?:!.,;]+$/, "")
-            .trim();
-        };
-
-        // Map Hebrew/English header names to field names
-        const headerMap: Record<string, keyof CsvSupplier> = {
-          "name": "name",
-          "שם": "name",
-          "שם ספק": "name",
-          "שם הספק": "name",
-          "supplier_name": "name",
-          "supplier name": "name",
-          "expense_type": "expense_type",
-          "סוג הוצאה": "expense_type",
-          "סוג": "expense_type",
-          "type": "expense_type",
-          "contact_name": "contact_name",
-          "איש קשר": "contact_name",
-          "contact": "contact_name",
-          "phone": "phone",
-          "טלפון": "phone",
-          "email": "email",
-          "אימייל": "email",
-          "מייל": "email",
-          "tax_id": "tax_id",
-          "ח.פ": "tax_id",
-          "עוסק": "tax_id",
-          "מספר עוסק": "tax_id",
-          "address": "address",
-          "כתובת": "address",
-          "payment_terms_days": "payment_terms_days",
-          "ימי תשלום": "payment_terms_days",
-          "תנאי תשלום": "payment_terms_days",
-          "payment_terms": "payment_terms_days",
-          "notes": "notes",
-          "הערות": "notes",
-        };
-
-        const columnMapping: (keyof CsvSupplier | null)[] = headers.map(h => {
-          const norm = normalizeHeader(h);
-          const lower = h.toLowerCase();
-          return headerMap[norm] || headerMap[lower] || headerMap[h] || null;
-        });
-
-        // Check that "name" column exists
-        if (!columnMapping.includes("name")) {
-          setCsvError(`לא נמצאה עמודת "שם ספק" בקובץ. עמודות שנמצאו: ${headers.join(", ")}`);
-          return;
-        }
-
-        const suppliers: CsvSupplier[] = [];
-        const errors: string[] = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(delimiter).map(v => v.trim().replace(/^["']|["']$/g, ""));
-
-          const supplier: CsvSupplier = {
-            name: "",
-            expense_type: "current_expenses",
-            contact_name: "",
-            phone: "",
-            email: "",
-            tax_id: "",
-            address: "",
-            payment_terms_days: 30,
-            notes: "",
-          };
-
-          columnMapping.forEach((field, idx) => {
-            if (field && values[idx] !== undefined) {
-              const val = values[idx];
-              if (field === "payment_terms_days") {
-                supplier[field] = parseInt(val) || 30;
-              } else if (field === "expense_type") {
-                // Normalize expense type
-                const trimmed = val.trim();
-                const lower = trimmed.toLowerCase();
-                if (
-                  lower === "goods_purchases" ||
-                  trimmed === "רכש סחורה" ||
-                  trimmed === "קניות סחורה" ||
-                  trimmed === "סחורה"
-                ) {
-                  supplier.expense_type = "goods_purchases";
-                } else if (lower === "employee_costs" || trimmed === "עלות עובדים" || trimmed === "עלויות עובדים") {
-                  supplier.expense_type = "employee_costs";
-                } else {
-                  supplier.expense_type = "current_expenses";
-                }
-              } else {
-                supplier[field] = val;
-              }
-            }
-          });
-
-          if (!supplier.name.trim()) {
-            errors.push(`שורה ${i + 1}: חסר שם ספק`);
-            continue;
-          }
-
-          // Check for duplicate names
-          if (suppliers.some(s => s.name === supplier.name)) {
-            errors.push(`שורה ${i + 1}: ספק "${supplier.name}" כבר קיים`);
-            continue;
-          }
-
-          suppliers.push(supplier);
-        }
-
-        if (errors.length > 0 && suppliers.length === 0) {
-          setCsvError(errors.join("\n"));
-          return;
-        }
-
-        if (errors.length > 0) {
-          setCsvError(`נטענו ${suppliers.length} ספקים. אזהרות:\n${errors.join("\n")}`);
-        }
-
-        setCsvSuppliers(suppliers);
-        setCsvParsingDone(true);
-      } catch {
-        setCsvError("שגיאה בקריאת הקובץ. ודא שהקובץ בפורמט CSV תקין");
+    // Same PapaParse-based parser as admin/suppliers ("ייבוא ספקים"), plus the
+    // extra header aliases this wizard always accepted.
+    parseSupplierCsvFile(file, {
+      extraAliases: {
+        "supplier name": "name",
+        "סוג": "expense_type",
+        "type": "expense_type",
+        "contact": "contact",
+        "payment_terms": "payment_terms",
+      },
+      caseInsensitiveHeaders: true,
+      // This wizard always defaulted empty payment terms to שוטף + 30
+      defaultPaymentTermsDays: 30,
+    }).then((result) => {
+      if (!result.ok) {
+        setCsvError(result.error);
+        return;
       }
-    };
-    reader.readAsText(file, "UTF-8");
+      const { suppliers } = result;
+      const warnings = [
+        ...result.emptyNameRows.map(line => `שורה ${line}: חסר שם ספק`),
+        ...result.warnings,
+      ];
+
+      if (warnings.length > 0 && suppliers.length === 0) {
+        setCsvError(warnings.join("\n"));
+        return;
+      }
+
+      if (warnings.length > 0) {
+        setCsvError(`נטענו ${suppliers.length} ספקים. אזהרות:\n${warnings.join("\n")}`);
+      }
+
+      setCsvBlockingErrors(result.errors);
+      setCsvSuppliers(suppliers);
+      setCsvParsingDone(true);
+    });
   };
 
   const handleRemoveCsvSupplier = (index: number) => {
@@ -424,6 +311,7 @@ function NewBusinessPage() {
     setCsvSuppliers([]);
     setCsvFileName(null);
     setCsvError(null);
+    setCsvBlockingErrors([]);
     setCsvParsingDone(false);
     if (csvInputRef.current) csvInputRef.current.value = "";
   };
@@ -658,6 +546,10 @@ function NewBusinessPage() {
   };
 
   const handleSubmit = async () => {
+    if (csvBlockingErrors.length > 0) {
+      showToast("לא ניתן ליצור את העסק - יש שגיאות בקובץ הספקים. יש לתקן את הקובץ ולהעלות אותו מחדש, או לנקות אותו", "error");
+      return;
+    }
     setIsSubmitting(true);
     const supabase = createClient();
 
@@ -829,28 +721,27 @@ function NewBusinessPage() {
         }
       }
 
-      // 9. Create suppliers from CSV
+      // 9. Create suppliers from CSV (same payload as admin/suppliers import).
+      // Categories are created only now, after the business row exists.
+      // If categories fail, suppliers are NOT inserted (they would land
+      // without categories and be misfiled in the P&L report).
       if (csvSuppliers.length > 0) {
-        const supplierRecords = csvSuppliers.map((s) => ({
-          business_id: business.id,
-          name: s.name,
-          expense_type: s.expense_type,
-          contact_name: s.contact_name || null,
-          phone: s.phone || null,
-          email: s.email || null,
-          tax_id: s.tax_id || null,
-          address: s.address || null,
-          payment_terms_days: s.payment_terms_days || 30,
-          notes: s.notes || null,
-          is_active: true,
-        }));
+        const categoryResult = await ensureSupplierCategories(supabase, business.id, csvSuppliers);
+        if ("error" in categoryResult) {
+          console.error("Supplier categories creation error:", categoryResult.error);
+          showToast(`הספקים מהקובץ לא נוספו לעסק - ${categoryResult.error}`, "error");
+        } else {
+          // New business: its credit cards have no last-four digits yet, so
+          // only the payment method is set (no default card).
+          const supplierRecords = csvSuppliers.map((s) => buildSupplierInsertRecord(s, business.id, categoryResult));
 
-        const { error: supplierError } = await supabase
-          .from("suppliers")
-          .insert(supplierRecords);
+          const { error: supplierError } = await supabase
+            .from("suppliers")
+            .insert(supplierRecords);
 
-        if (supplierError) {
-          console.error("Suppliers creation error:", supplierError);
+          if (supplierError) {
+            console.error("Suppliers creation error:", supplierError);
+          }
         }
       }
 
@@ -2304,6 +2195,19 @@ function NewBusinessPage() {
               </div>
             </div>
 
+            {csvBlockingErrors.length > 0 && (
+              <div className="bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[10px] p-[10px] mb-[10px]">
+                <p className="text-[13px] font-bold text-[#F64E60] text-right mb-[6px]">
+                  לא ניתן לייבא את הקובץ. יש לתקן את הבעיות הבאות ולהעלות אותו מחדש:
+                </p>
+                <ul className="list-disc ps-[18px] flex flex-col gap-[4px]">
+                  {csvBlockingErrors.map((err) => (
+                    <li key={err} className="text-[13px] text-[#F64E60] text-right">{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {csvError && (
               <div className="bg-[#FFA412]/10 border border-[#FFA412]/30 rounded-[10px] p-[10px] mb-[10px]">
                 <p className="text-[13px] text-[#FFA412] text-right whitespace-pre-line">{csvError}</p>
@@ -2337,54 +2241,32 @@ function NewBusinessPage() {
               </TableRow>
             </TableHeader>
             <TableBody className="text-white/80">
-              <TableRow className="border-b border-white/5">
-                <TableCell className="py-[4px] px-[8px]">שם ספק / name</TableCell>
-                <TableCell className="py-[4px] px-[8px] text-[#F64E60]">כן</TableCell>
-                <TableCell className="py-[4px] px-[8px]">חברת הניקיון</TableCell>
-              </TableRow>
-              <TableRow className="border-b border-white/5">
-                <TableCell className="py-[4px] px-[8px]">סוג הוצאה / expense_type</TableCell>
-                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
-                <TableCell className="py-[4px] px-[8px]">current_expenses / סחורה / עלות עובדים</TableCell>
-              </TableRow>
-              <TableRow className="border-b border-white/5">
-                <TableCell className="py-[4px] px-[8px]">איש קשר / contact_name</TableCell>
-                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
-                <TableCell className="py-[4px] px-[8px]">יוסי כהן</TableCell>
-              </TableRow>
-              <TableRow className="border-b border-white/5">
-                <TableCell className="py-[4px] px-[8px]">טלפון / phone</TableCell>
-                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
-                <TableCell className="py-[4px] px-[8px]">050-1234567</TableCell>
-              </TableRow>
-              <TableRow className="border-b border-white/5">
-                <TableCell className="py-[4px] px-[8px]">אימייל / email</TableCell>
-                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
-                <TableCell className="py-[4px] px-[8px]">supplier@email.com</TableCell>
-              </TableRow>
-              <TableRow className="border-b border-white/5">
-                <TableCell className="py-[4px] px-[8px]">ח.פ / tax_id</TableCell>
-                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
-                <TableCell className="py-[4px] px-[8px]">515678901</TableCell>
-              </TableRow>
-              <TableRow className="border-b border-white/5">
-                <TableCell className="py-[4px] px-[8px]">כתובת / address</TableCell>
-                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
-                <TableCell className="py-[4px] px-[8px]">רחוב הרצל 10</TableCell>
-              </TableRow>
-              <TableRow className="border-b border-white/5">
-                <TableCell className="py-[4px] px-[8px]">ימי תשלום / payment_terms_days</TableCell>
-                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
-                <TableCell className="py-[4px] px-[8px]">30</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="py-[4px] px-[8px]">הערות / notes</TableCell>
-                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
-                <TableCell className="py-[4px] px-[8px]">ספק ראשי</TableCell>
-              </TableRow>
+              {[
+                { column: "קטגורית אב", required: false, example: "פרוייקט 1 / הנהלה וכלליות" },
+                { column: "קטגוריה", required: false, example: "קניות סחורה-1 / תקשורת" },
+                { column: "סוג הוצאה", required: false, example: "קניות סחורה / הוצאות שוטפות / עלויות עובדים" },
+                { column: "שם הספק", required: true, example: "חברת הניקיון" },
+                { column: "תנאי תשלום / ימי תשלום", required: false, example: "0 / 30 / 60 (ריק = 30)" },
+                { column: "אמצעי תשלום", required: false, example: "כ.אשראי 4545 / צ'ק / העברה בנקאית / הוראת קבע / מזומן" },
+                { column: `נדרש מע"מ`, required: false, example: "כן / לא" },
+                { column: "הוצאה חודשית קבועה", required: false, example: "כן / לא" },
+                { column: "מתי יורד כל חודש?", required: false, example: "10 (יום בחודש)" },
+                { column: "סכום לכל תשלום קבוע", required: false, example: "3000" },
+                { column: "פעיל", required: false, example: "כן / לא" },
+                { column: "איש קשר / טלפון / אימייל / ח.פ / כתובת / הערות", required: false, example: "יוסי כהן / 050-1234567" },
+              ].map((row, idx, rows) => (
+                <TableRow key={row.column} className={idx < rows.length - 1 ? "border-b border-white/5" : undefined}>
+                  <TableCell className="py-[4px] px-[8px]">{row.column}</TableCell>
+                  <TableCell className={`py-[4px] px-[8px] ${row.required ? "text-[#F64E60]" : "text-white/40"}`}>{row.required ? "כן" : "לא"}</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">{row.example}</TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>
+        <p className="text-[12px] text-[#FFA412] text-right mt-[10px]">
+          {`חשוב: שם של כל ספק ושם של כל קטגוריה חייבים להיות ייחודיים בקובץ. אותה קטגוריה לא יכולה להופיע תחת כמה קטגוריות אב, ושם לא יכול לשמש גם כקטגורית אב וגם כקטגוריה. למשל, אם יש "קניות סחורה" בכמה פרוייקטים, יש לקרוא להן "קניות סחורה-1", "קניות סחורה-2" וכו'. קובץ עם שמות כפולים לא ייובא.`}
+        </p>
       </div>
 
       {/* Suppliers Table */}
@@ -2419,13 +2301,19 @@ function NewBusinessPage() {
                     <span className="text-[14px] text-white font-medium">{supplier.name}</span>
                   </div>
                   <div className="flex items-center gap-[12px] justify-end mt-[4px] flex-wrap">
+                    {(supplier.parent_category_name || supplier.category_name) && (
+                      <span className="text-[11px] text-white/40">
+                        {supplier.parent_category_name || "ללא קטגורית אב"}
+                        {supplier.category_name ? ` / ${supplier.category_name}` : ""}
+                      </span>
+                    )}
                     {supplier.contact_name && (
                       <span className="text-[11px] text-white/40">{supplier.contact_name}</span>
                     )}
                     {supplier.phone && (
                       <span className="text-[11px] text-white/40">{supplier.phone}</span>
                     )}
-                    {supplier.payment_terms_days !== 30 && (
+                    {supplier.payment_terms_days > 0 && (
                       <span className="text-[11px] text-white/40">שוטף + {supplier.payment_terms_days}</span>
                     )}
                   </div>
@@ -2662,7 +2550,7 @@ function NewBusinessPage() {
                 variant="default"
                 type="button"
                 onClick={handleSubmit}
-                disabled={!canSubmit || isSubmitting}
+                disabled={!canSubmit || isSubmitting || csvBlockingErrors.length > 0}
                 className="flex-1 bg-[#3CD856] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#2fb847] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px]"
               >
                 {isSubmitting ? (

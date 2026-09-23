@@ -1,36 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Papa from "papaparse";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import {
+  type CsvSupplier,
+  parseSupplierCsvFile,
+  ensureSupplierCategories,
+  buildSupplierInsertRecord,
+  buildCreditCardLastFourMap,
+} from "@/lib/suppliers/csvImport";
 
-interface CsvSupplier {
-  name: string;
-  expense_type: string;
-  contact_name: string;
-  phone: string;
-  email: string;
-  tax_id: string;
-  address: string;
-  payment_terms_days: number;
-  notes: string;
-  // Extended fields from rich CSV
-  requires_vat: boolean;
-  vat_type: "full" | "none" | "partial";
-  is_fixed_expense: boolean;
-  monthly_expense_amount: number | null;
-  charge_day: number | null;
-  is_active: boolean;
-  has_previous_obligations: boolean;
-  waiting_for_coordinator: boolean;
-  parent_category_name: string;
-  category_name: string;
-}
 
 interface Business {
   id: string;
@@ -50,6 +34,8 @@ export default function AdminSuppliersPage() {
   const [csvSuppliers, setCsvSuppliers] = useState<CsvSupplier[]>([]);
   const [csvFileName, setCsvFileName] = useState<string | null>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
+  // Blocking file problems (duplicate names, conflicting categories) - import is refused while non-empty
+  const [csvBlockingErrors, setCsvBlockingErrors] = useState<string[]>([]);
   const [csvParsingDone, setCsvParsingDone] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,223 +68,31 @@ export default function AdminSuppliersPage() {
     if (!file) return;
 
     setCsvError(null);
+    setCsvBlockingErrors([]);
     setCsvFileName(file.name);
     setCsvParsingDone(false);
 
-    // Use PapaParse for robust RFC 4180 CSV parsing with Hebrew support
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      encoding: "UTF-8",
-      transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
-      complete: (results) => {
-        try {
-          if (results.data.length === 0) {
-            setCsvError("הקובץ חייב להכיל לפחות שורת כותרות ושורת נתונים אחת");
-            return;
-          }
+    // PapaParse-based parsing shared with the new-business wizard
+    parseSupplierCsvFile(file).then((result) => {
+      if (!result.ok) {
+        setCsvError(result.error);
+        return;
+      }
+      const { suppliers, errors, warnings } = result;
 
-          // Map of possible Hebrew/English header names to canonical field names
-          // Note: keys are normalized (NFC, double-quotes → single, no trailing punctuation, trimmed) - see normalizeHeader below
-          const headerAliases: Record<string, string> = {
-            "שם הספק": "name", "שם": "name", "שם ספק": "name", "name": "name", "supplier_name": "name",
-            "סוג הוצאה": "expense_type", "expense_type": "expense_type",
-            "נדרש מע'מ": "requires_vat", "נדרש מעמ": "requires_vat", "נדרש מע": "requires_vat",
-            "מעמ": "vat", "מע'מ": "vat",
-            "מעמ חלקי": "vat_partial",
-            "הוצאה חודשית קבועה": "is_fixed",
-            "סכום לכל תשלום קבוע (במידה וידוע)": "monthly_amount",
-            "סכום לכל תשלום קבוע": "monthly_amount",
-            "סכום לכל תשלום קבוע (כולל מעמ)": "monthly_amount",
-            "סכום לכל תשלום קבוע (כולל מע'מ)": "monthly_amount",
-            "מתי יורד כל חודש": "charge_day",
-            // Fallback for Bubble CSVs that only have the first-charge day
-            "יום (מספר)": "charge_day_fallback", "יום": "charge_day_fallback",
-            "תנאי תשלום": "payment_terms", "payment_terms_days": "payment_terms", "ימי תשלום": "payment_terms",
-            "הערות": "notes", "notes": "notes",
-            "קטגורית אב": "parent_category",
-            "קטגוריית אב": "parent_category",
-            "קטגוריית אב (רווח הפסד)": "parent_category",
-            "קטגורית אב (רווח הפסד)": "parent_category",
-            "קטגוריה": "category",
-            "פעיל/לא פעיל (מספר)": "is_active_num", "פעיל/לא פעיל": "is_active_num",
-            "פעיל": "is_active_text",
-            "אמצעי תשלום": "payment_method",
-            "איש קשר": "contact", "contact_name": "contact",
-            "טלפון": "phone", "phone": "phone",
-            "אימייל": "email", "מייל": "email", "email": "email",
-            "ח.פ": "tax_id", "מספר עוסק": "tax_id", "עוסק": "tax_id", "tax_id": "tax_id",
-            "כתובת": "address", "address": "address",
-            "התחייבות": "has_obligations", "התחייבות קודמות": "has_obligations",
-          };
+      if (warnings.length > 0 && suppliers.length === 0) {
+        setCsvError(warnings.join("\n"));
+        return;
+      }
 
-          // Normalize header for matching: trim, collapse whitespace, remove trailing punctuation,
-          // unify quote characters (Hebrew CSVs often have ", '', `, etc. for the geresh/gershayim)
-          const normalizeHeader = (h: string): string => {
-            return h
-              .trim()
-              .replace(/\s+/g, " ")
-              .replace(/["׳״`]/g, "'") // unify all quote variants to single '
-              .replace(/'+/g, "'")     // collapse multiple ' to one
-              .replace(/[?:!.,;]+$/, "") // strip trailing punctuation
-              .trim();
-          };
+      if (warnings.length > 0) {
+        setCsvError(`נטענו ${suppliers.length} ספקים. אזהרות:\n${warnings.join("\n")}`);
+      }
 
-          // Detect which headers from the CSV file match our known aliases
-          const detectedFields = results.meta.fields || [];
-          const fieldMap: Record<string, string> = {}; // canonical -> actual CSV header
-          for (const header of detectedFields) {
-            const normalized = normalizeHeader(header);
-            const canonical = headerAliases[normalized] || headerAliases[header];
-            if (canonical && !fieldMap[canonical]) {
-              fieldMap[canonical] = header;
-            }
-          }
-
-          if (!fieldMap["name"]) {
-            setCsvError(`לא נמצאה עמודת "שם הספק" בקובץ. עמודות שנמצאו: ${detectedFields.join(", ")}`);
-            return;
-          }
-
-          const getField = (row: Record<string, string>, canonical: string): string => {
-            const header = fieldMap[canonical];
-            return header ? (row[header] ?? "").trim() : "";
-          };
-
-          const suppliers: CsvSupplier[] = [];
-          const errors: string[] = [];
-          const parentCats = new Set<string>();
-          const childCats = new Set<string>();
-
-          results.data.forEach((row, rowIdx) => {
-            const name = getField(row, "name");
-            const expenseTypeRaw = getField(row, "expense_type");
-
-            // Skip rows with no name
-            if (!name) return;
-
-            // Map expense_type (default to current_expenses if empty)
-            let expense_type = "current_expenses";
-            if (expenseTypeRaw === "קניות סחורה" || expenseTypeRaw === "goods_purchases" || expenseTypeRaw === "רכש סחורה" || expenseTypeRaw === "סחורה") {
-              expense_type = "goods_purchases";
-            } else if (expenseTypeRaw === "עלות עובדים" || expenseTypeRaw === "עלויות עובדים" || expenseTypeRaw === "employee_costs") {
-              expense_type = "employee_costs";
-            }
-
-            // Map requires_vat
-            const requiresVatRaw = getField(row, "requires_vat");
-            const requires_vat = requiresVatRaw === "כן" || requiresVatRaw === "yes";
-
-            // Map vat_type
-            let vat_type: "full" | "none" | "partial" = "none";
-            const vatRaw = getField(row, "vat");
-            const vatPartialRaw = getField(row, "vat_partial");
-            if (vatRaw === "1.18" || vatRaw === "1.17") {
-              vat_type = "full";
-            } else if (vatPartialRaw && parseFloat(vatPartialRaw) > 0) {
-              vat_type = "partial";
-            } else if (vatRaw === "1" || vatRaw === "" || vatRaw === "0") {
-              vat_type = requires_vat ? "full" : "none";
-            }
-
-            // Map is_fixed_expense
-            const isFixedRaw = getField(row, "is_fixed").toLowerCase();
-            const is_fixed_expense = isFixedRaw === "כן" || isFixedRaw === "yes";
-
-            // Map monthly_expense_amount
-            const monthlyRaw = getField(row, "monthly_amount");
-            const monthly_expense_amount = monthlyRaw ? parseFloat(monthlyRaw) || null : null;
-
-            // Map charge_day — prefer 'מתי יורד כל חודש?'; fall back to
-            // 'יום (מספר)' (Bubble sometimes splits first-charge day into
-            // separate month/day columns instead of a single charge-day field).
-            const chargeDayRaw = getField(row, "charge_day") || getField(row, "charge_day_fallback");
-            let charge_day: number | null = chargeDayRaw ? parseInt(chargeDayRaw) || null : null;
-            if (charge_day !== null && (charge_day < 1 || charge_day > 31)) {
-              charge_day = null;
-            }
-
-            // Map payment_terms_days
-            const paymentTermsRaw = getField(row, "payment_terms");
-            const payment_terms_days = paymentTermsRaw ? (parseInt(paymentTermsRaw) || 0) : 0;
-
-            // Notes - filter out placeholder text
-            let notes = getField(row, "notes");
-            if (notes === "אין הערות לספק זה") notes = "";
-
-            // Categories
-            const parent_category_name = getField(row, "parent_category");
-            const category_name = getField(row, "category");
-            if (parent_category_name) parentCats.add(parent_category_name);
-            if (category_name) childCats.add(`${parent_category_name}|${category_name}`);
-
-            // is_active: support both legacy "1=inactive" CSVs and "כן/לא" CSVs
-            // Default: active (true) when no column present at all
-            const isActiveNumRaw = getField(row, "is_active_num");
-            const isActiveTextRaw = getField(row, "is_active_text").toLowerCase();
-            let is_active = true;
-            if (fieldMap["is_active_num"]) {
-              is_active = isActiveNumRaw !== "1";
-            } else if (fieldMap["is_active_text"]) {
-              is_active = isActiveTextRaw === "כן" || isActiveTextRaw === "yes" || isActiveTextRaw === "true" || isActiveTextRaw === "1";
-            }
-
-            // Map has_previous_obligations
-            const obligationsRaw = getField(row, "has_obligations");
-            const has_previous_obligations = obligationsRaw === "כן" || obligationsRaw === "yes";
-
-            // Map waiting_for_coordinator
-            const coordinatorRaw = getField(row, "waiting_for_coordinator");
-            const waiting_for_coordinator = coordinatorRaw === "כן" || coordinatorRaw === "yes" || coordinatorRaw === "true" || coordinatorRaw === "1";
-
-            // Check for duplicate names within CSV
-            if (suppliers.some(s => s.name === name)) {
-              errors.push(`שורה ${rowIdx + 2}: ספק "${name}" כבר קיים בקובץ - דילוג`);
-              return;
-            }
-
-            suppliers.push({
-              name,
-              expense_type,
-              contact_name: getField(row, "contact"),
-              phone: getField(row, "phone"),
-              email: getField(row, "email"),
-              tax_id: getField(row, "tax_id"),
-              address: getField(row, "address"),
-              payment_terms_days,
-              notes,
-              requires_vat,
-              vat_type,
-              is_fixed_expense,
-              monthly_expense_amount,
-              charge_day,
-              is_active,
-              has_previous_obligations,
-              waiting_for_coordinator,
-              parent_category_name,
-              category_name,
-            });
-          });
-
-          if (errors.length > 0 && suppliers.length === 0) {
-            setCsvError(errors.join("\n"));
-            return;
-          }
-
-          if (errors.length > 0) {
-            setCsvError(`נטענו ${suppliers.length} ספקים. אזהרות:\n${errors.join("\n")}`);
-          }
-
-          setCsvSuppliers(suppliers);
-          setCategoryStats({ parents: parentCats.size, children: childCats.size });
-          setCsvParsingDone(true);
-        } catch {
-          setCsvError("שגיאה בקריאת הקובץ. ודא שהקובץ בפורמט CSV תקין");
-        }
-      },
-      error: (err: Error) => {
-        setCsvError(`שגיאה בפענוח הקובץ: ${err.message}`);
-      },
+      setCsvBlockingErrors(errors);
+      setCsvSuppliers(suppliers);
+      setCategoryStats({ parents: result.parentCategoryCount, children: result.childCategoryCount });
+      setCsvParsingDone(true);
     });
   };
 
@@ -310,6 +104,7 @@ export default function AdminSuppliersPage() {
     setCsvSuppliers([]);
     setCsvFileName(null);
     setCsvError(null);
+    setCsvBlockingErrors([]);
     setCsvParsingDone(false);
     setCategoryStats({ parents: 0, children: 0 });
     setImportProgress("");
@@ -324,6 +119,10 @@ export default function AdminSuppliersPage() {
     }
     if (csvSuppliers.length === 0) {
       showToast("אין ספקים לייבוא", "error");
+      return;
+    }
+    if (csvBlockingErrors.length > 0) {
+      showToast("לא ניתן לייבא - יש לתקן את השגיאות בקובץ ולהעלות אותו מחדש", "error");
       return;
     }
     if (importingRef.current) return;
@@ -361,185 +160,27 @@ export default function AdminSuppliersPage() {
       // 2. Create categories
       setImportProgress("יוצר קטגוריות...");
 
-      // Collect unique parent categories
-      const parentCategoryNames = new Set<string>();
-      const childCategoryPairs = new Set<string>(); // "parent|child"
-      for (const s of newSuppliers) {
-        if (s.parent_category_name) {
-          parentCategoryNames.add(s.parent_category_name);
-        }
-        if (s.category_name && s.parent_category_name) {
-          childCategoryPairs.add(`${s.parent_category_name}|${s.category_name}`);
-        }
-      }
-
-      // Fetch existing categories for this business
-      const { data: existingCategories } = await supabase
-        .from("expense_categories")
-        .select("id, name, parent_id")
-        .eq("business_id", selectedBusinessId);
-
-      // The unique index is (business_id, name) WHERE deleted_at IS NULL — it
-      // does not look at parent_id. So track ALL existing names, not just roots.
-      const existingCatMap = new Map<string, string>(); // name -> id (any category with that name)
-      const existingChildMap = new Map<string, string>(); // "parentId|childName" -> id
-      for (const cat of existingCategories || []) {
-        // Prefer the root record if there are multiples (unlikely due to index).
-        if (!existingCatMap.has(cat.name) || !cat.parent_id) {
-          existingCatMap.set(cat.name, cat.id);
-        }
-        if (cat.parent_id) {
-          existingChildMap.set(`${cat.parent_id}|${cat.name}`, cat.id);
-        }
-      }
-
-      // Create parent categories that don't exist
-      const parentCatIdMap = new Map<string, string>(); // name -> uuid
-      for (const parentName of parentCategoryNames) {
-        if (existingCatMap.has(parentName)) {
-          // Reuse whatever exists with that name (root OR child) — the user's
-          // CSV treats it as a parent, and the unique index prevents creating
-          // a second row with the same name anyway.
-          parentCatIdMap.set(parentName, existingCatMap.get(parentName)!);
-        } else {
-          const { data, error } = await supabase
-            .from("expense_categories")
-            .insert({
-              business_id: selectedBusinessId,
-              name: parentName,
-              parent_id: null,
-            })
-            .select("id")
-            .single();
-
-          if (error) {
-            // Duplicate-key race: category was created between our fetch and
-            // our insert (either by a parallel import run or by a previous
-            // attempt that partially succeeded). Re-fetch from DB and reuse.
-            if (error.code === "23505") {
-              const { data: existingRow } = await supabase
-                .from("expense_categories")
-                .select("id")
-                .eq("business_id", selectedBusinessId)
-                .eq("name", parentName)
-                .is("deleted_at", null)
-                .maybeSingle();
-              if (existingRow?.id) {
-                parentCatIdMap.set(parentName, existingRow.id);
-                existingCatMap.set(parentName, existingRow.id);
-                continue;
-              }
-            }
-            showToast(`שגיאה ביצירת קטגוריה "${parentName}": ${error.message}`, "error");
-            importingRef.current = false;
-            setIsImporting(false);
-            setImportProgress("");
-            return;
-          }
-          parentCatIdMap.set(parentName, data.id);
-          // Register in existingCatMap so subsequent child-insert checks see it.
-          existingCatMap.set(parentName, data.id);
-        }
-      }
-
-      // Create child categories that don't exist
-      const childCatIdMap = new Map<string, string>(); // "parent|child" -> uuid
-      for (const pair of childCategoryPairs) {
-        const [parentName, childName] = pair.split("|");
-        const parentId = parentCatIdMap.get(parentName);
-        if (!parentId) continue;
-
-        const existingKey = `${parentId}|${childName}`;
-        if (existingChildMap.has(existingKey)) {
-          childCatIdMap.set(pair, existingChildMap.get(existingKey)!);
-          continue;
-        }
-
-        // A category with this same name may already exist for the business as
-        // a root-level (parent) category — the unique index (business_id, name)
-        // doesn't differentiate by parent_id, so inserting a duplicate name
-        // fails. Reuse the existing root in that case.
-        if (existingCatMap.has(childName)) {
-          childCatIdMap.set(pair, existingCatMap.get(childName)!);
-          continue;
-        }
-
-        // Also avoid inserting a child whose name we've already created as a
-        // parent in this same run.
-        if (parentCatIdMap.has(childName)) {
-          childCatIdMap.set(pair, parentCatIdMap.get(childName)!);
-          continue;
-        }
-
-        {
-          const { data, error } = await supabase
-            .from("expense_categories")
-            .insert({
-              business_id: selectedBusinessId,
-              name: childName,
-              parent_id: parentId,
-            })
-            .select("id")
-            .single();
-
-          if (error) {
-            // Duplicate-key race: reuse whatever already exists under that name.
-            if (error.code === "23505") {
-              const { data: existingRow } = await supabase
-                .from("expense_categories")
-                .select("id")
-                .eq("business_id", selectedBusinessId)
-                .eq("name", childName)
-                .is("deleted_at", null)
-                .maybeSingle();
-              if (existingRow?.id) {
-                childCatIdMap.set(pair, existingRow.id);
-                existingCatMap.set(childName, existingRow.id);
-                continue;
-              }
-            }
-            showToast(`שגיאה ביצירת קטגוריה "${childName}": ${error.message}`, "error");
-            importingRef.current = false;
-            setIsImporting(false);
-            setImportProgress("");
-            return;
-          }
-          childCatIdMap.set(pair, data.id);
-          existingCatMap.set(childName, data.id);
-        }
+      const categoryResult = await ensureSupplierCategories(supabase, selectedBusinessId, newSuppliers);
+      if ("error" in categoryResult) {
+        showToast(categoryResult.error, "error");
+        importingRef.current = false;
+        setIsImporting(false);
+        setImportProgress("");
+        return;
       }
 
       // 3. Build supplier records
       setImportProgress(`מייבא ${newSuppliers.length} ספקים...`);
 
-      const records = newSuppliers.map(s => {
-        const parentCatId = s.parent_category_name ? parentCatIdMap.get(s.parent_category_name) || null : null;
-        const childCatKey = s.parent_category_name && s.category_name ? `${s.parent_category_name}|${s.category_name}` : null;
-        const childCatId = childCatKey ? childCatIdMap.get(childCatKey) || null : null;
+      // Credit suppliers are linked to the business card whose last 4 digits appear in the file
+      const { data: creditCards } = await supabase
+        .from("business_credit_cards")
+        .select("id, last_four_digits")
+        .eq("business_id", selectedBusinessId)
+        .eq("is_active", true);
+      const creditCardIdByLastFour = buildCreditCardLastFourMap(creditCards || []);
 
-        return {
-          business_id: selectedBusinessId,
-          name: s.name,
-          expense_type: s.expense_type,
-          contact_name: s.contact_name || null,
-          phone: s.phone || null,
-          email: s.email || null,
-          tax_id: s.tax_id || null,
-          address: s.address || null,
-          payment_terms_days: s.payment_terms_days,
-          notes: s.notes || null,
-          requires_vat: s.requires_vat,
-          vat_type: s.vat_type,
-          is_fixed_expense: s.is_fixed_expense,
-          monthly_expense_amount: s.monthly_expense_amount,
-          charge_day: s.charge_day,
-          is_active: s.is_active,
-          has_previous_obligations: s.has_previous_obligations,
-          waiting_for_coordinator: s.waiting_for_coordinator,
-          parent_category_id: parentCatId,
-          expense_category_id: childCatId,
-        };
-      });
+      const records = newSuppliers.map(s => buildSupplierInsertRecord(s, selectedBusinessId, categoryResult, creditCardIdByLastFour));
 
       // Insert in batches of 50 to avoid payload limits
       const batchSize = 50;
@@ -714,6 +355,19 @@ export default function AdminSuppliersPage() {
                   נקה הכל
                 </Button>
               </div>
+
+              {csvBlockingErrors.length > 0 && (
+                <div className="bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[10px] p-[10px] mb-[10px]">
+                  <p className="text-[13px] font-bold text-[#F64E60] text-right mb-[6px]">
+                    לא ניתן לייבא את הקובץ. יש לתקן את הבעיות הבאות ולהעלות אותו מחדש:
+                  </p>
+                  <ul className="list-disc ps-[18px] flex flex-col gap-[4px]">
+                    {csvBlockingErrors.map((err) => (
+                      <li key={err} className="text-[13px] text-[#F64E60] text-right">{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {csvError && (
                 <div className="bg-[#FFA412]/10 border border-[#FFA412]/30 rounded-[10px] p-[10px] mb-[10px]">
@@ -941,7 +595,7 @@ export default function AdminSuppliersPage() {
             type="button"
             variant="default"
             onClick={handleImport}
-            disabled={isImporting || !selectedBusinessId}
+            disabled={isImporting || !selectedBusinessId || csvBlockingErrors.length > 0}
             className="w-full bg-[#4956D4] hover:bg-[#3a45b5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[16px] font-bold py-[12px] rounded-[12px] transition-colors flex items-center justify-center gap-2"
           >
             {isImporting ? (
