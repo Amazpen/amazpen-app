@@ -181,7 +181,7 @@ export default function AdminSuppliersPage() {
             let expense_type = "current_expenses";
             if (expenseTypeRaw === "קניות סחורה" || expenseTypeRaw === "goods_purchases" || expenseTypeRaw === "רכש סחורה" || expenseTypeRaw === "סחורה") {
               expense_type = "goods_purchases";
-            } else if (expenseTypeRaw === "עלות עובדים" || expenseTypeRaw === "employee_costs") {
+            } else if (expenseTypeRaw === "עלות עובדים" || expenseTypeRaw === "עלויות עובדים" || expenseTypeRaw === "employee_costs") {
               expense_type = "employee_costs";
             }
 

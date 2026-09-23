@@ -373,7 +373,7 @@ function NewBusinessPage() {
                   trimmed === "סחורה"
                 ) {
                   supplier.expense_type = "goods_purchases";
-                } else if (lower === "employee_costs" || trimmed === "עלות עובדים") {
+                } else if (lower === "employee_costs" || trimmed === "עלות עובדים" || trimmed === "עלויות עובדים") {
                   supplier.expense_type = "employee_costs";
                 } else {
                   supplier.expense_type = "current_expenses";
