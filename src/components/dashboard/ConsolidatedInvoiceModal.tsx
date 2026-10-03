@@ -363,6 +363,12 @@ export function ConsolidatedInvoiceModal({
 
       if (data) {
         setAllDeliveryNotes(data);
+        // Drop selected ids that are not in the freshly loaded list. A restored
+        // draft (or a business/supplier switch) can leave ids from another
+        // business behind; they are invisible in the list but would still be
+        // linked on save.
+        const loadedIds = new Set(data.map(n => n.id));
+        setSelectedNoteIds(prev => new Set(Array.from(prev).filter(id => loadedIds.has(id))));
         // In edit mode preselect notes already linked to this invoice. Only do
         // this on the initial load — once the user toggles, leave selection alone.
         if (isEditMode && editInvoiceId && !initialDNLoadedRef.current) {
@@ -579,7 +585,9 @@ export function ConsolidatedInvoiceModal({
           const { error: linkError } = await supabase
             .from("delivery_notes")
             .update({ invoice_id: invoiceId, is_verified: isClosed === "yes" })
-            .in("id", toLink);
+            .in("id", toLink)
+            .eq("business_id", selectedBusinessId)
+            .eq("supplier_id", selectedSupplierId);
           if (linkError) console.error("Error linking delivery notes:", linkError);
         }
         // Sync is_verified on still-linked notes when the closed-state changed
@@ -623,7 +631,9 @@ export function ConsolidatedInvoiceModal({
               invoice_id: invoiceId,
               is_verified: isClosed === "yes",
             })
-            .in("id", Array.from(selectedNoteIds));
+            .in("id", Array.from(selectedNoteIds))
+            .eq("business_id", selectedBusinessId)
+            .eq("supplier_id", selectedSupplierId);
           if (linkError) {
             console.error("Error linking delivery notes:", linkError);
             showToast("החשבונית נשמרה אך היתה שגיאה בקישור תעודות המשלוח", "warning");

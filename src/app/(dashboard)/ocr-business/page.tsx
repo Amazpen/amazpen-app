@@ -962,7 +962,9 @@ export default function OCRBusinessPage() {
             const { error: linkError } = await supabase
               .from('delivery_notes')
               .update({ invoice_id: invoice.id, is_verified: isClosed })
-              .in('id', formData.summary_existing_delivery_note_ids);
+              .in('id', formData.summary_existing_delivery_note_ids)
+              .eq('business_id', formData.business_id)
+              .eq('supplier_id', formData.supplier_id);
             if (linkError) console.error('Error linking delivery notes:', linkError);
           }
 
