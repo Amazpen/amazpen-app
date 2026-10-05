@@ -60,12 +60,15 @@ export async function applyPartialPaymentAllocation(
     priorByInvoice.set(id, (priorByInvoice.get(id) || 0) + (Number(p.total_amount) || 0));
   }
 
-  // Oldest -> newest. Balance floored at 0.
+  // Oldest -> newest. A regular invoice's balance is floored at 0; a credit
+  // note (negative total) keeps its negative open balance (capped at 0) so the
+  // allocator applies it instead of treating it as already settled.
   const ordered: (AllocInvoice & { total: number })[] = (invRows || [])
     .map((inv) => {
       const total = Number(inv.total_amount) || 0;
       const prior = priorByInvoice.get(inv.id as string) || 0;
-      return { id: inv.id as string, total, balance: Math.max(0, total - prior), date: inv.invoice_date as string };
+      const balance = total < 0 ? Math.min(0, total - prior) : Math.max(0, total - prior);
+      return { id: inv.id as string, total, balance, date: inv.invoice_date as string };
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 

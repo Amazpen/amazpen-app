@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { uploadFile } from "@/lib/uploadFile";
 import { convertPdfToImage } from "@/lib/pdfToImage";
+import { fetchPaidByInvoice, openBalanceOf } from "@/lib/payments/paidByInvoice";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -94,10 +95,86 @@ interface OpenInvoice {
   invoice_number: string | null;
   invoice_date: string;
   total_amount: number;
+  amount_paid: number | null;
+  // What is still open on the invoice: total_amount minus what was already
+  // paid (links + direct FK, see fetchPaidByInvoice). Negative for an open
+  // credit note. Every amount in the payment form uses this, never total_amount.
+  open_balance: number;
   status: string;
   approval_status: string | null;
   attachment_url: string | null;
   notes: string | null;
+}
+
+// Split a payment across the selected documents by their OPEN balance.
+// When the payment covers the selected open balances (within the form's ₪5
+// rounding tolerance), every document gets exactly its own open balance -
+// a credit note (negative) included - and all of them close as paid. This is
+// what makes "invoice + its credit note" close together instead of the invoice
+// absorbing the whole payment and staying partial with a phantom remainder.
+// Otherwise: credit notes are applied first (they add to what is available),
+// then regular invoices smallest-first; an invoice closes only when what is
+// left covers its open balance (₪1 tolerance, as before).
+const INVOICE_MATCH_TOLERANCE = 5;
+function allocatePaymentToOpenInvoices(
+  selected: OpenInvoice[],
+  paymentTotal: number
+): { allocations: Map<string, number>; paidIds: string[] } {
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const allocations = new Map<string, number>();
+  const paidIds: string[] = [];
+  const openSum = selected.reduce((sum, inv) => sum + Number(inv.open_balance), 0);
+
+  if (Math.abs(openSum - paymentTotal) <= INVOICE_MATCH_TOLERANCE) {
+    for (const inv of selected) {
+      allocations.set(inv.id, round2(Number(inv.open_balance)));
+      paidIds.push(inv.id);
+    }
+    return { allocations, paidIds };
+  }
+
+  let remaining = paymentTotal;
+  const credits = selected.filter(inv => Number(inv.open_balance) < 0);
+  const regular = selected
+    .filter(inv => Number(inv.open_balance) >= 0)
+    .sort((a, b) => Number(a.open_balance) - Number(b.open_balance));
+  for (const inv of credits) {
+    const balance = Number(inv.open_balance);
+    allocations.set(inv.id, round2(balance));
+    paidIds.push(inv.id);
+    remaining -= balance;
+  }
+  for (const inv of regular) {
+    const balance = Number(inv.open_balance);
+    const allocated = Math.max(0, Math.min(balance, remaining));
+    allocations.set(inv.id, round2(allocated));
+    if (balance <= remaining + 1) paidIds.push(inv.id);
+    remaining -= allocated;
+  }
+  return { allocations, paidIds };
+}
+
+// Flip fully-covered invoices to 'paid'. Where amount_paid is maintained (a
+// partial invoice, or any non-zero amount_paid) it is set to the full total so
+// it does not keep showing the old partial figure.
+async function markOpenInvoicesPaid(
+  supabase: ReturnType<typeof createClient>,
+  invoices: OpenInvoice[]
+): Promise<void> {
+  if (invoices.length === 0) return;
+  const keepsAmountPaid = (inv: OpenInvoice) => inv.status === "partial" || (Number(inv.amount_paid) || 0) !== 0;
+  const plainIds = invoices.filter(inv => !keepsAmountPaid(inv)).map(inv => inv.id);
+  if (plainIds.length > 0) {
+    const { error } = await supabase.from("invoices").update({ status: "paid" }).in("id", plainIds);
+    if (error) console.error("Error updating invoice statuses:", error);
+  }
+  for (const inv of invoices.filter(keepsAmountPaid)) {
+    const { error } = await supabase
+      .from("invoices")
+      .update({ status: "paid", amount_paid: Number(inv.total_amount) })
+      .eq("id", inv.id);
+    if (error) console.error("Error updating invoice statuses:", error);
+  }
 }
 
 function parseAttachmentUrls(raw: string | null): string[] {
@@ -1334,7 +1411,7 @@ function PaymentsPageInner() {
       // stuck in the field.
       const selectedTotal = openInvoices
         .filter(inv => newSet.has(inv.id))
-        .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+        .reduce((sum, inv) => sum + Number(inv.open_balance), 0);
 
       setPaymentMethods(prev => {
         const updated = [...prev];
@@ -1370,7 +1447,7 @@ function PaymentsPageInner() {
 
     const selectedTotal = openInvoices
       .filter(inv => newSet.has(inv.id))
-      .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+      .reduce((sum, inv) => sum + Number(inv.open_balance), 0);
 
     setPaymentMethods(prev => {
       const updated = [...prev];
@@ -2433,7 +2510,7 @@ function PaymentsPageInner() {
       const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0), 0);
       const invoicesTotal = openInvoices
         .filter(inv => selectedInvoiceIds.has(inv.id))
-        .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+        .reduce((sum, inv) => sum + Number(inv.open_balance), 0);
       const diff = Math.abs(invoicesTotal - paymentTotal);
       if (diff > 5) {
         showToast(`לא ניתן לבצע תשלום חלקי - הפרש של ₪${diff.toFixed(2)} בין סכום התשלום לסכום החשבוניות`, "error");
@@ -2647,67 +2724,31 @@ function PaymentsPageInner() {
         }
       }
 
+      // Split the payment across the selected invoices by their OPEN balance
+      // (total minus what was already paid), not by total_amount. A partially
+      // paid invoice only needs its remainder, and a credit note selected with
+      // its invoice gets its own (negative) balance so both close together.
+      const selectedInvoicesForSave = openInvoices.filter(inv => selectedInvoiceIds.has(inv.id));
+      const { allocations, paidIds } = allocatePaymentToOpenInvoices(selectedInvoicesForSave, totalAmount);
+
       // Link the payment to each selected invoice via N:M table.
-      // amount_allocated = invoice's total_amount (capped by remaining payment amount).
+      // amount_allocated = the part of the invoice's open balance this payment covers.
       if (selectedInvoicesArr.length > 1) {
-        const selectedInvObjs = openInvoices.filter(inv => selectedInvoiceIds.has(inv.id));
-        let remaining = totalAmount;
-        for (const inv of selectedInvObjs) {
-          const allocated = Math.min(Number(inv.total_amount), remaining);
-          remaining -= allocated;
+        for (const inv of selectedInvoicesForSave) {
           await supabase.from("payment_invoice_links").insert({
             payment_id: newPayment.id,
             invoice_id: inv.id,
-            amount_allocated: allocated,
+            amount_allocated: allocations.get(inv.id) ?? 0,
           });
         }
       }
 
-      // Update selected invoices - mark as paid
-      // Tolerance of ₪5 to handle rounding differences (invoice amounts like 1542.0004 vs user-entered 1542)
+      // Mark as paid every selected invoice whose open balance this payment
+      // covers (₪5 rounding tolerance on the full match, see
+      // allocatePaymentToOpenInvoices).
       if (selectedInvoiceIds.size > 0) {
-        const selectedInvoices = openInvoices
-          .filter(inv => selectedInvoiceIds.has(inv.id));
-
-        const invoicesTotal = selectedInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
-        const diff = Math.abs(invoicesTotal - totalAmount);
-
-        // If payment covers all selected invoices (within ₪5 tolerance), mark them all as paid
-        if (diff <= 5) {
-          const paidInvoiceIds = selectedInvoices.map(inv => inv.id);
-          const { error: invoiceUpdateError } = await supabase
-            .from("invoices")
-            .update({ status: "paid" })
-            .in("id", paidInvoiceIds);
-
-          if (invoiceUpdateError) {
-            console.error("Error updating invoice statuses:", invoiceUpdateError);
-          }
-        } else {
-          // Fallback: mark invoices one by one from smallest to largest
-          const sorted = [...selectedInvoices].sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
-          let remainingAmount = totalAmount;
-          const paidInvoiceIds: string[] = [];
-
-          for (const inv of sorted) {
-            const invAmount = Number(inv.total_amount);
-            if (invAmount <= remainingAmount + 1) {
-              paidInvoiceIds.push(inv.id);
-              remainingAmount -= invAmount;
-            }
-          }
-
-          if (paidInvoiceIds.length > 0) {
-            const { error: invoiceUpdateError } = await supabase
-              .from("invoices")
-              .update({ status: "paid" })
-              .in("id", paidInvoiceIds);
-
-            if (invoiceUpdateError) {
-              console.error("Error updating invoice statuses:", invoiceUpdateError);
-            }
-          }
-        }
+        const paidIdSet = new Set(paidIds);
+        await markOpenInvoicesPaid(supabase, selectedInvoicesForSave.filter(inv => paidIdSet.has(inv.id)));
       }
 
       // Refresh data
@@ -3123,53 +3164,26 @@ function PaymentsPageInner() {
         .delete()
         .eq("payment_id", editingPaymentId);
 
+      // Split by OPEN balance (the edited payment itself is excluded from
+      // "already paid" when the list is loaded), same as the create path.
+      const selectedInvoicesForSave = openInvoices.filter((inv) => selectedInvoiceIds.has(inv.id));
+      const { allocations, paidIds } = allocatePaymentToOpenInvoices(selectedInvoicesForSave, totalAmount);
+
       // Recreate N:M links when more than one invoice is linked (matches create-path behavior)
       if (selectedInvoiceIds.size > 1) {
-        const selectedInvObjs = openInvoices.filter((inv) => selectedInvoiceIds.has(inv.id));
-        let remaining = totalAmount;
-        for (const inv of selectedInvObjs) {
-          const allocated = Math.min(Number(inv.total_amount), remaining);
-          remaining -= allocated;
+        for (const inv of selectedInvoicesForSave) {
           await supabase.from("payment_invoice_links").insert({
             payment_id: editingPaymentId,
             invoice_id: inv.id,
-            amount_allocated: allocated,
+            amount_allocated: allocations.get(inv.id) ?? 0,
           });
         }
       }
 
       // Mark newly selected invoices as paid (with ₪5 tolerance for rounding)
       if (selectedInvoiceIds.size > 0) {
-        const selectedInvoices = openInvoices
-          .filter(inv => selectedInvoiceIds.has(inv.id));
-
-        const invoicesTotal = selectedInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
-        const diff = Math.abs(invoicesTotal - totalAmount);
-
-        if (diff <= 5) {
-          const paidInvoiceIds = selectedInvoices.map(inv => inv.id);
-          await supabase
-            .from("invoices")
-            .update({ status: "paid" })
-            .in("id", paidInvoiceIds);
-        } else {
-          const sorted = [...selectedInvoices].sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
-          let remainingAmount = totalAmount;
-          const paidInvoiceIds: string[] = [];
-          for (const inv of sorted) {
-            const invAmount = Number(inv.total_amount);
-            if (invAmount <= remainingAmount + 1) {
-              paidInvoiceIds.push(inv.id);
-              remainingAmount -= invAmount;
-            }
-          }
-          if (paidInvoiceIds.length > 0) {
-            await supabase
-              .from("invoices")
-              .update({ status: "paid" })
-              .in("id", paidInvoiceIds);
-          }
-        }
+        const paidIdSet = new Set(paidIds);
+        await markOpenInvoicesPaid(supabase, selectedInvoicesForSave.filter(inv => paidIdSet.has(inv.id)));
       }
 
       // Warn if payment amount changed and no longer matches linked invoices
@@ -3177,7 +3191,7 @@ function PaymentsPageInner() {
         const oldAmount = oldPayment.totalAmount;
         if (Math.abs(totalAmount - oldAmount) > 0.01) {
           const selectedInvoices = openInvoices.filter(inv => selectedInvoiceIds.has(inv.id));
-          const invoicesTotal = selectedInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+          const invoicesTotal = selectedInvoices.reduce((sum, inv) => sum + Number(inv.open_balance), 0);
           if (Math.abs(invoicesTotal - totalAmount) > 5) {
             showToast(`⚠️ סכום התשלום (₪${totalAmount.toLocaleString()}) לא תואם לסכום החשבוניות (₪${invoicesTotal.toLocaleString()}) - החשבוניות חזרו לסטטוס "ממתין"`, "warning");
           }
@@ -3515,7 +3529,7 @@ function PaymentsPageInner() {
     // Calculate remaining balance — use actual installments sum if they exist (user may have edited)
     const totalInvoice = Array.from(selectedInvoiceIds).reduce((sum, invId) => {
       const inv = openInvoices.find(i => i.id === invId);
-      return sum + (inv ? Number(inv.total_amount) : 0);
+      return sum + (inv ? Number(inv.open_balance) : 0);
     }, 0);
     const allocatedSoFar = paymentMethods.reduce((sum, p) => {
       if (p.customInstallments.length > 0) {
@@ -3735,6 +3749,13 @@ function PaymentsPageInner() {
   const skipPaymentDateEffect = useRef(false);
   // When editing a payment, skip clearing selectedInvoiceIds in the supplier-change useEffect (#26)
   const editLinkedInvoiceIds = useRef<Set<string> | null>(null);
+  // Payment being edited, read by the open-invoices fetch so that payment's own
+  // allocations do not count as "already paid" on its invoices. Declared (and
+  // synced) before that fetch effect so it is current when the fetch runs.
+  const editingPaymentIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    editingPaymentIdRef.current = editingPaymentId;
+  }, [editingPaymentId]);
 
   useEffect(() => {
     if (skipPaymentDateEffect.current) {
@@ -3773,11 +3794,12 @@ function PaymentsPageInner() {
 
       setIsLoadingInvoices(true);
       const supabase = createClient();
+      const excludePaymentId = editingPaymentIdRef.current;
 
       try {
         const { data, error } = await supabase
           .from("invoices")
-          .select("id, invoice_number, invoice_date, total_amount, status, approval_status, attachment_url, notes")
+          .select("id, invoice_number, invoice_date, total_amount, amount_paid, status, approval_status, attachment_url, notes")
           .eq("supplier_id", selectedSupplier)
           .in("business_id", selectedBusinesses)
           .in("status", ["pending", "clarification", "partial"])
@@ -3788,26 +3810,41 @@ function PaymentsPageInner() {
           console.error("Error fetching open invoices:", error);
           setOpenInvoices([]);
         } else {
-          let allInvoices = data || [];
+          let fetchedInvoices = data || [];
 
           // If editing, also fetch the currently linked invoice (may be "paid") and merge it (#26)
           if (linkedIds && linkedIds.size > 0) {
             const linkedIdsArr = Array.from(linkedIds);
-            const alreadyInList = linkedIdsArr.every(id => allInvoices.some(inv => inv.id === id));
+            const alreadyInList = linkedIdsArr.every(id => fetchedInvoices.some(inv => inv.id === id));
             if (!alreadyInList) {
               const { data: linkedData } = await supabase
                 .from("invoices")
-                .select("id, invoice_number, invoice_date, total_amount, status, approval_status, attachment_url, notes")
+                .select("id, invoice_number, invoice_date, total_amount, amount_paid, status, approval_status, attachment_url, notes")
                 .in("id", linkedIdsArr)
                 .is("deleted_at", null);
               if (linkedData && linkedData.length > 0) {
                 // Merge linked invoices at the top
-                const existingIds = new Set(allInvoices.map(inv => inv.id));
+                const existingIds = new Set(fetchedInvoices.map(inv => inv.id));
                 const newLinked = linkedData.filter(inv => !existingIds.has(inv.id));
-                allInvoices = [...newLinked, ...allInvoices];
+                fetchedInvoices = [...newLinked, ...fetchedInvoices];
               }
             }
           }
+
+          // Open balance per invoice = total - paid, computed in one batch.
+          // Paid = links + direct FK payments (fetchPaidByInvoice); amount_paid
+          // only when the invoice has neither. The payment being edited is
+          // excluded so its own invoices do not show as already settled.
+          const paidByInvoice = await fetchPaidByInvoice(
+            supabase,
+            fetchedInvoices.map(inv => inv.id),
+            { excludePaymentId }
+          );
+          const allInvoices: OpenInvoice[] = fetchedInvoices.map(inv => {
+            const computedPaid = paidByInvoice.get(inv.id);
+            const paid = computedPaid != null ? computedPaid : (Number(inv.amount_paid) || 0);
+            return { ...inv, open_balance: openBalanceOf(Number(inv.total_amount), paid) };
+          });
 
           setOpenInvoices(allInvoices);
           if (allInvoices.length > 0) {
@@ -5526,6 +5563,11 @@ function PaymentsPageInner() {
                                           {inv.status === "paid" && <span className="text-[10px] text-green-400 mr-[3px]">(שולם)</span>}
                                           {inv.status === "clarification" && <span className="text-[10px] text-[#FFA500] mr-[3px]">(בבירור)</span>}
                                           {inv.status === "partial" && <span className="text-[10px] text-[#FFC107] mr-[3px]">(תשלום חלקי)</span>}
+                                          {Math.abs(Number(inv.open_balance) - Number(inv.total_amount)) > 0.01 && (
+                                            <span dir="rtl" className="text-[10px] text-[#FFC107] mr-[3px]">
+                                              נותר ₪{Number(inv.open_balance).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                          )}
                                           {inv.approval_status === "pending_review" && inv.status !== "clarification" && <span className="text-[10px] text-[#bc76ff] mr-[3px]">(בבדיקה)</span>}
                                         </span>
                                       <div className="flex items-center justify-center gap-[5px]" onClick={(e) => e.stopPropagation()}>
@@ -5648,7 +5690,7 @@ function PaymentsPageInner() {
                           <span className="text-[16px] text-white font-bold ltr-num">
                             ₪{openInvoices
                               .filter(inv => selectedInvoiceIds.has(inv.id))
-                              .reduce((sum, inv) => sum + Number(inv.total_amount), 0)
+                              .reduce((sum, inv) => sum + Number(inv.open_balance), 0)
                               .toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
@@ -6029,7 +6071,7 @@ function PaymentsPageInner() {
                 if (selectedInvoiceIds.size > 0) {
                   const invoicesTotal = openInvoices
                     .filter(inv => selectedInvoiceIds.has(inv.id))
-                    .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+                    .reduce((sum, inv) => sum + Number(inv.open_balance), 0);
                   const diff = Math.abs(invoicesTotal - paymentTotal);
                   if (diff > 0.01) {
                     const isBlocked = diff > 5;
@@ -6092,7 +6134,7 @@ function PaymentsPageInner() {
                   }, 0);
                   const invoicesTotal = openInvoices
                     .filter(inv => selectedInvoiceIds.has(inv.id))
-                    .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+                    .reduce((sum, inv) => sum + Number(inv.open_balance), 0);
                   const diff = invoicesTotal - actualPaymentTotal;
                   if (Math.abs(diff) > 5) {
                     warnings.push(diff > 0
