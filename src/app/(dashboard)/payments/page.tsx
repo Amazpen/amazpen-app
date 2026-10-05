@@ -130,6 +130,22 @@ function allocatePaymentToOpenInvoices(
       allocations.set(inv.id, round2(Number(inv.open_balance)));
       paidIds.push(inv.id);
     }
+    // All documents close as paid, but the written links must add up to the
+    // payment exactly. The rounding difference goes on the largest regular
+    // invoice (then the next largest if that one would drop below 0), never
+    // on a credit note.
+    const allocatedSum = Array.from(allocations.values()).reduce((s, a) => s + a, 0);
+    let diff = round2(paymentTotal - allocatedSum);
+    const regularByBalanceDesc = selected
+      .filter(inv => Number(inv.open_balance) >= 0)
+      .sort((a, b) => Number(b.open_balance) - Number(a.open_balance));
+    for (const inv of regularByBalanceDesc) {
+      if (Math.abs(diff) < 0.005) break;
+      const current = allocations.get(inv.id) ?? 0;
+      const adjusted = round2(Math.max(0, current + diff));
+      diff = round2(diff - (adjusted - current));
+      allocations.set(inv.id, adjusted);
+    }
     return { allocations, paidIds };
   }
 
@@ -3835,11 +3851,19 @@ function PaymentsPageInner() {
           // Paid = links + direct FK payments (fetchPaidByInvoice); amount_paid
           // only when the invoice has neither. The payment being edited is
           // excluded so its own invoices do not show as already settled.
-          const paidByInvoice = await fetchPaidByInvoice(
-            supabase,
-            fetchedInvoices.map(inv => inv.id),
-            { excludePaymentId }
-          );
+          // On a failed query the balances are unknown: say so, and fall back
+          // to amount_paid (never silently to the full totals).
+          let paidByInvoice = new Map<string, number>();
+          try {
+            paidByInvoice = await fetchPaidByInvoice(
+              supabase,
+              fetchedInvoices.map(inv => inv.id),
+              { excludePaymentId }
+            );
+          } catch (paidError) {
+            console.error("Error computing open balances:", paidError);
+            showToast("שגיאה בחישוב יתרות פתוחות", "error");
+          }
           const allInvoices: OpenInvoice[] = fetchedInvoices.map(inv => {
             const computedPaid = paidByInvoice.get(inv.id);
             const paid = computedPaid != null ? computedPaid : (Number(inv.amount_paid) || 0);
@@ -3870,6 +3894,8 @@ function PaymentsPageInner() {
       setSelectedInvoiceIds(new Set());
       setShowOpenInvoices(false);
     }
+  // showToast only reports a failed balance query; it must not trigger a refetch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSupplier, selectedBusinesses]);
 
   const resetForm = () => {
