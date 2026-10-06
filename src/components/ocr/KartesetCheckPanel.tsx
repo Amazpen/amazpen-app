@@ -243,7 +243,10 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
     setIsLoading(true);
     const supabase = createClient();
     try {
-      const [invoicesRes, paymentsRes, priorInvoices] = await Promise.all([
+      type PriorInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number | string | null; karteset_checked_at: string | null };
+      const priorSelect = "id, invoice_number, invoice_date, total_amount, karteset_checked_at";
+
+      const [invoicesRes, paymentsRes, priorOpenInvoices] = await Promise.all([
         supabase
           .from("invoices")
           .select("id, invoice_number, invoice_date, total_amount, status, karteset_checked_at")
@@ -256,26 +259,27 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
           .order("invoice_date", { ascending: true }),
         supabase
           .from("payments")
-          .select("id, payment_date, total_amount, karteset_checked_at, notes")
+          .select("id, payment_date, total_amount, karteset_checked_at, notes, invoice_id")
           .eq("business_id", businessId)
           .eq("supplier_id", supplierId)
           .is("deleted_at", null)
           .gte("payment_date", dateFrom)
           .lte("payment_date", dateTo)
           .order("payment_date", { ascending: true }),
-        // Invoices dated before the range: a partly paid (or unpaid) invoice
-        // from an earlier period is still open on the supplier's ledger, and
-        // the payment that settles it may fall inside the range. Without
-        // them the balance shows the payment with no matching invoice.
-        fetchAllPages<{ id: string; invoice_number: string | null; invoice_date: string; total_amount: number | string | null; karteset_checked_at: string | null }>(
+        // Invoices dated before the range that are not marked paid: a partly
+        // paid (or unpaid) invoice from an earlier period is still open on the
+        // supplier's ledger, and the payment that settles it may fall inside
+        // the range. Without them the balance shows the payment with no
+        // matching invoice.
+        fetchAllPages<PriorInvoice>(
           (from, to) =>
             supabase
               .from("invoices")
-              .select("id, invoice_number, invoice_date, total_amount, karteset_checked_at")
+              .select(priorSelect)
               .eq("business_id", businessId)
               .eq("supplier_id", supplierId)
               .is("deleted_at", null)
-              .neq("status", "cancelled")
+              .not("status", "in", "(paid,cancelled)")
               .lt("invoice_date", dateFrom)
               .order("invoice_date", { ascending: true })
               .order("id", { ascending: true })
@@ -285,6 +289,43 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
 
       if (invoicesRes.error) throw invoicesRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
+
+      // Earlier invoices marked 'paid' are carried over only when a payment
+      // inside the range settles them. Thousands of legacy 'paid' invoices
+      // have no payment record at all; they must not show as open. So start
+      // from the in-range payments and load only the invoices they touch.
+      const inRangePaymentIds = (paymentsRes.data || []).map(p => p.id);
+      const settledInvoiceIds = new Set<string>(
+        (paymentsRes.data || []).map(p => p.invoice_id).filter((id): id is string => !!id)
+      );
+      const inRangeLinks = await fetchAllChunked<{ invoice_id: string }>(
+        inRangePaymentIds,
+        (chunk, from, to) =>
+          supabase
+            .from("payment_invoice_links")
+            .select("invoice_id")
+            .in("payment_id", chunk)
+            .order("payment_id")
+            .order("invoice_id")
+            .range(from, to)
+      );
+      for (const l of inRangeLinks) settledInvoiceIds.add(l.invoice_id);
+      const priorPaidInvoices = await fetchAllChunked<PriorInvoice>(
+        Array.from(settledInvoiceIds),
+        (chunk, from, to) =>
+          supabase
+            .from("invoices")
+            .select(priorSelect)
+            .in("id", chunk)
+            .eq("business_id", businessId)
+            .eq("supplier_id", supplierId)
+            .is("deleted_at", null)
+            .eq("status", "paid")
+            .lt("invoice_date", dateFrom)
+            .order("id")
+            .range(from, to)
+      );
+      const priorInvoices = [...priorOpenInvoices, ...priorPaidInvoices];
 
       // Open balance of each earlier invoice as of dateFrom = total minus what
       // payments dated before dateFrom paid on it. Only non-zero balances are
