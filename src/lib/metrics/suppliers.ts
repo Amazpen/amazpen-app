@@ -225,15 +225,15 @@ async function fetchMonthlyData(
   const startIsoIL = `${startStr}T00:00:00+02:00`;
   const endIsoIL = `${endStr}T23:59:59.999+02:00`;
 
-  // page.tsx 1455-1462 — invoices in month by invoice_date
+  // page.tsx fetchMonthlyData — invoices in month by value date
+  // (reference_date when set, else invoice_date), same rule as the expenses page.
   const { data: monthlyInvoices } = await supabase
     .from("invoices")
     .select("id, total_amount, status, amount_paid")
     .eq("supplier_id", supplier.id)
     .eq("business_id", supplier.business_id)
     .is("deleted_at", null)
-    .gte("invoice_date", startIsoIL)
-    .lte("invoice_date", endIsoIL);
+    .or(`and(reference_date.gte."${startIsoIL}",reference_date.lte."${endIsoIL}"),and(reference_date.is.null,invoice_date.gte."${startIsoIL}",invoice_date.lte."${endIsoIL}")`);
 
   // page.tsx 1468-1475 — unlinked delivery notes in month
   const { data: monthlyDNs } = await supabase
@@ -317,7 +317,7 @@ export async function getSupplierDetail(
   const [{ data: invoicesData }, { data: unlinkedDnData }] = await Promise.all([
     supabase
       .from("invoices")
-      .select("subtotal, total_amount, status, amount_paid, invoice_date")
+      .select("subtotal, total_amount, status, amount_paid, invoice_date, reference_date")
       .eq("supplier_id", supplier.id)
       .is("deleted_at", null),
     supabase
@@ -334,6 +334,7 @@ export async function getSupplierDetail(
       status: string;
       amount_paid: number | null;
       invoice_date: string | null;
+      reference_date: string | null;
     }> | null) || [];
   const allDns =
     (unlinkedDnData as Array<{ total_amount: number | null; delivery_date: string | null }> | null) || [];
@@ -372,7 +373,7 @@ export async function getSupplierDetail(
 
   const monthKeySet = new Set<string>();
   for (const inv of allInvoices) {
-    const k = monthKeyOf(inv.invoice_date);
+    const k = monthKeyOf(inv.reference_date ?? inv.invoice_date);
     if (k) monthKeySet.add(k);
   }
   for (const dn of allDns) {

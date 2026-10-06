@@ -1632,7 +1632,7 @@ export default function SuppliersPage() {
     };
     const startStr = fmt(monthStart);
     const endStr = fmt(monthEnd);
-    // For timestamptz columns (invoices.invoice_date, delivery_notes.delivery_date),
+    // For timestamptz columns (invoices.invoice_date / reference_date, delivery_notes.delivery_date),
     // the DB stores UTC but invoices originating from Bubble land at
     // local-midnight-IL which becomes 22:00:00Z the day before. A naive
     // `lte(..., 'YYYY-MM-DD')` filter parses the bound as UTC midnight and
@@ -1644,15 +1644,18 @@ export default function SuppliersPage() {
     const startIsoIL = `${startStr}T00:00:00+02:00`;
     const endIsoIL = `${endStr}T23:59:59.999+02:00`;
 
-    // 1. Fetch invoices for this supplier IN THIS BUSINESS for the month (by invoice_date, not reference_date — matches what the user sees)
+    // 1. Fetch invoices for this supplier IN THIS BUSINESS for the month by
+    // value date = reference_date when set, else invoice_date — the same rule
+    // the expenses page uses, so a supplier's month here matches its month
+    // there (e.g. an invoice dated 15.09 for August service belongs to August).
+    // Bounds are quoted because the IL timestamps contain '.' and ':'.
     const { data: monthlyInvoices } = await supabase
       .from("invoices")
       .select("id, total_amount, status, amount_paid")
       .eq("supplier_id", supplier.id)
       .eq("business_id", supplier.business_id)
       .is("deleted_at", null)
-      .gte("invoice_date", startIsoIL)
-      .lte("invoice_date", endIsoIL);
+      .or(`and(reference_date.gte."${startIsoIL}",reference_date.lte."${endIsoIL}"),and(reference_date.is.null,invoice_date.gte."${startIsoIL}",invoice_date.lte."${endIsoIL}")`);
 
     // Also include unlinked delivery notes that landed in this month — they
     // are purchases from the supplier too, just not yet consolidated into an
@@ -1882,7 +1885,7 @@ export default function SuppliersPage() {
       const [{ data: invoicesData }, { data: unlinkedDnData }] = await Promise.all([
         supabase
           .from("invoices")
-          .select("subtotal, total_amount, status, amount_paid, invoice_date")
+          .select("subtotal, total_amount, status, amount_paid, invoice_date, reference_date")
           .eq("supplier_id", supplier.id)
           .is("deleted_at", null),
         supabase
@@ -1966,8 +1969,10 @@ export default function SuppliersPage() {
         if (Number.isNaN(d.getTime())) return null;
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       };
+      // Invoices land in their value-date month (reference_date ?? invoice_date),
+      // the same rule fetchMonthlyData filters by.
       for (const inv of invoicesData || []) {
-        const k = monthKeyOf((inv as { invoice_date?: string }).invoice_date);
+        const k = monthKeyOf((inv as { reference_date?: string | null }).reference_date ?? (inv as { invoice_date?: string }).invoice_date);
         if (k) monthKeySet.add(k);
       }
       for (const dn of unlinkedDnData || []) {
@@ -2293,7 +2298,7 @@ export default function SuppliersPage() {
       const [{ data: invoicesData }, { data: unlinkedDnData }, { data: paymentsData }] = await Promise.all([
         supabase
           .from("invoices")
-          .select("subtotal, total_amount, status, amount_paid, invoice_date")
+          .select("subtotal, total_amount, status, amount_paid, invoice_date, reference_date")
           .eq("supplier_id", selectedSupplier.id)
           .is("deleted_at", null),
         supabase
@@ -2358,7 +2363,7 @@ export default function SuppliersPage() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       };
       for (const inv of invoicesData || []) {
-        const k = monthKeyOf((inv as { invoice_date?: string }).invoice_date);
+        const k = monthKeyOf((inv as { reference_date?: string | null }).reference_date ?? (inv as { invoice_date?: string }).invoice_date);
         if (k) monthKeySet.add(k);
       }
       for (const dn of unlinkedDnData || []) {
