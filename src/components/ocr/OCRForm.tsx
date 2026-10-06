@@ -4258,7 +4258,7 @@ export default function OCRForm({
           <div className="flex flex-col gap-[8px] bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-[10px] p-[10px]">
             <span className="text-[13px] font-medium text-[#F59E0B] text-right">סיבת הבירור:</span>
             <div className="flex flex-wrap gap-[6px]">
-              {['מחיר שגוי', 'כמות לא תואמת', 'פריט חסר', 'חשבונית כפולה', 'סחורה לא התקבלה'].map((reason) => (
+              {['מחיר שגוי', 'כמות לא תואמת', 'פריט חסר', 'חשבונית כפולה', 'סחורה לא התקבלה', 'חסר מספר הקצאה'].map((reason) => (
                 <Button
                   key={reason}
                   type="button"
@@ -4276,7 +4276,7 @@ export default function OCRForm({
             </div>
             <Textarea
               placeholder="או כתוב סיבה אחרת..."
-              value={!['מחיר שגוי', 'כמות לא תואמת', 'פריט חסר', 'חשבונית כפולה', 'סחורה לא התקבלה'].includes(disputeReason) ? disputeReason : ''}
+              value={!['מחיר שגוי', 'כמות לא תואמת', 'פריט חסר', 'חשבונית כפולה', 'סחורה לא התקבלה', 'חסר מספר הקצאה'].includes(disputeReason) ? disputeReason : ''}
               onChange={(e) => setDisputeReason(e.target.value)}
               className="w-full h-[60px] bg-transparent text-white text-[13px] text-right border border-[#727BA0] rounded-[8px] p-2 resize-none placeholder:text-white/30"
             />
