@@ -8,6 +8,8 @@ Amazpen (המצפן) is a Hebrew RTL business management SaaS application for tr
 
 **Production URL:** https://app.amazpenbiz.co.il
 
+**Current status:** `STATUS.md` at the repo root. It says what is live, what is waiting on David, which branches are held back and what not to start. Read it first; update it before ending a session.
+
 ## Commands
 
 ```bash
