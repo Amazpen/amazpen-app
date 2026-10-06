@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { openBalanceOf } from "@/lib/payments/paidByInvoice";
 
 interface Supplier {
   id: string;
@@ -57,6 +58,99 @@ const formatDateDisplay = (s: string) => {
 
 const fmtMoney = (n: number) =>
   n.toLocaleString("he-IL", { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
+
+// Ids per `.in()` filter (keeps the request URL short) and PostgREST's max rows
+// per request (page through anything larger).
+const ID_CHUNK_SIZE = 100;
+const PAGE_SIZE = 1000;
+
+type PageResult<T> = PromiseLike<{ data: T[] | null; error: unknown }>;
+
+// Runs `buildPage(from, to)` until a page comes back short. Throws on the first
+// query error so a failed query is never mistaken for "no rows".
+async function fetchAllPages<T>(buildPage: (from: number, to: number) => PageResult<T>): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await buildPage(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+// Same as fetchAllPages, once per chunk of ids.
+async function fetchAllChunked<T>(
+  ids: string[],
+  buildPage: (chunk: string[], from: number, to: number) => PageResult<T>
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + ID_CHUNK_SIZE);
+    rows.push(...await fetchAllPages<T>((from, to) => buildPage(chunk, from, to)));
+  }
+  return rows;
+}
+
+// Paid amount per invoice counting ONLY payments dated before `beforeDate`.
+// invoices.amount_paid is unreliable, so "paid" comes from the two payment
+// sources: payment_invoice_links.amount_allocated of non-deleted payments,
+// plus direct payments.invoice_id FK payments that have no link row for that
+// same invoice (a linked payment is already counted through its link).
+async function fetchPaidBeforeDate(
+  supabase: ReturnType<typeof createClient>,
+  invoiceIds: string[],
+  beforeDate: string
+): Promise<Map<string, number>> {
+  const paid = new Map<string, number>();
+  if (invoiceIds.length === 0) return paid;
+
+  const [links, direct] = await Promise.all([
+    fetchAllChunked<{ invoice_id: string; payment_id: string; amount_allocated: number | string | null }>(
+      invoiceIds,
+      (chunk, from, to) =>
+        supabase
+          .from("payment_invoice_links")
+          .select("invoice_id, payment_id, amount_allocated, payment:payments!inner(deleted_at, payment_date)")
+          .in("invoice_id", chunk)
+          .is("payment.deleted_at", null)
+          .lt("payment.payment_date", beforeDate)
+          .order("payment_id")
+          .order("invoice_id")
+          .range(from, to)
+    ),
+    fetchAllChunked<{ id: string; invoice_id: string | null; total_amount: number | string | null }>(
+      invoiceIds,
+      (chunk, from, to) =>
+        supabase
+          .from("payments")
+          .select("id, invoice_id, total_amount")
+          .in("invoice_id", chunk)
+          .is("deleted_at", null)
+          .lt("payment_date", beforeDate)
+          .order("id")
+          .range(from, to)
+    ),
+  ]);
+
+  // A link row and its payment share the payment's date, so every link of an
+  // FK payment dated before `beforeDate` is already in `links`.
+  const linkedPairs = new Set<string>();
+  for (const l of links) {
+    linkedPairs.add(`${l.payment_id}|${l.invoice_id}`);
+    paid.set(l.invoice_id, (paid.get(l.invoice_id) || 0) + (Number(l.amount_allocated) || 0));
+  }
+  const seenFk = new Set<string>();
+  for (const p of direct) {
+    if (!p.invoice_id) continue;
+    const key = `${p.id}|${p.invoice_id}`;
+    if (linkedPairs.has(key) || seenFk.has(key)) continue;
+    seenFk.add(key);
+    paid.set(p.invoice_id, (paid.get(p.invoice_id) || 0) + (Number(p.total_amount) || 0));
+  }
+  return paid;
+}
 
 // A parsed line from the supplier statement (כרטסת) the user pastes in.
 interface StatementLine {
@@ -98,6 +192,20 @@ function parseStatementText(text: string): StatementLine[] {
   return out;
 }
 
+// Bulk-set karteset_checked_at, chunking the `.in()` filter so a long range
+// (carried-over invoices included) never builds an oversized request URL.
+async function updateCheckedChunked(
+  supabase: ReturnType<typeof createClient>,
+  table: "invoices" | "payments",
+  ids: string[],
+  value: string | null
+): Promise<void> {
+  for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+    const { error } = await supabase.from(table).update({ karteset_checked_at: value }).in("id", ids.slice(i, i + ID_CHUNK_SIZE));
+    if (error) throw error;
+  }
+}
+
 export default function KartesetCheckPanel({ businessId, suppliers, initialSupplierId }: KartesetCheckPanelProps) {
   const { showToast } = useToast();
 
@@ -135,7 +243,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
     setIsLoading(true);
     const supabase = createClient();
     try {
-      const [invoicesRes, paymentsRes] = await Promise.all([
+      const [invoicesRes, paymentsRes, priorInvoices] = await Promise.all([
         supabase
           .from("invoices")
           .select("id, invoice_number, invoice_date, total_amount, status, karteset_checked_at")
@@ -155,12 +263,51 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
           .gte("payment_date", dateFrom)
           .lte("payment_date", dateTo)
           .order("payment_date", { ascending: true }),
+        // Invoices dated before the range: a partly paid (or unpaid) invoice
+        // from an earlier period is still open on the supplier's ledger, and
+        // the payment that settles it may fall inside the range. Without
+        // them the balance shows the payment with no matching invoice.
+        fetchAllPages<{ id: string; invoice_number: string | null; invoice_date: string; total_amount: number | string | null; karteset_checked_at: string | null }>(
+          (from, to) =>
+            supabase
+              .from("invoices")
+              .select("id, invoice_number, invoice_date, total_amount, karteset_checked_at")
+              .eq("business_id", businessId)
+              .eq("supplier_id", supplierId)
+              .is("deleted_at", null)
+              .neq("status", "cancelled")
+              .lt("invoice_date", dateFrom)
+              .order("invoice_date", { ascending: true })
+              .order("id", { ascending: true })
+              .range(from, to)
+        ),
       ]);
 
       if (invoicesRes.error) throw invoicesRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
 
+      // Open balance of each earlier invoice as of dateFrom = total minus what
+      // payments dated before dateFrom paid on it. Only non-zero balances are
+      // carried over, and the row shows that balance (not the full total).
+      const paidBefore = await fetchPaidBeforeDate(supabase, priorInvoices.map(inv => inv.id), dateFrom);
+
       const merged: KartesetRow[] = [];
+
+      for (const inv of priorInvoices) {
+        const open = openBalanceOf(Number(inv.total_amount) || 0, paidBefore.get(inv.id) || 0);
+        if (Math.abs(open) <= 0.01) continue;
+        merged.push({
+          kind: "invoice",
+          id: inv.id,
+          date: inv.invoice_date,
+          reference: inv.invoice_number || null,
+          total: open,
+          statusLabel: "יתרה מתקופה קודמת",
+          statusColor: "text-yellow-300",
+          isChecked: !!inv.karteset_checked_at,
+          checkedAt: inv.karteset_checked_at,
+        });
+      }
 
       for (const inv of (invoicesRes.data || [])) {
         const statusLabel =
@@ -267,10 +414,10 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
     setRows(prev => prev.map(r => r.isChecked ? r : { ...r, isChecked: true, checkedAt: ts }));
     try {
       if (invoiceIds.length > 0) {
-        await supabase.from("invoices").update({ karteset_checked_at: ts }).in("id", invoiceIds);
+        await updateCheckedChunked(supabase, "invoices", invoiceIds, ts);
       }
       if (paymentIds.length > 0) {
-        await supabase.from("payments").update({ karteset_checked_at: ts }).in("id", paymentIds);
+        await updateCheckedChunked(supabase, "payments", paymentIds, ts);
       }
       showToast(`סומנו ${invoiceIds.length + paymentIds.length} שורות`, "success");
     } catch (err) {
@@ -293,10 +440,10 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
     setRows(prev => prev.map(r => r.isChecked ? { ...r, isChecked: false, checkedAt: null } : r));
     try {
       if (invoiceIds.length > 0) {
-        await supabase.from("invoices").update({ karteset_checked_at: null }).in("id", invoiceIds);
+        await updateCheckedChunked(supabase, "invoices", invoiceIds, null);
       }
       if (paymentIds.length > 0) {
-        await supabase.from("payments").update({ karteset_checked_at: null }).in("id", paymentIds);
+        await updateCheckedChunked(supabase, "payments", paymentIds, null);
       }
       showToast(`בוטל הסימון של ${invoiceIds.length + paymentIds.length} שורות`, "success");
     } catch (err) {
