@@ -35,8 +35,8 @@ async function fetchAllChunked<T>(
 //   1. payment_invoice_links.amount_allocated of non-deleted payments (N:M);
 //   2. payments linked by the direct payments.invoice_id FK. Same dedupe rule
 //      as applyPartialPaymentAllocation / computePaid in /expenses: a payment
-//      that has link rows is already counted through them, so its FK counts
-//      only when it has none.
+//      that has link rows with money is already counted through them, so its
+//      FK counts only when it has none (ghost links of 0 do not count).
 // `excludePaymentId` drops one payment entirely (the payment being edited must
 // not count as "already paid" against its own invoices).
 //
@@ -99,16 +99,24 @@ export async function fetchPaidByInvoice(
   const fkIds = Array.from(new Set(fkPayments.map((p) => p.id).filter((id) => id !== excludeId)));
   const paymentsWithLinks = new Set<string>();
   if (fkIds.length > 0) {
-    const linksOfFkPayments = await fetchAllChunked<{ payment_id: string }>(fkIds, (chunk, from, to) =>
-      supabase
-        .from("payment_invoice_links")
-        .select("payment_id")
-        .in("payment_id", chunk)
-        .order("payment_id")
-        .order("invoice_id")
-        .range(from, to)
+    const linksOfFkPayments = await fetchAllChunked<{ payment_id: string; amount_allocated: number | string | null }>(
+      fkIds,
+      (chunk, from, to) =>
+        supabase
+          .from("payment_invoice_links")
+          .select("payment_id, amount_allocated")
+          .in("payment_id", chunk)
+          .order("payment_id")
+          .order("invoice_id")
+          .range(from, to)
     );
-    for (const l of linksOfFkPayments) paymentsWithLinks.add(l.payment_id);
+    // Ghost links (amount_allocated = 0, ~2,700 rows from imports and reverted
+    // allocations) carry no money, so they must not suppress the FK: a payment
+    // whose only links are ghosts is counted through payments.invoice_id. Same
+    // rule as the supplier monthly breakdown in /suppliers.
+    for (const l of linksOfFkPayments) {
+      if ((Number(l.amount_allocated) || 0) !== 0) paymentsWithLinks.add(l.payment_id);
+    }
   }
   for (const p of fkPayments) {
     const invoiceId = p.invoice_id as string;

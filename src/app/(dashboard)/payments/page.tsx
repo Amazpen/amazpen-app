@@ -3269,7 +3269,9 @@ function PaymentsPageInner() {
 
       if (error) throw error;
 
-      // Revert all linked invoices to "pending" only if they have no other active payments
+      // Revert all linked invoices to "pending" only if they have no other active payments.
+      // Invoices that still have payments get their status recomputed from what is left.
+      const stillPaidIds: string[] = [];
       for (const invId of invoiceIdsToRevert) {
         const [{ count: directCount }, { count: linkCount }] = await Promise.all([
           supabase.from("payments").select("id", { count: "exact", head: true }).eq("invoice_id", invId).is("deleted_at", null),
@@ -3279,6 +3281,26 @@ function PaymentsPageInner() {
           // Reset amount_paid too — a reverted 'partial' invoice carries a
           // stale amount_paid that would otherwise skew the OCR remaining display.
           await supabase.from("invoices").update({ status: "pending", amount_paid: 0 }).eq("id", invId);
+        } else {
+          stillPaidIds.push(invId);
+        }
+      }
+
+      // Another payment remains: 'paid' only if the remaining payments still cover
+      // the invoice, otherwise 'partial' with the real amount paid.
+      if (stillPaidIds.length > 0) {
+        const [{ data: invRows }, paidByInvoice] = await Promise.all([
+          supabase.from("invoices").select("id, total_amount").in("id", stillPaidIds),
+          fetchPaidByInvoice(supabase, stillPaidIds),
+        ]);
+        for (const inv of invRows || []) {
+          const paid = paidByInvoice.get(inv.id) || 0;
+          const open = openBalanceOf(Number(inv.total_amount), paid);
+          if (Math.abs(open) < 0.01) {
+            await supabase.from("invoices").update({ status: "paid" }).eq("id", inv.id);
+          } else {
+            await supabase.from("invoices").update({ status: "partial", amount_paid: paid }).eq("id", inv.id);
+          }
         }
       }
 
