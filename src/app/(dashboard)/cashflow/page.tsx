@@ -235,9 +235,13 @@ export default function CashFlowPage() {
 
         // We need to fetch income entries from BEFORE the display start too,
         // because settlement rules may push their settlement date into our range.
-        // Fetch entries from 2 months before the start to cover bimonthly settlements.
+        // custom_periods allows a settlement up to 6 months after the entry month
+        // (MONTH_OFFSET_OPTIONS in PaymentMethodSettlementEditor) and net_120 lands
+        // ~5 months later, so look back 7 months. A 2-month lookback silently
+        // dropped e.g. 10bis entries of Jul 26-31 settling on Oct 15 (offset 3).
         const lookbackDate = new Date(displayStartStr + "T00:00:00");
-        lookbackDate.setMonth(lookbackDate.getMonth() - 2);
+        lookbackDate.setDate(1);
+        lookbackDate.setMonth(lookbackDate.getMonth() - 7);
         const lookbackStr = formatLocalDate(lookbackDate);
 
         // 2. Parallel queries
