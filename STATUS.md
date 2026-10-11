@@ -1,6 +1,15 @@
 # STATUS — Amazpen
 
-Last updated: 2026-10-06
+Last updated: 2026-10-11
+
+## Session 2026-10-11 (David's reports via Netanel)
+
+- **Cashflow lost 10bis income (סושי קונה). Fixed and deployed.** The cashflow fetched income entries only 2 months before the display start, so 10bis entries of Jul 26-31 (settling Oct 15, `settlement_month_offset` 3) never loaded. Lookback is now 7 months (editor allows offsets up to 6). Commit `f440aad1`, `src/app/(dashboard)/cashflow/page.tsx`. David also fixed his 10bis periods: they overlapped on day 26, now 1-25 and 26-31.
+- **פרגו, חצי חצי, invoice 786: data, not a bug.** The same ₪1,970 transfer was entered twice (אסנת 6.7 unlinked, David 24.9 linked). David deleted אסנת's row on 11.10. Invoice stays `paid`, correct.
+- **סושי קונה, אביב קופות shows "מקדמה לספק" -₪407.01.** No May invoice exists any more, but three ₪407.01 card payments do, and two of them (20.7 and 21.7) sit on the July invoice. The 21.7 one (`5fbf37bd-ca00-46d5-bd29-0fc4aa9b8f4f`) was probably for May. Not touched: delete only if David confirms May was never paid.
+- **HAISEN (פתרונות לחיות) shows -₪19,612.** That is payments minus invoices. Many payments are unlinked and some look double-counted (March advance ₪3,906 plus full payment; May ₪8,547.12 "השלמה" on an invoice already fully paid; Nov 2025 paid ₪3,039 over the invoice). Asked David for the supplier ledger. Separately, the supplier card header (₪228,653 paid) and its monthly table total (₪234,443) disagree by ₪5,790: two calculations of the same thing, not investigated yet.
+- **"Deleting a payment returns the invoice to pending" already works** in `/payments` (`handleDeletePayment`), but only when no other payment remains. Known gap: if another partial payment remains, the invoice stays `paid` instead of `partial`. Maintenance fix, not done yet.
+- **Second unlinked-payments list sent to David:** 51 payments across all real businesses (excluding "הדגמה"), file `תשלומים-לא-משויכים.xlsx` on Netanel's desktop. David says he will clean them all. He expects 1 at הנקודה הקסומה; there are 3 (טלזר 019 ₪14,539; ראנד מסחר ₪42,128; ש.ד.ר תמיר ₪198, which is really the supplier owing the business). A permanent "unlinked payments" screen does not exist; it would be a new feature (billable).
 
 ## Where we are
 
