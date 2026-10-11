@@ -11,6 +11,13 @@ Last updated: 2026-10-11
 - **"Deleting a payment returns the invoice to pending" already works** in `/payments` (`handleDeletePayment`), but only when no other payment remains. Known gap: if another partial payment remains, the invoice stays `paid` instead of `partial`. Maintenance fix, not done yet.
 - **Second unlinked-payments list sent to David:** 51 payments across all real businesses (excluding "הדגמה"), file `תשלומים-לא-משויכים.xlsx` on Netanel's desktop. David says he will clean them all. He expects 1 at הנקודה הקסומה; there are 3 (טלזר 019 ₪14,539; ראנד מסחר ₪42,128; ש.ד.ר תמיר ₪198, which is really the supplier owing the business). A permanent "unlinked payments" screen does not exist; it would be a new feature (billable).
 
+### Repo moved, and what comes next
+
+- **Working copy moved on 2026-10-11** to `C:\Code\BrainboxAI\1 - projects\amazpen` (fresh clone). Carried over: local-only branches, `.env.local`, `.mcp.json`, `.claude/` hooks/skills/settings, `content-marketing/`, Claude memory. The old stash is now branch `stash/pending-payments-report-wip` (WIP of the "דו"ח ממתינים לתשלום" report). `npm ci` and `tsc --noEmit` pass here; `npm run dev` not tried yet. Old folder `C:\Users\netn1\Downloads\amazpen-new` is a backup only: delete it after Netanel confirms (remove junctions inside first).
+- **Not pushed yet:** commit `95c0dcec` and the commit adding this section. Push with the next real change; a push to `master` triggers a Dokploy rebuild.
+- **Open decision (Netanel): issue tracking.** Proposal: every David report becomes an issue, labels `באג` (maintenance, included) / `פיצ'ר` (billable, needs approval) / `נתונים` (data fix) / `מחכה לדוד`, commits close issues with `Fixes #n`, bigger changes go through a branch + PR. Repo `Amazpen/amazpen-app` belongs to the client account (we have WRITE, 0 issues today), so issues there are visible to David. Alternative: keep tickets as files inside the project. Once chosen, open tickets for the open items in this file.
+- **Next in order:** (1) David's answers on אביב קופות ₪407 and the HAISEN ledger, (2) his cleanup of the 51 unlinked payments, (3) maintenance fix: deleting one of several payments should set the invoice to `partial`, not leave `paid`, (4) explain the ₪5,790 gap between the supplier card header and its monthly table.
+
 ## Where we are
 
 Production (`master`, deployed via Dokploy app `gwRa6aVPZ7M34yLydoNFx`) is at `094f3f71`. All of David's bug reports from 6.10.2026 are fixed and live:
