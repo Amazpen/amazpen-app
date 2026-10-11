@@ -16,11 +16,18 @@ Last updated: 2026-10-11
 - **Working copy moved on 2026-10-11** to `C:\Code\BrainboxAI\1 - projects\amazpen` (fresh clone). Carried over: local-only branches, `.env.local`, `.mcp.json`, `.claude/` hooks/skills/settings, `content-marketing/`, Claude memory. The old stash is now branch `stash/pending-payments-report-wip` (WIP of the "דו"ח ממתינים לתשלום" report). `npm ci` and `tsc --noEmit` pass here; `npm run dev` not tried yet. Old folder `C:\Users\netn1\Downloads\amazpen-new` is a backup only: delete it after Netanel confirms (remove junctions inside first).
 - **Not pushed yet:** commit `95c0dcec` and the commit adding this section. Push with the next real change; a push to `master` triggers a Dokploy rebuild.
 - **Open decision (Netanel): issue tracking.** Proposal: every David report becomes an issue, labels `באג` (maintenance, included) / `פיצ'ר` (billable, needs approval) / `נתונים` (data fix) / `מחכה לדוד`, commits close issues with `Fixes #n`, bigger changes go through a branch + PR. Repo `Amazpen/amazpen-app` belongs to the client account (we have WRITE, 0 issues today), so issues there are visible to David. Alternative: keep tickets as files inside the project. Once chosen, open tickets for the open items in this file.
-- **Next in order:** (1) David's answers on אביב קופות ₪407 and the HAISEN ledger, (2) his cleanup of the 51 unlinked payments, (3) maintenance fix: deleting one of several payments should set the invoice to `partial`, not leave `paid`, (4) explain the ₪5,790 gap between the supplier card header and its monthly table.
+- **Next in order:** (1) David's answers on אביב קופות ₪407 and the HAISEN ledger, (2) his cleanup of the 51 unlinked payments, (3) commit + push the uncommitted fix below once Netanel approves (push = deploy).
+
+### Later on 2026-10-11 (uncommitted, waiting for Netanel's OK to push)
+
+- **Deleting one of several payments now recomputes the invoice.** `handleDeletePayment` in `src/app/(dashboard)/payments/page.tsx`: no payment left -> `pending` (as before); payments left -> `paid` if they still cover the invoice (gap < ₪0.01), else `partial` with the real `amount_paid`. Uses `fetchPaidByInvoice` + `openBalanceOf`.
+- **Ghost links fixed in `src/lib/payments/paidByInvoice.ts`.** 2,668 `payment_invoice_links` rows have `amount_allocated = 0` (1,610 on the payment's own FK invoice). `fetchPaidByInvoice` treated any link as "counted via links" and dropped the FK, so those invoices looked unpaid (also in the /payments open-invoice picker). Now only links with money suppress the FK, same rule as the /suppliers monthly breakdown. tsc clean, vitest 94/94. No unit test covers `paidByInvoice.ts` yet.
+- **HAISEN ₪5,790 gap explained, no code bug.** Card header = sum of all payments; monthly table = full total of each `paid` invoice + `partial` amount_paid + unlinked payments. Gap = HSLJJ260114-08 (₪12,800, only ₪3,970.70 linked; the ₪9,136.90 payment of 21.3 "סוגר את HSLJJ260114-08" is unlinked, so the table counts ₪8,829.30 twice) minus HSLJJ251110-01 (₪14,414 invoice, ₪17,453.56 paid, table shows ₪3,039.56 less). 8,829.30 - 3,039.56 = 5,789.74. Fix is data: link the 21.3 payment to the January invoice, with David's OK. Data has changed since: header now ₪236,927, table ₪242,717, gap unchanged.
+- **HAISEN data oddities to ask David about:** a payment dated **10.11.2026** (₪8,273.53, in the future, probably a typo for 10.10), and three ₪0 payments (31.12.2025, 27.1.2026, 16.2.2026).
 
 ## Where we are
 
-Production (`master`, deployed via Dokploy app `gwRa6aVPZ7M34yLydoNFx`) is at `094f3f71`. All of David's bug reports from 6.10.2026 are fixed and live:
+Production (`master`, deployed via Dokploy app `gwRa6aVPZ7M34yLydoNFx`) is at `f440aad1` (checked against GitHub on 2026-10-11). All of David's bug reports from 6.10.2026 are fixed and live:
 
 - **Supplier monthly summary** (Bezeq at פרגו נס ציונה, ייעוץ DBC at פתרונות לחיות). The monthly total now groups invoices by value date (`reference_date ?? invoice_date`), the same way as the expenses page. Commit `75226f76`, in `suppliers/page.tsx` and `lib/metrics/suppliers.ts`.
 - **OCR dispute reason** "חסר מספר הקצאה" added. Commit `4bb1c5f7`.
@@ -29,7 +36,7 @@ Production (`master`, deployed via Dokploy app `gwRa6aVPZ7M34yLydoNFx`) is at `0
 
 ## Waiting on David
 
-He received an Excel list of 78 supplier payments that are not linked to any invoice: 10 businesses, ₪726,640. He said on 6.10 that he will go over it "tomorrow" and send it back.
+He received an Excel list of 78 supplier payments that are not linked to any invoice: 10 businesses, ₪726,640. **He sent it back on WhatsApp on 8.10.2026** with: "מה שסוגר מלא רשמתי לסגור ומה שלא למחוק אני אראה מה פתוח אח"כ ואסגור ידנית". The returned file is **not on disk yet** (the WhatsApp export of 11.10 omits attachments); Netanel must save it. "למחוק" is ambiguous (delete the payment, or just drop the row from the list?): confirm with David before deleting any payment.
 
 - **Full files:** `C:\Users\netn1\Downloads\amazpen-data\unlinked-payments-2026-10-06\`. This folder is outside the repo because it holds client data.
   - The xlsx has a "טכני" sheet with `payment_id`, `invoice_ids` and allocations.
