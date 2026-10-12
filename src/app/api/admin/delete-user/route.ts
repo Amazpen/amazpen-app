@@ -39,7 +39,8 @@ const USER_REFERENCES: { table: string; column: string; afterAuthDelete?: boolea
   // ------------------------------------------------------------------------
   { table: "customer_invoices", column: "created_by", afterAuthDelete: true },
   { table: "daily_entries", column: "created_by", afterAuthDelete: true },
-  { table: "daily_summary", column: "created_by", afterAuthDelete: true },
+  // daily_summary is NOT listed: it is a view over daily_entries, cannot be
+  // updated ("cannot update view"), and is cleared through daily_entries above.
   { table: "labor_month_close", column: "closed_by", afterAuthDelete: true },
   { table: "ocr_document_crops", column: "created_by", afterAuthDelete: true },
   { table: "ocr_documents", column: "reviewed_by", afterAuthDelete: true },
