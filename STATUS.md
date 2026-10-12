@@ -1,6 +1,10 @@
 # STATUS — Amazpen
 
-Last updated: 2026-10-11
+Last updated: 2026-10-12
+
+## Session 2026-10-12
+
+- Deleting user עידו לוי failed with "cannot update view daily_summary": the delete-user route listed `daily_summary` (a view over `daily_entries`) in its cleanup list. Removed it, commit 8c416774, pushed and deploying. His auth account was already deleted; profile + 1 business_members row remain until David clicks delete again (the route continues past "user not found").
 
 ## Session 2026-10-11 (David's reports via Netanel)
 
