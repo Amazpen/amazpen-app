@@ -4,7 +4,8 @@ Last updated: 2026-10-12
 
 ## Session 2026-10-12
 
-- Deleting user עידו לוי failed with "cannot update view daily_summary": the delete-user route listed `daily_summary` (a view over `daily_entries`) in its cleanup list. Removed it, commit 8c416774, pushed and deploying. His auth account was already deleted; profile + 1 business_members row remain until David clicks delete again (the route continues past "user not found").
+- Deleting user עידו לוי failed with "cannot update view daily_summary": the delete-user route listed `daily_summary` (a view over `daily_entries`) in its cleanup list. Removed it, commit 8c416774, LIVE (Dokploy deploy done 21:50). Message sent to David to delete him again.
+- OPEN (next session, first thing): verify עידו לוי is fully gone. At session end his auth account was already deleted, but `profiles` and 1 `business_members` row for id `d07b791d-a319-4f2e-b335-536029269bcd` were still there (David had not retried yet). Check: `select count(*) from profiles where id='d07b791d-a319-4f2e-b335-536029269bcd'` and the same on `business_members.user_id` should both be 0. If David's retry fails, read the error text: the route continues past "user not found" by design.
 
 ## Session 2026-10-11 (David's reports via Netanel)
 
