@@ -44,6 +44,7 @@ Production (`master`, deployed via Dokploy app `gwRa6aVPZ7M34yLydoNFx`) is at `5
 - **Still open with David, all from 11.10:** אביב קופות ₪407 (above), the HAISEN questions (above), and his own cleanup of the 51-payment list.
 - **Rule:** paying a supplier before the invoice exists is David's intended workflow, especially for imports (e.g. HAISEN). An unlinked payment is not an error on its own.
 - **Business "הדגמה" is our test business.** It is not part of David's review.
+- **18.10: David reported "נתונים במקום" in הדגמה shows 0.00 change. Not a bug.** The row compares average per order, and the demo data has exactly ₪98.07 per order in Sep and Oct; demo data starts Nov 2025, so no prev-year value either. Answer sent; asked him whether to vary the demo data (data only, no code). Showing "אין נתונים" instead of 0 when there is nothing to compare would be a billable feature, not raised yet.
 
 ## Open, not deployed
 
