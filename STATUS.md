@@ -1,6 +1,13 @@
 # STATUS — Amazpen
 
-Last updated: 2026-10-12
+Last updated: 2026-10-20
+
+## Session 2026-10-20
+
+- **The 51 unlinked-payments list is closed.** David returned `תשלומים-לא-משויכים.xlsx` with a note per row. Checked every row against the DB: his "נמחק" / "טופל" rows are really gone or linked, with the exceptions below. We hard-deleted 16 payments (same way as `handleDeletePayment`: splits, links, payment; none had invoice links): 14 of inactive clients (מאמא רסקו 1, שמה שמה אילת 2, תמר שילון 11), פרגו דיב אנד רד ₪1,180 of 30.7 (David: not in the bank; the other five ₪1,180 payments that day each sit on a different month's invoice), and פרגו זאפ גרופ ₪88.09 of 5.6.2025. David asked to link the ₪88.09 to invoice 4017999 and fix it to ₪103.95, but that invoice is already paid by a separate ₪103.95 payment of the same day, so ₪88.09 was a net-of-VAT duplicate; deleting it gives the result he wanted. Backup of every deleted row and David's file: `C:\Users\netn1\Downloads\amazpen-data\unlinked-payments-2026-10-20\` (outside the repo, client data). Message sent to David the same day.
+- **Left open on purpose (David):** ש.ד.ר תמיר ₪198 (supplier owes the business), VAT payments סושי קונה ₪33,314 and פתרונות לחיות ₪8,765.
+- **Asked David, waiting:** (1) פתרונות לחיות, הובלה יבשתית ₪1,652 of 26.3 (`8830ae4f-ebb1-4962-b463-fbb3165ad147`): he marked it deleted, it is still there, unlinked. (2) אושי אושי, מע"מ ₪62,541 of 24.9 (`a9ae1d6d-dd40-47bf-b6c3-99be8d526be3`): marked "טופל" but still unlinked.
+- **יובל סמואל (פתרונות לחיות, supplier `c23d1c57-612c-4db3-8805-3b4c1c194779`): David's own reconciliation, no task for us.** Supplier ledger ₪99,684 vs Amazpen ₪91,510.33. Two invoices are missing in Amazpen (354-1883 ₪1,789, 354-1712 ₪3,834.70; searched invoices and delivery notes, not there, never entered). ₪2,549.97 is left; David asked the supplier for an aging report. Oldest open invoice in Amazpen is 10.8.2026, so if the gap is older it is likely a legacy Bubble invoice marked `paid` with no payment (hypothesis). Matching the ledger line by line for him would be accounting work, outside maintenance (billable); fixing a wrong invoice he points to is maintenance.
 
 ## Session 2026-10-12
 
@@ -14,13 +21,13 @@ Last updated: 2026-10-12
 - **סושי קונה, אביב קופות shows "מקדמה לספק" -₪407.01.** No May invoice exists any more, but three ₪407.01 card payments do, and two of them (20.7 and 21.7) sit on the July invoice. The 21.7 one (`5fbf37bd-ca00-46d5-bd29-0fc4aa9b8f4f`) was probably for May. Not touched: delete only if David confirms May was never paid.
 - **HAISEN (פתרונות לחיות) shows -₪19,612.** That is payments minus invoices. Many payments are unlinked and some look double-counted (March advance ₪3,906 plus full payment; May ₪8,547.12 "השלמה" on an invoice already fully paid; Nov 2025 paid ₪3,039 over the invoice). Asked David for the supplier ledger. The ₪5,790 gap between the card header and its monthly table is explained below.
 - **Deleting one of several payments left the invoice `paid`.** David hit it (his point 3 on 11.10). Fixed and deployed the same evening, see below.
-- **Second unlinked-payments list sent to David:** 51 payments across all real businesses (excluding "הדגמה"), file `תשלומים-לא-משויכים.xlsx` on Netanel's desktop. David says he will clean them all. He expects 1 at הנקודה הקסומה; there are 3 (טלזר 019 ₪14,539; ראנד מסחר ₪42,128; ש.ד.ר תמיר ₪198, which is really the supplier owing the business). A permanent "unlinked payments" screen does not exist; it would be a new feature (billable).
+- **Second unlinked-payments list sent to David (closed 20.10, see above):** 51 payments across all real businesses (excluding "הדגמה"), file `תשלומים-לא-משויכים.xlsx` on Netanel's desktop. David says he will clean them all. He expects 1 at הנקודה הקסומה; there are 3 (טלזר 019 ₪14,539; ראנד מסחר ₪42,128; ש.ד.ר תמיר ₪198, which is really the supplier owing the business). A permanent "unlinked payments" screen does not exist; it would be a new feature (billable).
 
 ### Repo moved, and what comes next
 
 - **Working copy moved on 2026-10-11** to `C:\Code\BrainboxAI\1 - projects\amazpen` (fresh clone). Carried over: local-only branches, `.env.local`, `.mcp.json`, `.claude/` hooks/skills/settings, `content-marketing/`, Claude memory. The old stash is now branch `stash/pending-payments-report-wip` (WIP of the "דו"ח ממתינים לתשלום" report). `npm ci` and `tsc --noEmit` pass here; `npm run dev` not tried yet. Old folder `C:\Users\netn1\Downloads\amazpen-new` is a backup only: delete it after Netanel confirms (remove junctions inside first).
 - **Open decision (Netanel): issue tracking.** Proposal: every David report becomes an issue, labels `באג` (maintenance, included) / `פיצ'ר` (billable, needs approval) / `נתונים` (data fix) / `מחכה לדוד`, commits close issues with `Fixes #n`, bigger changes go through a branch + PR. Repo `Amazpen/amazpen-app` belongs to the client account (we have WRITE, 0 issues today), so issues there are visible to David. Alternative: keep tickets as files inside the project. Once chosen, open tickets for the open items in this file.
-- **Next in order:** (1) David's answers on אביב קופות ₪407 and the HAISEN ledger, (2) his cleanup of the 51 unlinked payments. Message sent to David on 11.10 late evening: payment-delete fix + 3 HAISEN questions (link the 21.3 ₪9,136.90 payment to HSLJJ260114-08? is 10.11.2026 a typo for 10.10? delete the three ₪0 payments?). Waiting for his answers.
+- **Next in order:** (1) David's answers on אביב קופות ₪407 and the HAISEN ledger, (2) his two answers from 20.10 (הובלה יבשתית ₪1,652, אושי אושי VAT ₪62,541). The 51-payment cleanup is done (20.10). Note: David deleted the HAISEN ₪9,136.90 payment of 21.3 himself, so the "link it to HSLJJ260114-08" question is moot. Message sent to David on 11.10 late evening: payment-delete fix + 3 HAISEN questions (link the 21.3 ₪9,136.90 payment to HSLJJ260114-08? is 10.11.2026 a typo for 10.10? delete the three ₪0 payments?). Waiting for his answers.
 
 ### Later on 2026-10-11 (deployed: commit `8d90fdcf`, live build 11.10 22:29 verified via `sw.js` BUILD_TIME)
 
@@ -41,7 +48,7 @@ Production (`master`, deployed via Dokploy app `gwRa6aVPZ7M34yLydoNFx`) is at `5
 ## Waiting on David
 
 - **The 78 unlinked payments list (sent 6.10) is done.** David returned it on 8.10 and it was processed (confirmed by Netanel on 11.10). Source files stay in `C:\Users\netn1\Downloads\amazpen-data\unlinked-payments-2026-10-06\` (outside the repo: client data).
-- **Still open with David, all from 11.10:** אביב קופות ₪407 (above), the HAISEN questions (above), and his own cleanup of the 51-payment list.
+- **Still open with David, all from 11.10:** אביב קופות ₪407 (above), the HAISEN questions (above), and (from 20.10) the two leftover rows of the 51-payment list.
 - **Rule:** paying a supplier before the invoice exists is David's intended workflow, especially for imports (e.g. HAISEN). An unlinked payment is not an error on its own.
 - **Business "הדגמה" is our test business.** It is not part of David's review.
 - **18.10: David reported "נתונים במקום" in הדגמה shows 0.00 change. Not a bug.** The row compares average per order, and the demo data has exactly ₪98.07 per order in Sep and Oct; demo data starts Nov 2025, so no prev-year value either. Answer sent; asked him whether to vary the demo data (data only, no code). Showing "אין נתונים" instead of 0 when there is nothing to compare would be a billable feature, not raised yet.
