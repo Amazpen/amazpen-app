@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { entryDateToYearMonth, getPriceResolver } from "@/lib/managedProductPrices";
 import { formatLocalDate } from "./dates";
+import { fetchOpenMonthLaborExtras } from "@/lib/labor/openMonthExtras";
 import type {
   CogsMetric,
   ExpenseMetrics,
@@ -385,8 +386,19 @@ export async function getExpenseMetrics(
     );
   }
 
+  // Open month: add employee costs that daily entries don't capture (e.g. a staffing company).
+  let laborOpenMonthExtras = 0;
+  if (!laborMonthClosed) {
+    const lmcLastDay = new Date(targetYear, targetMonth, 0).getDate();
+    const lmcMonthStart = `${targetYear}-${String(targetMonth).padStart(2, "0")}-01`;
+    const lmcMonthEnd = `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(
+      lmcLastDay
+    ).padStart(2, "0")}`;
+    laborOpenMonthExtras = await fetchOpenMonthLaborExtras(supabase, selectedBusinesses, lmcMonthStart, lmcMonthEnd);
+  }
+
   const laborCostEstimate = (rawLaborCost + computedManagerCost) * totalMarkup;
-  const laborCost = laborMonthClosed ? laborActualFromInvoices : laborCostEstimate;
+  const laborCost = laborMonthClosed ? laborActualFromInvoices : laborCostEstimate + laborOpenMonthExtras;
 
   // ========================================================================
   // VAT divisor + incomeBeforeVat (page.tsx 1619-1629)

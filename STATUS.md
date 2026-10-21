@@ -4,8 +4,12 @@ Last updated: 2026-10-21
 
 ## Session 2026-10-21
 
-- **David: in "הדגמה" a manual ₪100,000 employee expense (supplier "עובדים כ\"א", invoice `754ec7e1-afeb-486b-b1d4-e43b8c7d4478`, Oct 2026) shows in ניהול הוצאות but not on the dashboard or the P&L. Not a bug, by design.** While a month is open, dashboard and P&L show the labor ESTIMATE from daily entries (₪66,198); actual employee-cost invoices replace it only after "סגור חודש" (reports page, row "עלויות עובדים", `labor_month_close`). In הדגמה only May 2026 is closed.
-- **Trap:** "סגור חודש" does not reuse existing invoices; `/api/labor-close` creates its own (tagged `labor_close_id`). Manual invoice + close with ₪100,000 = ₪200,000. Told David: delete the manual invoice, then close October and type ₪100,000 there. Also: supplier "עובדים כ\"א" has no `expense_category_id`, so ניהול הוצאות shows it as "ללא קטגוריה" (display only). A warning on manual employee invoices in an open month would be a new feature (billable), not raised with David. No code or data changed.
+- **David: in "הדגמה" a manual ₪100,000 staffing-company invoice (supplier "עובדים כ\"א", invoice `754ec7e1-afeb-486b-b1d4-e43b8c7d4478`, Oct 2026) showed in ניהול הוצאות but not on the dashboard or the P&L.** First answer ("by design, close the month") was WRONG and is withdrawn: daily entries never include an outside staffing company, so it must add on top of the estimate while the month is open.
+- **Fix (commit below, pushed = live):** new `src/lib/labor/openMonthExtras.ts`. Open month: labor = daily estimate + invoices of `employee_costs` suppliers whose category is a SUBCATEGORY of "עלות עובדים"/"עלויות עובדים", excluding close invoices (`labor_close_id`). Applied in dashboard (`(dashboard)/page.tsx`), agent `lib/metrics/expenses.ts`, and P&L totals (`reports/page.tsx`, `lib/metrics/pnl.ts`; the P&L labor ROW already added these, the profit did not). Employee suppliers without a labor subcategory (e.g. פתרונות לחיות pensions) are NOT added: the markup estimate covers them.
+- **"סגור חודש" no longer double-counts:** `/api/labor-close` POST now subtracts what manual (non-close) invoices already recorded per supplier that month and invoices only the remainder.
+- **Data:** supplier "עובדים כ\"א" (הדגמה) set to category "עלויות כ\"א נוספות". It had no category at all; the supplier form is fine.
+- **Live impact:** הדגמה Oct labor ₪66,198 → ₪166,198. סושי קונה: "ויזה עובדים זרים" now counts in dashboard + profit (May ₪8,695, Sep ₪9,755). No other real business affected.
+- **Known gaps, not fixed:** weekly email / business-summary-report, metrics/refresh (business_monthly_metrics), multi-business cards (`page.tsx` ~1214), goals page and DailyEntriesModal still show estimate only; "שינוי מחודש קודם" compares against estimate-only months. Message to David drafted for Netanel.
 
 ## Session 2026-10-20
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatLocalDate } from "./dates";
 import type { MetricsDateRange, ProfitLossReport, ProfitLossExpenseRow } from "./types";
+import { laborSubcategoryIds, sumOpenMonthLaborExtras } from "@/lib/labor/openMonthExtras";
 
 // ---------------------------------------------------------------------------
 // getProfitLossReport
@@ -83,7 +84,7 @@ export async function getProfitLossReport(
     supabase
       .from("invoices")
       .select(
-        "subtotal, supplier_id, status, invoice_number, attachment_url, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)"
+        "subtotal, supplier_id, status, invoice_number, attachment_url, labor_close_id, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)"
       )
       .in("business_id", selectedBusinesses)
       .is("deleted_at", null)
@@ -174,6 +175,7 @@ export async function getProfitLossReport(
   const invoicesData =
     (invoicesResult.data as Array<{
       subtotal: number | null;
+      labor_close_id?: string | null;
       supplier_id: string | null;
       status: string | null;
       invoice_number: string | null;
@@ -455,10 +457,15 @@ export async function getProfitLossReport(
   // ========================================================================
   // Summary totals (reports/page.tsx 1270-1301)
   // ========================================================================
+  // Open month: employee-cost invoices under a labor subcategory are shown in the
+  // labor row on top of the estimate, so they must count in the totals too.
+  const laborOpenMonthExtras = laborMonthClosed
+    ? 0
+    : sumOpenMonthLaborExtras(invoicesData, laborSubcategoryIds(categoriesData));
   const allExpensesActual =
     totalGoodsExpenses +
     totalCurrentExpenses +
-    (laborMonthClosed ? laborEmployeeCostsActual : totalLaborCost);
+    (laborMonthClosed ? laborEmployeeCostsActual : totalLaborCost + laborOpenMonthExtras);
 
   const operatingProfit = totalRevenue - allExpensesActual;
   const operatingProfitPct = totalRevenue > 0 ? (operatingProfit / totalRevenue) * 100 : 0;

@@ -208,7 +208,40 @@ export async function POST(request: NextRequest) {
     const invoiceDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
     const monthLabel = `${String(month).padStart(2, "0")}/${year}`;
 
-    const invoicesToCreate = validLines.map((l) => ({
+    // The form pre-fills each supplier with what is already recorded this month.
+    // Manual invoices (e.g. a staffing company entered while the month was open)
+    // stay, so only the part of each line not yet recorded becomes a new invoice.
+    const { data: manualInvoices, error: manualErr } = await supabase
+      .from("invoices")
+      .select("supplier_id, subtotal")
+      .eq("business_id", business_id)
+      .is("deleted_at", null)
+      .is("labor_close_id", null)
+      .gte("reference_date", `${year}-${String(month).padStart(2, "0")}-01`)
+      .lte("reference_date", invoiceDate)
+      .in("supplier_id", validLines.map((l) => l.supplier_id));
+    if (manualErr) {
+      await supabase.from("labor_month_close").delete().eq("id", closeRow.id);
+      return NextResponse.json({ error: manualErr.message }, { status: 500 });
+    }
+    const alreadyRecorded = new Map<string, number>();
+    for (const inv of manualInvoices || []) {
+      alreadyRecorded.set(inv.supplier_id, (alreadyRecorded.get(inv.supplier_id) || 0) + Number(inv.subtotal || 0));
+    }
+    const linesToInvoice = validLines
+      .map((l) => {
+        const recorded = Math.max(alreadyRecorded.get(l.supplier_id) || 0, 0);
+        const used = Math.min(recorded, Number(l.amount));
+        alreadyRecorded.set(l.supplier_id, recorded - used);
+        return { ...l, amount: Math.round((Number(l.amount) - used) * 100) / 100 };
+      })
+      .filter((l) => l.amount > 0);
+
+    if (linesToInvoice.length === 0) {
+      return NextResponse.json({ ok: true, close_id: closeRow.id, created: 0 });
+    }
+
+    const invoicesToCreate = linesToInvoice.map((l) => ({
       business_id,
       supplier_id: l.supplier_id,
       invoice_date: invoiceDate,

@@ -22,6 +22,7 @@ import { CARD_FIELD_MAP } from '@/types/approvals';
 import { MetricIcon, getIconBgColor } from '@/lib/metric-icons';
 import { PresentationChart, Scales } from '@phosphor-icons/react';
 import { Clock } from 'lucide-react';
+import { fetchOpenMonthLaborExtras } from '@/lib/labor/openMonthExtras';
 
 // ============================================================================
 // LAZY LOADED CHART COMPONENTS - Recharts (~200KB) loaded only when needed
@@ -1634,8 +1635,17 @@ export default function DashboardPage() {
         laborActualFromInvoices = (lmcInvoices || []).reduce((s, r) => s + Number(r.subtotal || 0), 0);
       }
 
+      // Open month: add employee costs that daily entries don't capture (e.g. a staffing company).
+      let laborOpenMonthExtras = 0;
+      if (!laborMonthClosed) {
+        const lmcLastDay = new Date(targetYear, targetMonth, 0).getDate();
+        const lmcMonthStart = `${targetYear}-${String(targetMonth).padStart(2, "0")}-01`;
+        const lmcMonthEnd = `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(lmcLastDay).padStart(2, "0")}`;
+        laborOpenMonthExtras = await fetchOpenMonthLaborExtras(supabase, selectedBusinesses, lmcMonthStart, lmcMonthEnd);
+      }
+
       const laborCostEstimate = (rawLaborCost + computedManagerCost) * totalMarkup;
-      const laborCost = laborMonthClosed ? laborActualFromInvoices : laborCostEstimate;
+      const laborCost = laborMonthClosed ? laborActualFromInvoices : laborCostEstimate + laborOpenMonthExtras;
 
       // Get average VAT percentage - use monthly goal values with business defaults as fallback
       // Normalize: if stored as multiplier (>1), convert to fraction

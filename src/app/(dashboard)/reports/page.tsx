@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LaborMonthCloseModal } from "@/components/dashboard/LaborMonthCloseModal";
+import { laborSubcategoryIds, sumOpenMonthLaborExtras } from "@/lib/labor/openMonthExtras";
 
 // Lazy loaded Recharts components
 const LazyBarChart = dynamic(() => import("recharts").then((mod) => ({ default: mod.BarChart })), { ssr: false });
@@ -709,7 +710,7 @@ export default function ReportsPage() {
             .is("deleted_at", null),
           supabase
             .from("invoices")
-            .select("subtotal, supplier_id, status, invoice_number, attachment_url, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)")
+            .select("subtotal, supplier_id, status, invoice_number, attachment_url, labor_close_id, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .in("invoice_type", ["current", "goods", "employees"])
@@ -1301,7 +1302,12 @@ export default function ReportsPage() {
         // Total expenses: goods + current + labor. Note: invoice-based labor subcategories
         // (pension, delivery co, etc.) are already counted in totalCurrentExpenses because
         // their suppliers have expense_type="current_expenses" — they are NOT double-counted.
-        const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + (laborMonthClosed ? laborEmployeeCostsActual : totalLaborCost);
+        // Open month: employee-cost invoices under a labor subcategory are shown in the
+        // labor row on top of the estimate (laborInvoiceActual), so they count here too.
+        const laborOpenMonthExtras = laborMonthClosed
+          ? 0
+          : sumOpenMonthLaborExtras(invoicesData || [], laborSubcategoryIds(categoriesData || []));
+        const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + (laborMonthClosed ? laborEmployeeCostsActual : totalLaborCost + laborOpenMonthExtras);
         // Total expenses target = sum of all displayed category targets. Previously
         // only goal.current_expenses_target (a single aggregate field) was used for
         // the non-food/non-labor bucket, which was often NULL — leaving the
