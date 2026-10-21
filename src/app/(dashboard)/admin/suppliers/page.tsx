@@ -579,6 +579,11 @@ export default function AdminSuppliersPage() {
                   <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
                   <TableCell className="py-[4px] px-[8px]">0 / 30 / 60</TableCell>
                 </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">מספר חשבון בהנהלת חשבונות</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">8134</TableCell>
+                </TableRow>
                 <TableRow>
                   <TableCell className="py-[4px] px-[8px]">הערות</TableCell>
                   <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>

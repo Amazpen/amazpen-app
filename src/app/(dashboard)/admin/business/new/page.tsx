@@ -2253,6 +2253,7 @@ function NewBusinessPage() {
                 { column: "מתי יורד כל חודש?", required: false, example: "10 (יום בחודש)" },
                 { column: "סכום לכל תשלום קבוע", required: false, example: "3000" },
                 { column: "פעיל", required: false, example: "כן / לא" },
+                { column: "מספר חשבון בהנהלת חשבונות", required: false, example: "8134" },
                 { column: "איש קשר / טלפון / אימייל / ח.פ / כתובת / הערות", required: false, example: "יוסי כהן / 050-1234567" },
               ].map((row, idx, rows) => (
                 <TableRow key={row.column} className={idx < rows.length - 1 ? "border-b border-white/5" : undefined}>

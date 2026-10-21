@@ -17,6 +17,8 @@ export interface CsvSupplier {
   email: string;
   tax_id: string;
   address: string;
+  /** Supplier account number in the bookkeeping system (Summit). */
+  accounting_account_number: string;
   payment_terms_days: number;
   notes: string;
   // Extended fields from rich CSV
@@ -69,6 +71,22 @@ export const SUPPLIER_CSV_HEADER_ALIASES: Record<string, string> = {
   "ח.פ": "tax_id", "מספר עוסק": "tax_id", "עוסק": "tax_id", "tax_id": "tax_id",
   "כתובת": "address", "address": "address",
   "התחייבות": "has_obligations", "התחייבות קודמות": "has_obligations",
+  // suppliers.accounting_account_number - how Summit matches a supplier
+  // Not the bare "מספר חשבון" (usually the bank account) nor "חשבון בהנה"ח" (may be the account name).
+  // Curly-quote forms are listed here rather than widening the shared normalizer,
+  // which would also start matching VAT headers that are ignored today.
+  "מספר חשבון בהנהלת חשבונות": "accounting_account_number",
+  "מס' חשבון בהנהלת חשבונות": "accounting_account_number",
+  "מספר חשבון בהנה'ח": "accounting_account_number",
+  "מספר חשבון בהנה’ח": "accounting_account_number",
+  "מספר חשבון בהנה”ח": "accounting_account_number",
+  "מס' חשבון בהנה'ח": "accounting_account_number",
+  "מס’ חשבון בהנה’ח": "accounting_account_number",
+  "מס’ חשבון בהנה”ח": "accounting_account_number",
+  "מספר חשבון הנה'ח": "accounting_account_number",
+  "חשבון לקוח/ספק": "accounting_account_number",
+  "חשבון לקוח / ספק": "accounting_account_number",
+  "accounting_account_number": "accounting_account_number",
 };
 
 // Normalize header for matching: trim, collapse whitespace, remove trailing punctuation,
@@ -292,6 +310,7 @@ export function parseSupplierCsvRows(
   const nameRows = new Map<string, number[]>(); // supplier name -> file line numbers
   const categoryRows: Pick<CsvSupplier, "parent_category_name" | "category_name">[] = [];
   const unknownPaymentMethods: string[] = [];
+  const invalidAccountNumbers: string[] = [];
   const defaultPaymentTermsDays = options.defaultPaymentTermsDays ?? 0;
 
   rows.forEach((row, rowIdx) => {
@@ -386,6 +405,18 @@ export function parseSupplierCsvRows(
     const coordinatorRaw = getField(row, "waiting_for_coordinator");
     const waiting_for_coordinator = coordinatorRaw === "כן" || coordinatorRaw === "yes" || coordinatorRaw === "true" || coordinatorRaw === "1";
 
+    // Summit matches a supplier by this number, so keep digits only. Excel artifacts
+    // ("8,134", "8134.0", hidden direction marks) are cleaned; anything else
+    // ("#N/A", "-", "0", "8134.50") is left empty and reported.
+    const accountRaw = getField(row, "accounting_account_number");
+    const accountClean = accountRaw.replace(/[‎‏‪-‮⁦-⁩\s,]/g, "").replace(/^(\d+)\.0+$/, "$1");
+    let accounting_account_number = "";
+    if (/^\d+$/.test(accountClean) && !/^0+$/.test(accountClean)) {
+      accounting_account_number = accountClean;
+    } else if (accountRaw) {
+      invalidAccountNumbers.push(`${name} (${accountRaw})`);
+    }
+
     // Duplicate names within the CSV are a blocking error (reported below);
     // keep only the first occurrence in the preview list.
     const seenRows = nameRows.get(name);
@@ -403,6 +434,7 @@ export function parseSupplierCsvRows(
       email: getField(row, "email"),
       tax_id: getField(row, "tax_id"),
       address: getField(row, "address"),
+      accounting_account_number,
       payment_terms_days,
       notes,
       requires_vat,
@@ -431,6 +463,24 @@ export function parseSupplierCsvRows(
   const warnings: string[] = [];
   if (unknownPaymentMethods.length > 0) {
     warnings.push(`אמצעי תשלום לא מזוהים - הספקים יישמרו ללא אמצעי תשלום: ${unknownPaymentMethods.map(v => `"${v}"`).join(", ")}`);
+  }
+  if (invalidAccountNumbers.length > 0) {
+    warnings.push(`מספר חשבון בהנהלת חשבונות לא תקין - הספקים יישמרו בלי מספר: ${invalidAccountNumbers.join(", ")}`);
+  }
+  // Summit matches a supplier by this number, so two suppliers sharing one is almost always a typo.
+  // Leading zeros are ignored: the export writes the number as a number.
+  const suppliersByAccount = new Map<string, string[]>();
+  for (const s of suppliers) {
+    if (!s.accounting_account_number) continue;
+    const key = s.accounting_account_number.replace(/^0+/, "");
+    const names = suppliersByAccount.get(key) || [];
+    names.push(s.name);
+    suppliersByAccount.set(key, names);
+  }
+  for (const [account, names] of suppliersByAccount) {
+    if (names.length > 1) {
+      warnings.push(`מספר החשבון בהנהלת חשבונות ${account} מופיע אצל כמה ספקים: ${names.join(", ")}`);
+    }
   }
 
   return {
@@ -717,6 +767,7 @@ export function buildSupplierInsertRecord(
     email: s.email || null,
     tax_id: s.tax_id || null,
     address: s.address || null,
+    accounting_account_number: s.accounting_account_number || null,
     payment_terms_days: s.payment_terms_days,
     notes: s.notes || null,
     requires_vat: s.requires_vat,
