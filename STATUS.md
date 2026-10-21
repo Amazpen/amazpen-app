@@ -1,6 +1,11 @@
 # STATUS — Amazpen
 
-Last updated: 2026-10-20
+Last updated: 2026-10-21
+
+## Session 2026-10-21
+
+- **David: in "הדגמה" a manual ₪100,000 employee expense (supplier "עובדים כ\"א", invoice `754ec7e1-afeb-486b-b1d4-e43b8c7d4478`, Oct 2026) shows in ניהול הוצאות but not on the dashboard or the P&L. Not a bug, by design.** While a month is open, dashboard and P&L show the labor ESTIMATE from daily entries (₪66,198); actual employee-cost invoices replace it only after "סגור חודש" (reports page, row "עלויות עובדים", `labor_month_close`). In הדגמה only May 2026 is closed.
+- **Trap:** "סגור חודש" does not reuse existing invoices; `/api/labor-close` creates its own (tagged `labor_close_id`). Manual invoice + close with ₪100,000 = ₪200,000. Told David: delete the manual invoice, then close October and type ₪100,000 there. Also: supplier "עובדים כ\"א" has no `expense_category_id`, so ניהול הוצאות shows it as "ללא קטגוריה" (display only). A warning on manual employee invoices in an open month would be a new feature (billable), not raised with David. No code or data changed.
 
 ## Session 2026-10-20
 
