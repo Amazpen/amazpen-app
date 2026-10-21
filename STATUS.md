@@ -9,7 +9,7 @@ Last updated: 2026-10-21
 - **"סגור חודש" no longer double-counts:** `/api/labor-close` POST now subtracts what manual (non-close) invoices already recorded per supplier that month and invoices only the remainder.
 - **Data:** supplier "עובדים כ\"א" (הדגמה) set to category "עלויות כ\"א נוספות". It had no category at all; the supplier form is fine.
 - **Live impact:** הדגמה Oct labor ₪66,198 → ₪166,198. סושי קונה: "ויזה עובדים זרים" now counts in dashboard + profit (May ₪8,695, Sep ₪9,755). No other real business affected.
-- **Known gaps, not fixed:** weekly email / business-summary-report, metrics/refresh (business_monthly_metrics), multi-business cards (`page.tsx` ~1214), goals page and DailyEntriesModal still show estimate only; "שינוי מחודש קודם" compares against estimate-only months. Message to David drafted for Netanel.
+- **Known gaps, not fixed:** weekly email / business-summary-report, metrics/refresh (business_monthly_metrics), multi-business cards (`page.tsx` ~1214), goals page and DailyEntriesModal still show estimate only; "שינוי מחודש קודם" compares against estimate-only months. Message to David sent 21.10 (fix explained, supplier must sit in a labor subcategory). Live build 21.10 20:34 verified via `sw.js` BUILD_TIME.
 
 ## Session 2026-10-20
 
