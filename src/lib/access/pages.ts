@@ -39,7 +39,7 @@ export const ACCESS_PAGES: AccessPage[] = [
   { key: "bonus-plans", label: "תכניות בונוסים", paths: ["/admin/bonus-plans"] },
   { key: "ocr-business", label: "קליטת מסמכים OCR", paths: ["/ocr-business", "/ocr"] },
   { key: "settings", label: "הגדרות", paths: ["/settings"] },
-  { key: "ai", label: "עוזר AI", paths: ["/ai"] },
+  { key: "ai", label: "עוזר AI", paths: ["/ai", "/agent"] },
   { key: "markezet", label: "מרכזת", paths: [] },
 ];
 

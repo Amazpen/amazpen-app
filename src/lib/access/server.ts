@@ -24,6 +24,10 @@ export async function isPageBlockedForUser(
     supabase.from("user_access_settings").select("blocked_pages").eq("user_id", userId).maybeSingle(),
   ]);
 
+  if (profileRes.error) {
+    console.error("[access] profiles lookup failed:", profileRes.error.message);
+    return false;
+  }
   if (profileRes.data?.is_admin === true) return false;
 
   if (settingsRes.error) {

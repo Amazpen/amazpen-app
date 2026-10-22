@@ -15,6 +15,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ExpensesHelpButton } from "@/components/onboarding/ExpensesHelpButton";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
+import { MARKEZET_PAGE_KEY } from "@/lib/access/pages";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { uploadFile } from "@/lib/uploadFile";
 import { convertPdfToImage } from "@/lib/pdfToImage";
@@ -256,7 +257,7 @@ function ExpensesPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightInvoiceId = searchParams.get("invoiceId");
-  const { selectedBusinesses, canManage, globalDateRange, setGlobalDateRange, openCoordinatorEdit } = useDashboard();
+  const { selectedBusinesses, canManage, globalDateRange, setGlobalDateRange, openCoordinatorEdit, isPageBlocked } = useDashboard();
   const { approveInvoice } = useApprovals(selectedBusinesses);
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases" | "employees">("expenses:tab", "expenses");
@@ -3294,6 +3295,11 @@ function ExpensesPageInner() {
     // sheet, which lets the user (un)link delivery notes to the markezet. The
     // generic invoice popup has no UI for that, so it silently strips the link.
     if (invoice.isConsolidated && invoice.documentType !== "delivery_note") {
+      // Never fall back to the generic popup here: it strips the DN links.
+      if (isPageBlocked(MARKEZET_PAGE_KEY)) {
+        showToast("אין הרשאה לעריכת מרכזת", "info");
+        return;
+      }
       openCoordinatorEdit(invoice.id);
       return;
     }

@@ -16,12 +16,16 @@ CREATE TABLE IF NOT EXISTS public.user_access_settings (
 
 ALTER TABLE public.user_access_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "user_access_settings_select" ON public.user_access_settings;
 CREATE POLICY "user_access_settings_select" ON public.user_access_settings
   FOR SELECT USING (user_id = auth.uid() OR public.is_admin());
+DROP POLICY IF EXISTS "user_access_settings_insert" ON public.user_access_settings;
 CREATE POLICY "user_access_settings_insert" ON public.user_access_settings
   FOR INSERT WITH CHECK (public.is_admin());
+DROP POLICY IF EXISTS "user_access_settings_update" ON public.user_access_settings;
 CREATE POLICY "user_access_settings_update" ON public.user_access_settings
   FOR UPDATE USING (public.is_admin())
   WITH CHECK (public.is_admin());
+DROP POLICY IF EXISTS "user_access_settings_delete" ON public.user_access_settings;
 CREATE POLICY "user_access_settings_delete" ON public.user_access_settings
   FOR DELETE USING (public.is_admin());

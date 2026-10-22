@@ -957,7 +957,8 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   /* Hide menu-item text labels (each link/button has a span.flex-1 with the
      Hebrew label as its only text content). */
   nav.sidebar-nav[data-collapsed="true"] a span.flex-1,
-  nav.sidebar-nav[data-collapsed="true"] > div > div button span.flex-1 {
+  nav.sidebar-nav[data-collapsed="true"] > div > div button span.flex-1,
+  nav.sidebar-nav[data-collapsed="true"] .sidebar-locked-item > span {
     display: none;
   }
   /* Hide the Amazpen logo, the business-name block, and the entire admin
@@ -977,6 +978,7 @@ input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   }
   /* Tighten link padding so the icon centers in the 60px column. */
   nav.sidebar-nav[data-collapsed="true"] a,
+  nav.sidebar-nav[data-collapsed="true"] .sidebar-locked-item,
   nav.sidebar-nav[data-collapsed="true"] > div > div.flex.flex-col.gap-\[5px\] > button {
     justify-content: center;
     padding: 7px 0;

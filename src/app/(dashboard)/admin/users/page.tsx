@@ -649,6 +649,8 @@ export default function AdminUsersPage() {
           if (accessError) {
             throw new Error(`שגיאה בשמירת הרשאות הגישה: ${accessError.message}`);
           }
+          // A later save in the same dialog compares against what is now stored.
+          loadedAccessRef.current = { exists: true, blocked, receives: editReceivesAutoEmails };
         }
       }
 

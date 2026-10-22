@@ -643,7 +643,9 @@ export async function POST(request: NextRequest) {
     const autoEmailOptOut = await getAutoEmailOptOutIds(supabaseAdmin, [...employeePlansMap.keys()]);
 
     for (const [employeeUserId, planStatuses] of employeePlansMap) {
-      if (autoEmailOptOut.has(employeeUserId)) continue;
+      // An opted-out employee is dropped from To only; David and the owners
+      // still get their copy.
+      const employeeOptedOut = autoEmailOptOut.has(employeeUserId);
       try {
         // Get employee profile
         const { data: profile } = await supabaseAdmin
@@ -791,15 +793,16 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        const ccList = [...new Set([AMAZPEN_OWNER_CC, ...businessOwnerEmails])]
-          .filter(Boolean)
-          .join(", ");
+        const copyRecipients = [...new Set([AMAZPEN_OWNER_CC, ...businessOwnerEmails])].filter(Boolean);
+        const toAddress = employeeOptedOut ? copyRecipients[0] : profile.email;
+        if (!toAddress) continue;
+        const ccList = copyRecipients.filter((e) => e !== toAddress).join(", ");
 
         const emailRes = await fetch("https://n8n-lv4j.onrender.com/webhook/daily-push-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            to: profile.email,
+            to: toAddress,
             cc: ccList,
             subject: emailSubject,
             html: emailHtml,

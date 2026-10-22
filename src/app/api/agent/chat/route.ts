@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { isAiBlockedForUser } from "@/lib/access/server";
 import { NextRequest } from "next/server";
 import { streamText, tool, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -245,6 +246,11 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return jsonResponse({ error: "לא מחובר" }, 401);
+  }
+
+  // Per-user access: AI switched off for this user by an admin (/admin/users).
+  if (await isAiBlockedForUser(serverSupabase, user.id)) {
+    return jsonResponse({ error: "אין הרשאה לעוזר AI" }, 403);
   }
 
   // 4. Rate limiting

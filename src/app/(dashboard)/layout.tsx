@@ -758,7 +758,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, isProfileLoading: isLoadingProfile, canManage, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null, openCoordinatorEdit: (id: string) => { setCoordinatorEditInvoiceId(id); setIsCoordinatorModalOpen(true); }, isPageBlocked }}>
+    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, isProfileLoading: isLoadingProfile, canManage, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null, openCoordinatorEdit: (id: string) => { if (isPageBlocked(MARKEZET_PAGE_KEY)) return; setCoordinatorEditInvoiceId(id); setIsCoordinatorModalOpen(true); }, isPageBlocked }}>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (
@@ -933,7 +933,7 @@ export default function DashboardLayout({
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-40 cursor-not-allowed"
+                      className="sidebar-locked-item flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-40 cursor-not-allowed"
                       title={blockedForUser ? 'אין הרשאה' : lockedForUser ? 'בקרוב' : undefined}
                       aria-disabled={blockedForUser || undefined}
                     >
