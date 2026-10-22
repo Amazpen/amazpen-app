@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-22
 
+## ⚠️ NEXT, FIRST THING (top priority, set by Netanel 22.10)
+
+Maintenance items found by the 22.10 code review. The list is in the private vault note `1 - projects/המצפן.md` (section "22.10.2026, ממצאי בדיקת קוד"), not here: this repo is public. Do these before any other task.
+
 ## Session 2026-10-22
 
 - **Per-user page access + automated-email opt-out built** (David's request of 21.10). Commits `5b325554` + `286bf466`, pushed 22.10, **LIVE** (`sw.js` BUILD_TIME 22.10 12:03). Message to David sent 22.10 with a 33s how-to video (frames built on a demo user in "הדגמה", user deleted after). Asked him again to answer the 18.10 agreement email.
@@ -11,7 +15,7 @@ Last updated: 2026-10-22
   - Emails: opted-out users are filtered in weekly-summary, open-expenses, missing-invoices, upcoming-payments, business-summary-report, budget-alert (+check-all), send-goals-email, bonus-push (employee dropped from To only, David/owners keep the copy).
   - **n8n:** workflow `8uA4LH4CS3qAqlQN` (karteset requests) read owners straight from `business_members`; its "Enrich With Business Info" node now skips opted-out owners (changed 22.10 via REST API, backup in the session scratchpad). The David-only reminder workflows (U2TJZO5PwGveQYWS, rscS38HLgDc78Oe4, sKFFS3W62OAy12A8) need the same filter if they ever email owners.
   - **Known limits (tell David):** blocking hides the page only; its numbers still show on the dashboard and supplier cards, and an AI that is on sees all data. The OCR "מרכזת" tab is not hidden by the מרכזת V. If every owner of a business opts out, n8n workflows that skip a business with no recipient also skip David's copy (not checked in n8n).
-  - **Pre-existing, found in review, not fixed:** `/api/weekly-summary` (GET) and `/api/budget-alert` (POST) and `/api/daily-push` run with no auth on the service-role key; email routes do not exclude members removed via `joined_at = null`; workflow `8uA4LH4CS3qAqlQN` has a service-role key hardcoded in a code node. To check: can a user update their own `profiles.is_admin` (no policy file in the repo).
+  - Other items found in review: see "NEXT, FIRST THING" above.
 
 ## Session 2026-10-21
 
