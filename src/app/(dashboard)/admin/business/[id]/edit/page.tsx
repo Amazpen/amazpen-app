@@ -1536,7 +1536,9 @@ export default function EditBusinessPage({ params }: PageProps) {
       for (const member of membersToRemove) {
         await supabase
           .from("business_members")
-          .update({ joined_at: null })
+          // deleted_at is what RLS (is_business_member) checks; joined_at
+          // alone left removed members with full access.
+          .update({ joined_at: null, deleted_at: new Date().toISOString() })
           .eq("id", member.id);
       }
 

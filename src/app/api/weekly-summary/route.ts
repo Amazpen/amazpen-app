@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getPriceResolver } from "@/lib/managedProductPrices";
 import { filterAutoEmailRecipients } from "@/lib/access/server";
+import { verifyCronAuth } from "@/lib/apiAuth";
 
 /**
  * Weekly Summary API — returns all metrics for a business in a given month.
@@ -11,6 +12,10 @@ import { filterAutoEmailRecipients } from "@/lib/access/server";
  * Returns the same field structure the n8n "Process & Format Data" code node expects.
  */
 export async function GET(request: NextRequest) {
+  // Service-role route keyed by business_id: automation callers only.
+  const auth = verifyCronAuth(request);
+  if (!auth.valid) return auth.error!;
+
   try {
     const { searchParams } = new URL(request.url);
     const businessId = searchParams.get("business_id");

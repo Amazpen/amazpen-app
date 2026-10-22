@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { filterAutoEmailRecipients } from "@/lib/access/server";
 
 const N8N_WEBHOOK_URL = "https://n8n-lv4j.onrender.com/webhook/target121";
@@ -13,6 +14,23 @@ export async function POST(request: NextRequest) {
 
     if (!business_id || !supplier_id || invoice_subtotal == null) {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Called from the browser after an invoice insert: the caller must be
+    // logged in and a member of this business (or an admin).
+    const ssr = await createServerClient();
+    const { data: { user } } = await ssr.auth.getUser();
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const [{ data: profile }, { data: membership }] = await Promise.all([
+      ssr.from("profiles").select("is_admin").eq("id", user.id).maybeSingle(),
+      ssr.from("business_members").select("business_id")
+        .eq("business_id", business_id).eq("user_id", user.id)
+        .is("deleted_at", null).maybeSingle(),
+    ]);
+    if (!membership && profile?.is_admin !== true) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const supabase = createClient(
