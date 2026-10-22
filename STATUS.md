@@ -1,6 +1,17 @@
 # STATUS — Amazpen
 
-Last updated: 2026-10-21
+Last updated: 2026-10-22
+
+## Session 2026-10-22
+
+- **Per-user page access + automated-email opt-out built** (David's request of 21.10). Commits `5b325554` + `286bf466`, pushed 22.10, **LIVE** (`sw.js` BUILD_TIME 22.10 12:03). Message to David sent 22.10 with a 33s how-to video (frames built on a demo user in "הדגמה", user deleted after). Asked him again to answer the 18.10 agreement email.
+  - Table `user_access_settings` (`blocked_pages text[]`, `receives_auto_emails bool`; no row = full access). **Already applied live 22.10** (via `execute_sql`; `apply_migration` fails on this instance: no `supabase_migrations` schema). After creating a table, run `NOTIFY pgrst, 'reload schema'` or PostgREST answers PGRST205 until restart.
+  - UI: `admin/users` edit dialog, "גישה לדפים" checkboxes + "מקבל מיילים אוטומטיים". Keys in `src/lib/access/pages.ts`; server checks in `src/lib/access/server.ts` (fail open, admins never blocked).
+  - Blocked page: greyed in sidebar, direct URL redirects to `/` (client-side guard in `(dashboard)/layout.tsx`). AI key also covers `/agent`; `/api/ai/*` chat routes and `/api/agent/chat` return 403.
+  - Emails: opted-out users are filtered in weekly-summary, open-expenses, missing-invoices, upcoming-payments, business-summary-report, budget-alert (+check-all), send-goals-email, bonus-push (employee dropped from To only, David/owners keep the copy).
+  - **n8n:** workflow `8uA4LH4CS3qAqlQN` (karteset requests) read owners straight from `business_members`; its "Enrich With Business Info" node now skips opted-out owners (changed 22.10 via REST API, backup in the session scratchpad). The David-only reminder workflows (U2TJZO5PwGveQYWS, rscS38HLgDc78Oe4, sKFFS3W62OAy12A8) need the same filter if they ever email owners.
+  - **Known limits (tell David):** blocking hides the page only; its numbers still show on the dashboard and supplier cards, and an AI that is on sees all data. The OCR "מרכזת" tab is not hidden by the מרכזת V. If every owner of a business opts out, n8n workflows that skip a business with no recipient also skip David's copy (not checked in n8n).
+  - **Pre-existing, found in review, not fixed:** `/api/weekly-summary` (GET) and `/api/budget-alert` (POST) and `/api/daily-push` run with no auth on the service-role key; email routes do not exclude members removed via `joined_at = null`; workflow `8uA4LH4CS3qAqlQN` has a service-role key hardcoded in a code node. To check: can a user update their own `profiles.is_admin` (no policy file in the repo).
 
 ## Session 2026-10-21
 
@@ -57,6 +68,8 @@ Production (`master`, deployed via Dokploy app `gwRa6aVPZ7M34yLydoNFx`) is at `5
 - **שכירות חולון (פתרונות לחיות): data fix only.** One ₪191,160 payment was linked to 12 invoices of ₪15,930 each.
 
 ## Waiting on David
+
+- **21.10: per-user page access + email opt-out (David's request for a partner's leads, not built yet).** Agreed shape: in `admin/users`, a V per page per user; unchecked = greyed in the sidebar, not clickable, direct URL redirects to `/`. Defaults all checked (existing users unchanged); admins always see everything; the top buttons (AI, OCR, מרכזת) are in the list too. Plus a V "מקבל מיילים אוטומטיים": today every automated email goes to the member's `profiles.email` (= login), via `business_members` role owner/admin in ~8 routes (weekly-summary, open-expenses, missing-invoices, upcoming-payments, business-summary-report, budget-alert + check-all, send-goals-email), so "put a different email" would break login and password reset. Message sent 21.10. **David answered 22.10:** the AI is simply one more V; for these users it is turned off (no per-topic AI restriction needed). He also said the agent "דדי" (`/agent`) is not in use for now: good but not accurate enough. Nothing left open with David on this. Built 22.10, see "Session 2026-10-22".
 
 - **The 78 unlinked payments list (sent 6.10) is done.** David returned it on 8.10 and it was processed (confirmed by Netanel on 11.10). Source files stay in `C:\Users\netn1\Downloads\amazpen-data\unlinked-payments-2026-10-06\` (outside the repo: client data).
 - **Still open with David, all from 11.10:** אביב קופות ₪407 (above), the HAISEN questions (above), and (from 20.10) the two leftover rows of the 51-payment list.
