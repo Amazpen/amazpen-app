@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
+import { getAutoEmailOptOutIds } from "@/lib/access/server";
 
 /**
  * Returns the owners + admins of a single business (name + email + role) so
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     const { data: members, error } = await adminSb
       .from("business_members")
-      .select("role, profiles:user_id(id, email, full_name)")
+      .select("role, user_id, profiles:user_id(id, email, full_name)")
       .eq("business_id", businessId)
       .is("deleted_at", null)
       .in("role", ["admin", "owner"]);
@@ -41,6 +42,13 @@ export async function GET(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Owners who switched off automated emails (user_access_settings) are still
+    // listed, so the admin can pick them by hand, but not pre-selected.
+    const autoEmailOptOut = await getAutoEmailOptOutIds(
+      adminSb,
+      (members || []).map((m) => m.user_id as string)
+    );
 
     const owners = (members || [])
       .map((m) => {
@@ -51,6 +59,7 @@ export async function GET(request: NextRequest) {
           email: p.email,
           fullName: p.full_name || "",
           role: m.role as string,
+          receivesAutoEmails: !autoEmailOptOut.has(m.user_id as string),
         };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);

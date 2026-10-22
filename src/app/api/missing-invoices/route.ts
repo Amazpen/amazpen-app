@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyCronAuth } from "@/lib/apiAuth";
+import { filterAutoEmailRecipients } from "@/lib/access/server";
 
 /**
  * Missing Invoices API — returns fixed-expense suppliers that have OPEN
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
         .is("deleted_at", null),
       // Business members emails
       supabase.from("business_members")
-        .select("profiles(email)")
+        .select("user_id, profiles(email)")
         .eq("business_id", businessId)
         .in("role", ["admin", "owner"]),
     ]);
@@ -68,7 +69,8 @@ export async function GET(request: NextRequest) {
     const fixedSuppliers = (suppliersRes.data || []).filter(
       (s) => s.monthly_expense_amount && parseFloat(s.monthly_expense_amount) > 0
     );
-    const emails = (membersRes.data || [])
+    // Skip members who switched off automated emails (user_access_settings).
+    const emails = (await filterAutoEmailRecipients(supabase, membersRes.data))
       .map((m) => (m.profiles as unknown as { email: string })?.email)
       .filter(Boolean);
 

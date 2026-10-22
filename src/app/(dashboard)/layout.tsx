@@ -17,6 +17,7 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { Button } from "@/components/ui/button";
+import { isPathBlocked, sanitizeBlockedPages, MARKEZET_PAGE_KEY } from "@/lib/access/pages";
 // אייקון המידע/סיור ממוקם כרגע רק בדף הדשבורד עצמו (DashboardHelpButton), לא בסרגל הגלובלי
 
 // Context for sharing selected businesses across pages
@@ -49,6 +50,9 @@ interface DashboardContextType {
   // without re-mounting the modal — the expenses table calls this when the user
   // clicks edit on a row flagged isConsolidated.
   openCoordinatorEdit: (invoiceId: string) => void;
+  // Per-user page access set by an admin in /admin/users (user_access_settings).
+  // Always false for admins. Keys: src/lib/access/pages.ts.
+  isPageBlocked: (pageKey: string) => boolean;
 }
 
 const DashboardContext = createContext<DashboardContextType>({
@@ -68,6 +72,7 @@ const DashboardContext = createContext<DashboardContextType>({
   setGlobalYear: () => {},
   userAvatarUrl: null,
   openCoordinatorEdit: () => {},
+  isPageBlocked: () => false,
 });
 
 export const useDashboard = () => useContext(DashboardContext);
@@ -278,6 +283,9 @@ export default function DashboardLayout({
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [memberBusinessIds, setMemberBusinessIds] = useState<Set<string>>(new Set());
+  // Page keys an admin switched off for this user (empty = full access).
+  // Loaded with the profile; ignored for admins.
+  const [blockedPages, setBlockedPages] = useState<string[]>([]);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [openAdminGroups, setOpenAdminGroups] = useState<Record<string, boolean>>({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -385,6 +393,21 @@ export default function DashboardLayout({
           .eq("user_id", user.id)
           .is("deleted_at", null);
         setMemberBusinessIds(new Set((memberRows || []).map(r => r.business_id as string)));
+
+        // Per-user page access. Admins always see everything. A missing row
+        // (or a failed lookup) means full access, so nobody is locked out by
+        // a DB hiccup; the server still enforces the AI block on its own.
+        if (adminStatus) {
+          setBlockedPages([]);
+        } else {
+          const { data: accessRow, error: accessError } = await supabase
+            .from("user_access_settings")
+            .select("blocked_pages")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (accessError) console.error("Error loading user access settings:", accessError.message);
+          setBlockedPages(sanitizeBlockedPages(accessRow?.blocked_pages));
+        }
 
         // For non-admin users: check if all their businesses are inactive
         if (!adminStatus) {
@@ -630,6 +653,17 @@ export default function DashboardLayout({
   const activeKey = menuItems.find(item => item.href === pathname)?.key || "dashboard";
   const isAdminPage = adminMenuItems.some(item => pathname.startsWith(item.href));
   const isOcrPage = pathname === '/ocr' || pathname === '/ocr-business';
+  const isPageBlocked = useCallback(
+    (pageKey: string) => !isAdmin && blockedPages.includes(pageKey),
+    [isAdmin, blockedPages]
+  );
+  // The current URL belongs to a page this user has no access to. Only decided
+  // after the profile loaded, so admins are never redirected mid-load.
+  const isCurrentPathBlocked = !isLoadingProfile && !isAdmin && isPathBlocked(pathname, blockedPages);
+
+  useEffect(() => {
+    if (isCurrentPathBlocked) router.replace("/");
+  }, [isCurrentPathBlocked, router]);
 
   const handleMenuClick = (item: typeof menuItems[0], e: React.MouseEvent) => {
     if (item.requiresBusiness && selectedBusinesses.length === 0) {
@@ -724,7 +758,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, isProfileLoading: isLoadingProfile, canManage, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null, openCoordinatorEdit: (id: string) => { setCoordinatorEditInvoiceId(id); setIsCoordinatorModalOpen(true); } }}>
+    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, isProfileLoading: isLoadingProfile, canManage, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null, openCoordinatorEdit: (id: string) => { setCoordinatorEditInvoiceId(id); setIsCoordinatorModalOpen(true); }, isPageBlocked }}>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (
@@ -890,21 +924,24 @@ export default function DashboardLayout({
                   && !isAdmin
                   && !allowedForBiz!.some((id) => memberBusinessIds.has(id));
                 const lockedForUser = lockedByAdmin || lockedByBiz;
+                // Switched off for this user by an admin (/admin/users).
+                const blockedForUser = isPageBlocked(item.key);
 
                 const IconComponent = item.key === "settings" ? SettingsIcon : item.key === "dashboard" ? DashboardIcon : item.key === "expenses" ? ExpensesIcon : item.key === "suppliers" ? SuppliersIcon : item.key === "payments" ? PaymentsIcon : item.key === "cashflow" ? CashFlowIcon : item.key === "insights" ? InsightsIcon : item.key === "tasks" ? TasksIcon : item.key === "reports" ? ReportsIcon : item.key === "goals" ? GoalsIcon : item.key === "surveys" ? SurveysIcon : item.key === "customers" ? CustomersIcon : item.key === "ocr-business" ? ExpensesIcon : item.key === "agent" ? AgentIcon : MenuIcon;
 
-                if (!pageExists || lockedForUser) {
+                if (!pageExists || lockedForUser || blockedForUser) {
                   return (
                     <div
                       key={item.id}
                       className="flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-40 cursor-not-allowed"
-                      title={lockedForUser ? 'בקרוב' : undefined}
+                      title={blockedForUser ? 'אין הרשאה' : lockedForUser ? 'בקרוב' : undefined}
+                      aria-disabled={blockedForUser || undefined}
                     >
                       <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
                         <IconComponent />
                       </div>
                       <span className="text-white text-[14px] font-medium text-right flex-1">{item.label}</span>
-                      {lockedForUser && (
+                      {lockedForUser && !blockedForUser && (
                         <span className="text-[10px] text-[#FFA412] font-semibold bg-[#FFA412]/15 border border-[#FFA412]/30 rounded-full px-[6px] py-[1px] flex-shrink-0">
                           בקרוב
                         </span>
@@ -1085,7 +1122,15 @@ export default function DashboardLayout({
           {/* Left side - Profile, Notifications, Buttons */}
           <div className="flex flex-row-reverse items-stretch gap-[6px] sm:gap-[5px] flex-shrink-0">
             {/* Profile Image */}
-            <Link href="/settings" aria-label="פרופיל והגדרות" className="w-[34px] sm:w-[32px] aspect-square rounded-full overflow-hidden border border-[#727BA0] bg-[#29318A] flex items-center justify-center relative touch-manipulation self-center cursor-pointer" suppressHydrationWarning>
+            <Link
+              href="/settings"
+              aria-label="פרופיל והגדרות"
+              aria-disabled={isPageBlocked("settings") || undefined}
+              title={isPageBlocked("settings") ? "אין הרשאה" : undefined}
+              onClick={(e) => { if (isPageBlocked("settings")) e.preventDefault(); }}
+              className={`w-[34px] sm:w-[32px] aspect-square rounded-full overflow-hidden border border-[#727BA0] bg-[#29318A] flex items-center justify-center relative touch-manipulation self-center ${isPageBlocked("settings") ? "cursor-not-allowed" : "cursor-pointer"}`}
+              suppressHydrationWarning
+            >
               {/* Skeleton loader - only show when loading AND there's an image to load */}
               {(isLoadingProfile || (!profileImageLoaded && userProfile?.avatar_url)) && (
                 <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-full" />
@@ -1297,14 +1342,25 @@ export default function DashboardLayout({
               </Link>
             )}
 
-            {/* מרכזת Button */}
-            <Button
-              type="button"
-              onClick={() => setIsCoordinatorModalOpen(true)}
-              className="px-[6px] sm:px-[12px] min-w-[42px] sm:min-w-[60px] flex-shrink-0 text-center bg-[#29318A] rounded-[7px] text-white text-[11px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center"
-            >
-              מרכזת
-            </Button>
+            {/* מרכזת Button. Greyed out when an admin switched it off for this user. */}
+            {isPageBlocked(MARKEZET_PAGE_KEY) ? (
+              <span
+                role="button"
+                aria-disabled="true"
+                title="אין הרשאה"
+                className="px-[6px] sm:px-[12px] min-w-[42px] sm:min-w-[60px] flex-shrink-0 text-center bg-[#29318A] rounded-[7px] text-white text-[11px] sm:text-[13px] font-bold leading-[1.4] opacity-40 cursor-not-allowed touch-manipulation flex items-center justify-center select-none"
+              >
+                מרכזת
+              </span>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => setIsCoordinatorModalOpen(true)}
+                className="px-[6px] sm:px-[12px] min-w-[42px] sm:min-w-[60px] flex-shrink-0 text-center bg-[#29318A] rounded-[7px] text-white text-[11px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center"
+              >
+                מרכזת
+              </Button>
+            )}
           </div>
         </header>
 
@@ -1317,7 +1373,8 @@ export default function DashboardLayout({
             lastSyncResult={offlineSync.lastSyncResult}
             onSync={offlineSync.syncPending}
           />
-          {children}
+          {/* A blocked page is not rendered while the guard above redirects to "/". */}
+          {isCurrentPathBlocked ? null : children}
         </main>
 
         {/* Coordinator Modal */}

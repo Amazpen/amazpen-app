@@ -1,6 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { isAiBlockedForUser } from "@/lib/access/server";
 
 const expenseSchema = z.object({
   actionType: z.literal("expense"),
@@ -65,6 +66,11 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return json({ error: "לא מחובר" }, 401);
+  }
+
+  // Per-user access: AI switched off for this user by an admin.
+  if (await isAiBlockedForUser(supabase, user.id)) {
+    return json({ error: "אין הרשאה לעוזר AI" }, 403);
   }
 
   // 2. Parse body

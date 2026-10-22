@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { filterAutoEmailRecipients } from "@/lib/access/server";
 
 /**
  * Budget Alert — Cron Scan
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
     // what david is), not a business owner.
     supabase
       .from("business_members")
-      .select("business_id, profiles(email)")
+      .select("business_id, user_id, profiles(email)")
       .in("business_id", businessIds)
       .eq("role", "owner")
       .is("deleted_at", null),
@@ -158,7 +159,8 @@ export async function POST(request: NextRequest) {
   for (const s of suppliersRes.data || []) supplierMap.set(s.id, s.name);
 
   const emailsByBusiness = new Map<string, string[]>();
-  for (const m of membersRes.data || []) {
+  // Skip owners who switched off automated emails (user_access_settings).
+  for (const m of await filterAutoEmailRecipients(supabase, membersRes.data)) {
     const email = (m.profiles as unknown as { email?: string } | null)?.email;
     if (!email) continue;
     const list = emailsByBusiness.get(m.business_id) || [];

@@ -1,6 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
+import { isAiBlockedForUser } from "@/lib/access/server";
 
 function jsonResponse(data: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -23,6 +24,10 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return jsonResponse({ error: "לא מחובר" }, 401);
+  }
+
+  if (await isAiBlockedForUser(serverSupabase, user.id)) {
+    return jsonResponse({ error: "אין הרשאה לעוזר AI" }, 403);
   }
 
   const { searchParams } = request.nextUrl;
@@ -94,6 +99,10 @@ export async function DELETE() {
     return jsonResponse({ error: "לא מחובר" }, 401);
   }
 
+  if (await isAiBlockedForUser(serverSupabase, user.id)) {
+    return jsonResponse({ error: "אין הרשאה לעוזר AI" }, 403);
+  }
+
   // Use service role to delete all sessions + messages for this user
   const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -160,6 +169,10 @@ export async function POST(request: NextRequest) {
     return jsonResponse({ error: "לא מחובר" }, 401);
   }
 
+  if (await isAiBlockedForUser(serverSupabase, user.id)) {
+    return jsonResponse({ error: "אין הרשאה לעוזר AI" }, 403);
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -203,6 +216,10 @@ export async function PATCH(request: NextRequest) {
 
   if (!user) {
     return jsonResponse({ error: "לא מחובר" }, 401);
+  }
+
+  if (await isAiBlockedForUser(serverSupabase, user.id)) {
+    return jsonResponse({ error: "אין הרשאה לעוזר AI" }, 403);
   }
 
   let body: Record<string, unknown>;

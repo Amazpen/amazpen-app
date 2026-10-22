@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
+import { filterAutoEmailRecipients } from "@/lib/access/server";
 
 /**
  * Manual trigger for the monthly goals email. Mirrors the n8n cron
@@ -351,11 +352,13 @@ export async function POST(request: NextRequest) {
     if (!recipientEmails) {
       const { data: members } = await adminSb
         .from("business_members")
-        .select("profiles:user_id(email)")
+        .select("user_id, profiles:user_id(email)")
         .eq("business_id", businessId)
         .is("deleted_at", null)
         .in("role", ["admin", "owner"]);
-      recipientEmails = ((members || []) as Array<{ profiles: { email?: string } | null }>)
+      // Skip owners who switched off automated emails (user_access_settings).
+      const receivingMembers = await filterAutoEmailRecipients(adminSb, members);
+      recipientEmails = ((receivingMembers || []) as unknown as Array<{ profiles: { email?: string } | null }>)
         .map((m) => m.profiles?.email)
         .filter((e): e is string => !!e)
         .join(", ");

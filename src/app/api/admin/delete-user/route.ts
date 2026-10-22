@@ -46,6 +46,10 @@ const USER_REFERENCES: { table: string; column: string; afterAuthDelete?: boolea
   { table: "ocr_documents", column: "reviewed_by", afterAuthDelete: true },
   { table: "tasks", column: "created_by", afterAuthDelete: true },
   { table: "tasks", column: "assignee_id", afterAuthDelete: true },
+  // The admin who last edited someone's access settings. The user's OWN row
+  // (user_access_settings.user_id) is ON DELETE CASCADE to auth.users and goes
+  // away with the auth deletion by itself.
+  { table: "user_access_settings", column: "updated_by", afterAuthDelete: true },
 ];
 
 // Personal data: belongs to the person and not to the business, so it must not

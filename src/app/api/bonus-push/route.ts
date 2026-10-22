@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { resolveBonusPlanStatus } from "@/lib/bonusPlanResolver";
 import type { BonusPlan, BonusPlanStatus } from "@/types/bonus";
 import { timingSafeEqual } from "crypto";
+import { getAutoEmailOptOutIds } from "@/lib/access/server";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const webpush = require("web-push");
@@ -637,7 +638,12 @@ export async function POST(request: NextRequest) {
     // Phase 2: Send ONE consolidated email per employee
     // ====================================================================
 
+    // Employees / owners who switched off automated emails (user_access_settings).
+    // Push + in-app notifications above are not emails and are unchanged.
+    const autoEmailOptOut = await getAutoEmailOptOutIds(supabaseAdmin, [...employeePlansMap.keys()]);
+
     for (const [employeeUserId, planStatuses] of employeePlansMap) {
+      if (autoEmailOptOut.has(employeeUserId)) continue;
       try {
         // Get employee profile
         const { data: profile } = await supabaseAdmin
@@ -768,8 +774,11 @@ export async function POST(request: NextRequest) {
             .eq("role", "owner")
             .is("deleted_at", null);
 
-          const ownerIds = [...new Set((ownerMembers || []).map((m: { user_id: string }) => m.user_id))]
+          const ownerCandidateIds = [...new Set((ownerMembers || []).map((m: { user_id: string }) => m.user_id))]
             .filter(id => id !== employeeUserId);
+          // Owners who switched off automated emails are not CC'd.
+          const ownerOptOut = await getAutoEmailOptOutIds(supabaseAdmin, ownerCandidateIds);
+          const ownerIds = ownerCandidateIds.filter(id => !ownerOptOut.has(id));
 
           if (ownerIds.length > 0) {
             const { data: ownerProfiles } = await supabaseAdmin

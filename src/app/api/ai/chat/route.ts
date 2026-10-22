@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { streamText, tool, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
+import { isAiBlockedForUser } from "@/lib/access/server";
 
 // ---------------------------------------------------------------------------
 // Rate limiting (in-memory, per user)
@@ -3361,6 +3362,12 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return jsonResponse({ error: "לא מחובר" }, 401);
+  }
+
+  // Per-user access: an admin can switch off the AI page for a user
+  // (/admin/users). Enforced here too, not only hidden in the UI.
+  if (await isAiBlockedForUser(serverSupabase, user.id)) {
+    return jsonResponse({ error: "אין הרשאה לעוזר AI" }, 403);
   }
 
   // 4. Rate limiting

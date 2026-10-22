@@ -1,6 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
+import { isAiBlockedForUser } from "@/lib/access/server";
 
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
@@ -19,6 +20,14 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return new Response(JSON.stringify({ error: "לא מחובר" }), {
       status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Per-user access: AI switched off for this user by an admin.
+  if (await isAiBlockedForUser(serverSupabase, user.id)) {
+    return new Response(JSON.stringify({ error: "אין הרשאה לעוזר AI" }), {
+      status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }

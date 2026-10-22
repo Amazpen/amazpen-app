@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyCronAuth } from "@/lib/apiAuth";
 import { entryDateToYearMonth, getPriceResolver } from "@/lib/managedProductPrices";
+import { filterAutoEmailRecipients } from "@/lib/access/server";
 
 /**
  * Business Summary Report API — mirrors dashboard calculations 1:1.
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
         .neq("status", "cancelled"),
       supabase
         .from("business_members")
-        .select("profiles(email)")
+        .select("user_id, profiles(email)")
         .eq("business_id", businessId)
         .in("role", ["admin", "owner"]),
       supabase
@@ -629,7 +630,8 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.amount - a.amount);
 
     // ===== Emails =====
-    const emails = (membersRes.data || [])
+    // Skip members who switched off automated emails (user_access_settings).
+    const emails = (await filterAutoEmailRecipients(supabase, membersRes.data))
       .map((m) => (m.profiles as unknown as { email: string })?.email)
       .filter(Boolean)
       .join(", ");

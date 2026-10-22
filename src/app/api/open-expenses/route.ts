@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyCronAuth } from "@/lib/apiAuth";
+import { filterAutoEmailRecipients } from "@/lib/access/server";
 
 /**
  * Open (un-closed) Expenses API — returns, per business, the FIXED-EXPENSE
@@ -81,13 +82,14 @@ export async function GET(request: NextRequest) {
         .eq("is_active", true)
         .is("deleted_at", null),
       supabase.from("business_members")
-        .select("profiles(email)")
+        .select("user_id, profiles(email)")
         .eq("business_id", businessId)
         .in("role", ["admin", "owner"]),
     ]);
 
     const businessName = businessRes.data?.name || "";
-    const emails = (membersRes.data || [])
+    // Skip members who switched off automated emails (user_access_settings).
+    const emails = (await filterAutoEmailRecipients(supabase, membersRes.data))
       .map((m) => (m.profiles as unknown as { email: string })?.email)
       .filter(Boolean);
 

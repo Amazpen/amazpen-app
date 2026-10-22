@@ -12,6 +12,7 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ACCESS_PAGES, sanitizeBlockedPages } from "@/lib/access/pages";
 
 // Role labels in Hebrew
 const roleLabels: Record<string, string> = {
@@ -110,6 +111,15 @@ export default function AdminUsersPage() {
   const [editUserIsAdmin, setEditUserIsAdmin] = useState(false);
   const [editUserNewPassword, setEditUserNewPassword] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  // Per-user access (user_access_settings). Loaded in an effect when the edit
+  // dialog opens. blocked = page keys switched OFF; default = full access.
+  const [editBlockedPages, setEditBlockedPages] = useState<string[]>([]);
+  const [editReceivesAutoEmails, setEditReceivesAutoEmails] = useState(true);
+  const [isAccessLoading, setIsAccessLoading] = useState(false);
+  const [accessLoadError, setAccessLoadError] = useState<string | null>(null);
+  // What was in the DB when the dialog opened, so saving an untouched user
+  // does not create a row for nothing.
+  const loadedAccessRef = useRef<{ exists: boolean; blocked: string[]; receives: boolean } | null>(null);
 
   // Form state
   const [newUserEmail, setNewUserEmail] = useState("");
@@ -540,6 +550,49 @@ export default function AdminUsersPage() {
     setIsEditDialogOpen(true);
   };
 
+  // Load the edited user's access settings. Missing row = full access + emails on.
+  const editingUserId = isEditDialogOpen ? editingUser?.id ?? null : null;
+  useEffect(() => {
+    if (!editingUserId) return;
+    let cancelled = false;
+    setIsAccessLoading(true);
+    setAccessLoadError(null);
+    setEditBlockedPages([]);
+    setEditReceivesAutoEmails(true);
+    loadedAccessRef.current = null;
+
+    const supabase = createClient();
+    supabase
+      .from("user_access_settings")
+      .select("blocked_pages, receives_auto_emails")
+      .eq("user_id", editingUserId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("Error loading user access settings:", error);
+          setAccessLoadError("שגיאה בטעינת הרשאות הגישה - ההרשאות לא יישמרו");
+        } else {
+          const blocked = sanitizeBlockedPages(data?.blocked_pages);
+          const receives = data ? data.receives_auto_emails !== false : true;
+          setEditBlockedPages(blocked);
+          setEditReceivesAutoEmails(receives);
+          loadedAccessRef.current = { exists: !!data, blocked, receives };
+        }
+        setIsAccessLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingUserId]);
+
+  const toggleEditPageAccess = (pageKey: string, allowed: boolean) => {
+    setEditBlockedPages((prev) =>
+      allowed ? prev.filter((key) => key !== pageKey) : prev.includes(pageKey) ? prev : [...prev, pageKey]
+    );
+  };
+
   const handleUpdateUser = async () => {
     if (!editingUser) return;
 
@@ -568,6 +621,35 @@ export default function AdminUsersPage() {
 
       if (profileError) {
         throw new Error(profileError.message);
+      }
+
+      // Save access settings. Skipped when they failed to load (so a DB error
+      // can never wipe a user's real settings) or when nothing changed.
+      const loadedAccess = loadedAccessRef.current;
+      if (loadedAccess && !isAccessLoading) {
+        const blocked = sanitizeBlockedPages(editBlockedPages);
+        const sameBlocked =
+          blocked.length === loadedAccess.blocked.length &&
+          blocked.every((key) => loadedAccess.blocked.includes(key));
+        const unchanged = sameBlocked && editReceivesAutoEmails === loadedAccess.receives;
+        if (!unchanged) {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          const { error: accessError } = await supabase
+            .from("user_access_settings")
+            .upsert(
+              {
+                user_id: editingUser.id,
+                blocked_pages: blocked,
+                receives_auto_emails: editReceivesAutoEmails,
+                updated_at: new Date().toISOString(),
+                updated_by: currentUser?.id ?? null,
+              },
+              { onConflict: "user_id" }
+            );
+          if (accessError) {
+            throw new Error(`שגיאה בשמירת הרשאות הגישה: ${accessError.message}`);
+          }
+        }
       }
 
       // Update password if provided via server API
@@ -1399,6 +1481,62 @@ export default function AdminUsersPage() {
                   <div className="w-[44px] h-[24px] bg-[#4C526B] rounded-full peer peer-checked:bg-[#3CD856] after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-[20px] after:w-[20px] after:transition-all peer-checked:after:translate-x-[-20px]"></div>
                 </div>
                 <span className="text-[14px] font-medium text-white">הרשאות אדמין</span>
+              </label>
+
+              {/* Page access - one checkbox per page. Unchecked = greyed out for this user. */}
+              <div className="flex flex-col gap-[8px] border border-[#727BA0] rounded-[10px] p-[12px]">
+                <span className="text-[14px] font-medium text-white text-right">גישה לדפים</span>
+                {editUserIsAdmin ? (
+                  <p className="text-[12px] text-white/60 text-right">אדמין רואה את כל הדפים - ההגדרות האלה לא חלות עליו</p>
+                ) : (
+                  <p className="text-[12px] text-white/60 text-right">דף שלא מסומן יוצג באפור ולא ניתן יהיה להיכנס אליו</p>
+                )}
+                {isAccessLoading ? (
+                  <div className="flex justify-center py-[10px]">
+                    <div className="animate-spin w-5 h-5 border-2 border-[#4A56D4]/30 border-t-[#4A56D4] rounded-full"></div>
+                  </div>
+                ) : accessLoadError ? (
+                  <p className="text-[12px] text-[#F64E60] text-right">{accessLoadError}</p>
+                ) : (
+                  <div className={`grid grid-cols-2 gap-[6px] ${editUserIsAdmin ? "opacity-50" : ""}`}>
+                    {ACCESS_PAGES.map((page) => {
+                      const allowed = !editBlockedPages.includes(page.key);
+                      return (
+                        <label
+                          key={page.key}
+                          className={`flex items-center gap-[8px] rounded-[6px] p-[6px] ${editUserIsAdmin ? "cursor-not-allowed" : "cursor-pointer hover:bg-white/5"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={allowed}
+                            disabled={editUserIsAdmin || isSubmitting}
+                            onChange={(e) => toggleEditPageAccess(page.key, e.target.checked)}
+                            aria-label={`גישה ל${page.label}`}
+                            className="w-4 h-4 accent-[#3CD856] cursor-pointer disabled:cursor-not-allowed flex-shrink-0"
+                          />
+                          <span className="text-[13px] text-white text-right truncate">{page.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Automated emails */}
+              <label className={`flex items-center justify-between bg-[#4A56D4]/30 rounded-[10px] p-[12px] flex-row-reverse ${isAccessLoading || accessLoadError ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                <div className="relative inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={editReceivesAutoEmails}
+                    disabled={isAccessLoading || !!accessLoadError || isSubmitting}
+                    onChange={(e) => setEditReceivesAutoEmails(e.target.checked)}
+                    title="מקבל מיילים אוטומטיים"
+                    aria-label="מקבל מיילים אוטומטיים"
+                    className="sr-only peer"
+                  />
+                  <div className="w-[44px] h-[24px] bg-[#4C526B] rounded-full peer peer-checked:bg-[#3CD856] after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-[20px] after:w-[20px] after:transition-all peer-checked:after:translate-x-[-20px]"></div>
+                </div>
+                <span className="text-[14px] font-medium text-white">מקבל מיילים אוטומטיים</span>
               </label>
 
               {/* Error */}

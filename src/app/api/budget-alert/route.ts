@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { filterAutoEmailRecipients } from "@/lib/access/server";
 
 const N8N_WEBHOOK_URL = "https://n8n-lv4j.onrender.com/webhook/target121";
 // CC fixed: david sees every alert across all clients.
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
       supabase.from("suppliers").select("name").eq("id", supplier_id).single(),
       supabase
         .from("business_members")
-        .select("profiles(email)")
+        .select("user_id, profiles(email)")
         .eq("business_id", business_id)
         .eq("role", "owner")
         .is("deleted_at", null),
@@ -98,7 +99,9 @@ export async function POST(request: NextRequest) {
 
     // Primary recipients: business owners. CC: david + netanel for visibility.
     const ownerEmails: string[] = [];
-    for (const m of membersRes.data || []) {
+    // Skip owners who switched off automated emails (user_access_settings).
+    // If none are left, the existing fallback below sends to the CC address.
+    for (const m of await filterAutoEmailRecipients(supabase, membersRes.data)) {
       const email = (m.profiles as unknown as { email?: string } | null)?.email;
       if (email && !ownerEmails.includes(email)) ownerEmails.push(email);
     }

@@ -110,7 +110,7 @@ export default function AdminGoalsPage() {
   // Owners of the selected business — fetched when the dialog opens so the
   // admin can see exactly which addresses the email is going to and tick /
   // untick individuals.
-  const [businessOwners, setBusinessOwners] = useState<{ id: string; email: string; fullName: string; role: string }[]>([]);
+  const [businessOwners, setBusinessOwners] = useState<{ id: string; email: string; fullName: string; role: string; receivesAutoEmails?: boolean }[]>([]);
   const [ownersLoading, setOwnersLoading] = useState(false);
   const [selectedOwnerEmails, setSelectedOwnerEmails] = useState<Set<string>>(new Set());
   const [useCustomEmail, setUseCustomEmail] = useState(false);
@@ -325,8 +325,13 @@ export default function AdminGoalsPage() {
         if (cancelled) return;
         const owners = Array.isArray(json.owners) ? json.owners : [];
         setBusinessOwners(owners);
-        // Default: everyone selected.
-        setSelectedOwnerEmails(new Set(owners.map((o: { email: string }) => o.email)));
+        // Default: everyone selected, except owners who switched off automated
+        // emails in /admin/users (they can still be ticked by hand).
+        setSelectedOwnerEmails(new Set(
+          owners
+            .filter((o: { receivesAutoEmails?: boolean }) => o.receivesAutoEmails !== false)
+            .map((o: { email: string }) => o.email)
+        ));
       })
       .catch((err) => {
         console.error("[goals/owners] failed:", err);
@@ -1684,6 +1689,7 @@ export default function AdminGoalsPage() {
                             <span className="text-[11px] text-white/50 truncate">
                               {o.email}
                               {o.role === "admin" && " · אדמין"}
+                              {o.receivesAutoEmails === false && " - לא מקבל מיילים אוטומטיים"}
                             </span>
                           </div>
                         </label>

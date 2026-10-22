@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getPriceResolver } from "@/lib/managedProductPrices";
+import { filterAutoEmailRecipients } from "@/lib/access/server";
 
 /**
  * Weekly Summary API — returns all metrics for a business in a given month.
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
         .neq("status", "cancelled"),
       // Business members (owners/admins) for email
       supabase.from("business_members")
-        .select("profiles(email)")
+        .select("user_id, profiles(email)")
         .eq("business_id", businessId)
         .in("role", ["admin", "owner"]),
     ]);
@@ -85,7 +86,8 @@ export async function GET(request: NextRequest) {
     const invoices = invoicesRes.data || [];
 
     // Emails
-    const emails = (membersRes.data || [])
+    // Skip members who switched off automated emails (user_access_settings).
+    const emails = (await filterAutoEmailRecipients(supabase, membersRes.data))
       .map((m) => (m.profiles as unknown as { email: string })?.email)
       .filter(Boolean)
       .join(", ");
