@@ -1,10 +1,38 @@
 # STATUS — Amazpen
 
-Last updated: 2026-10-22
+Last updated: 2026-11-05
 
 ## ⚠️ NEXT, FIRST THING (top priority, set by Netanel 22.10)
 
 Maintenance items found by the 22.10 code review. The list is in the private vault note `1 - projects/המצפן.md` (section "22.10.2026, ממצאי בדיקת קוד"), not here: this repo is public. Do these before any other task.
+
+## Session 2026-11-05
+
+
+
+Client figures and names for this session and the one below are in the private vault note `1 - projects/המצפן.md`, section "תיעוד פרטי 5.11.2026". This repo is public: keep them out.
+
+
+
+- **`/admin/goals` total row did not match the table.** The table lists active suppliers; the totals summed every budget row of the year, also of inactive and deleted suppliers. Fixed: totals use only suppliers in the table.
+
+- **Supplier delete guard had a hole.** Opening a supplier empties its lists until they load, so the delete button showed and the check passed. Fixed: `canDeleteSupplier` in `suppliers/page.tsx` asks the DB, both delete buttons use it, the button hides while loading. Probable cause of the deletion David reported, not proven. Side effect found in review: a fixed supplier with an auto-created invoice now can be neither deleted nor deactivated (L1056 refuses on pending invoices).
+
+- **P&L part held back on purpose (Netanel, 5.11).** Not in this push. A draft for `reports/page.tsx`, `lib/metrics/pnl.ts`, `DailyEntriesModal.tsx` is saved at `C:\Users\netn1\Downloads\amazpen-data\pnl-budget-guard-2026-11-05.patch`; do not apply it as is. Review found: it judges past months by the supplier's status today, so closed months change; auto-created invoices count as a real expense; the annual view tests the wrong period; only 4 of 15 places that read `supplier_budgets` follow the rule (goals email, summary breakdown, AI P&L tool and budget alerts do not); the modal target and actual stop matching. Needs one date-aware rule for the whole system. Until then the `/admin/goals` total and the P&L budget sum can differ, and fixed suppliers that are inactive or deleted can still add an invented expense to P&L. The "copy previous month" flow and the CSV budget import recreate rows of dead suppliers.
+
+- **Waiting on David:** whether the deleted supplier still works with him. Do not touch its invoices before he answers.
+
+- `public/sw.js` changes on every local production build: keep it out of commits.
+
+
+
+## Session 2026-11-01 (check only, no code changed)
+
+
+
+- **David 1.11: OCR "בדיקת כרטסת" shows rows from before the chosen range.** Built on purpose on 6.10 (`3eab08ea`, `094f3f71`): those rows are open invoices or invoices settled inside the range. Waiting on Netanel's decision, do not change anything yet. Code: `src/components/ocr/KartesetCheckPanel.tsx`, `fetchRows`. Options and details: vault note.
+
+
 
 ## Session 2026-10-22
 

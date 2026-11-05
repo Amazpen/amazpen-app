@@ -966,14 +966,30 @@ export default function SuppliersPage() {
   };
 
   // Handle delete supplier (soft delete) - only if no invoices or payments exist
+  // Ask the database, not the on-screen lists: they are empty while a popup loads,
+  // which let a supplier with open invoices be deleted.
+  const canDeleteSupplier = async (supplierId: string): Promise<boolean> => {
+    const supabase = createClient();
+    const [invoicesCheck, paymentsCheck, deliveryNotesCheck] = await Promise.all([
+      supabase.from("invoices").select("id", { count: "exact", head: true }).eq("supplier_id", supplierId).is("deleted_at", null),
+      supabase.from("payments").select("id", { count: "exact", head: true }).eq("supplier_id", supplierId).is("deleted_at", null),
+      supabase.from("delivery_notes").select("id", { count: "exact", head: true }).eq("supplier_id", supplierId),
+    ]);
+    if (invoicesCheck.error || paymentsCheck.error || deliveryNotesCheck.error) {
+      showToast("שגיאה בבדיקת הספק, המחיקה בוטלה", "error");
+      return false;
+    }
+    if ((invoicesCheck.count || 0) + (paymentsCheck.count || 0) + (deliveryNotesCheck.count || 0) > 0) {
+      showToast("לא ניתן למחוק ספק עם חשבוניות או תשלומים", "warning");
+      return false;
+    }
+    return true;
+  };
+
   const handleDeleteSupplier = async () => {
     if (!selectedSupplier) return;
 
-    // Check if supplier has any invoices or payments
-    if (supplierInvoices.length > 0 || supplierPayments.length > 0) {
-      showToast("לא ניתן למחוק ספק עם חשבוניות או תשלומים", "warning");
-      return;
-    }
+    if (!(await canDeleteSupplier(selectedSupplier.id))) return;
 
     confirm("האם למחוק את הספק?", async () => {
       const supabase = createClient();
@@ -3694,7 +3710,7 @@ export default function SuppliersPage() {
               <SheetTitle className="text-white text-xl font-bold">פרטי ספק</SheetTitle>
               <div className="flex items-center gap-[8px]">
                 {/* Delete button - only show if supplier has no invoices/payments */}
-                {supplierInvoices.length === 0 && supplierPayments.length === 0 && (
+                {!isLoadingSupplierDetail && supplierInvoices.length === 0 && supplierPayments.length === 0 && (
                   <Button
                     type="button"
                     title="מחיקת ספק"
@@ -5014,7 +5030,8 @@ export default function SuppliersPage() {
                   <Button
                     type="button"
                     title="מחיקה"
-                    onClick={() => {
+                    onClick={async () => {
+                      if (!(await canDeleteSupplier(selectedSupplier.id))) return;
                       confirm("האם למחוק את הספק?", async () => {
                         const supabase = createClient();
                         await supabase

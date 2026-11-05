@@ -1002,9 +1002,14 @@ export default function AdminGoalsPage() {
     return supplierBudgets.find((b) => b.supplier_id === supplierId && b.month === month);
   };
 
+  // Totals sum only the suppliers the table lists (the search box does not change them). supplier_budgets also keeps rows
+  // of inactive/deleted suppliers; counting them made the total differ from the rows.
+  const visibleSupplierIds = new Set(suppliers.map((s) => s.id));
+  const visibleBudgets = supplierBudgets.filter((b) => visibleSupplierIds.has(b.supplier_id));
+
   // Calculate total for a specific month (current expenses only)
   const getMonthTotal = (month: number): number => {
-    return supplierBudgets
+    return visibleBudgets
       .filter((b) => b.expense_type === "current_expenses" && b.month === month)
       .reduce((sum, b) => sum + b.budget_amount, 0);
   };
@@ -1017,17 +1022,17 @@ export default function AdminGoalsPage() {
   };
 
   // Grand total for all current expenses across all months
-  const grandTotal = supplierBudgets
+  const grandTotal = visibleBudgets
     .filter((b) => b.expense_type === "current_expenses")
     .reduce((sum, b) => sum + b.budget_amount, 0);
 
   // Goods purchases helpers
   const getGoodsMonthTotal = (month: number) => {
-    return supplierBudgets
+    return visibleBudgets
       .filter((b) => b.expense_type === "goods_purchases" && b.month === month)
       .reduce((sum, b) => sum + b.budget_amount, 0);
   };
-  const goodsGrandTotal = supplierBudgets
+  const goodsGrandTotal = visibleBudgets
     .filter((b) => b.expense_type === "goods_purchases")
     .reduce((sum, b) => sum + b.budget_amount, 0);
 
